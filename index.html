@@ -66,20 +66,22 @@ body::before{
   border-bottom:1px solid var(--tile-edge);
   padding:calc(8px + env(safe-area-inset-top,0)) 14px 9px;
 }
-.hud-row{display:flex;align-items:center;justify-content:space-between;gap:10px}
-.hearts{font-size:1.05rem;letter-spacing:2px;line-height:1}
+.hud-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px}
+.hud-side{min-width:40px}
+.hud-center{display:flex;flex-direction:column;align-items:center;gap:3px;justify-self:center}
+.hearts{font-size:1.05rem;letter-spacing:2px;line-height:1;justify-self:end;text-align:right}
 .heart{color:var(--oxblood);transition:transform .2s ease, opacity .3s ease}
 .heart.spent{opacity:.18;color:var(--ink)}
 .heart.pulse{animation:heartPulse .5s ease}
 @keyframes heartPulse{0%,100%{transform:scale(1)}40%{transform:scale(1.5)}}
-.coins{display:flex;align-items:center;gap:6px;font-weight:800;color:var(--brass-deep);font-size:.98rem}
+.coins{display:flex;align-items:center;gap:6px;font-weight:800;color:var(--brass-deep);font-size:.98rem;justify-content:center}
 .coins .c-ico{font-size:1.05rem}
 .coins.bump{animation:coinBump .4s ease}
 @keyframes coinBump{0%,100%{transform:scale(1)}45%{transform:scale(1.22)}}
-.level-tag{font-family:var(--serif);font-weight:600;font-size:.95rem;color:var(--ink)}
-.level-tag small{display:block;font-family:var(--ui);font-size:.56rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);font-weight:800}
-.level-tag.endless small{color:var(--brass-deep)}
-.level-tag.endless span{color:var(--brass-deep)}
+.level-tag{font-family:var(--serif);font-weight:600;font-size:1.05rem;color:var(--ink);display:flex;align-items:baseline;gap:6px;line-height:1}
+.level-tag .lvl-word{font-family:var(--ui);font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);font-weight:800}
+.level-tag.endless .lvl-word{color:var(--brass-deep)}
+.level-tag.endless #levelNum{color:var(--brass-deep)}
 .icon-btn{background:var(--paper);border:1px solid var(--tile-edge);border-radius:9px;color:var(--ink) !important;
   padding:8px 11px;font-size:.74rem;font-weight:800;letter-spacing:.03em;cursor:pointer;white-space:nowrap;flex:0 0 auto;
   box-shadow:0 1px 3px rgba(35,32,46,.08)}
@@ -101,6 +103,13 @@ body::before{
 
 /* ---------- Main play area ---------- */
 main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
+.play-center{flex:1;display:flex;flex-direction:column;justify-content:center;gap:10px;min-height:0}
+.def-strip{background:var(--paper);border:1px solid var(--tile-edge);border-radius:12px;padding:9px 13px;text-align:center;
+  box-shadow:0 1px 0 #fff inset, 0 4px 14px rgba(35,32,46,.06)}
+.def-strip .dw{font-family:var(--serif);font-weight:700;font-size:.96rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink)}
+.def-strip .dpos{font-style:italic;font-family:var(--serif);font-size:.78rem;color:var(--brass-deep);margin-left:6px}
+.def-strip .dd{display:block;font-size:.82rem;color:var(--ink-soft);margin-top:3px;line-height:1.4}
+.def-strip .dd.muted{font-style:italic}
 .eyebrow{font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft);font-weight:800;text-align:center}
 
 /* word canvas */
@@ -244,6 +253,10 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
   box-shadow:0 3px 10px rgba(10,20,90,.16);-webkit-tap-highlight-color:transparent;touch-action:manipulation;display:flex;align-items:center;justify-content:center}
 .pause-fab:active{transform:scale(.92)}
 .clone-choice .cc-cost{display:block;font-size:.7rem;font-weight:800;color:var(--brass-deep);margin-top:2px}
+.deck-perks{margin:6px 2px 2px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.deck-perks .dp-title{width:100%;font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);font-weight:800;margin-bottom:2px}
+.deck-perks .dp-chip{font-size:.74rem;font-weight:700;color:var(--ink);background:var(--paper);border:1px solid var(--tile-edge);border-radius:999px;padding:5px 10px}
+.deck-perks .dp-none{font-size:.78rem;font-style:italic;color:var(--ink-soft)}
 .menu-btn:active{transform:translateY(1px)}
 .menu-btn.alt{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
 #continueBtn{background:var(--moss)}
@@ -431,9 +444,12 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
   <header id="hud" class="hidden">
     <button id="pauseBtn" class="pause-fab hidden" type="button" aria-label="Pause">☰</button>
     <div class="hud-row">
+      <div class="hud-side" aria-hidden="true"></div>
+      <div class="hud-center">
+        <div class="level-tag" id="levelTag"><span class="lvl-word" id="levelWord">Round</span> <span id="levelNum">1</span></div>
+        <div class="coins" id="coins"><span class="c-ico">◉</span><span id="coinNum">0</span></div>
+      </div>
       <div class="hearts" id="hearts" aria-label="Lives"></div>
-      <div class="level-tag" id="levelTag"><small>Round</small><span id="levelNum">1</span></div>
-      <div class="coins" id="coins"><span class="c-ico">◉</span><span id="coinNum">0</span></div>
     </div>
     <div class="progress-wrap">
       <div class="progress-meta">
@@ -446,7 +462,8 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
 
   <!-- Play area -->
   <main id="play" class="hidden">
-    <div class="eyebrow">The composing stick</div>
+    <div class="play-center">
+    <div class="eyebrow">Word Canvas</div>
     <div class="canvas-wrap">
       <div class="canvas empty" id="canvas" aria-label="Word you are forging"></div>
       <div class="canvas-foot">
@@ -464,11 +481,14 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
       <button class="btn btn-primary" id="submitBtn" disabled>Set the word</button>
     </div>
 
+    <div class="def-strip hidden" id="defStrip" aria-live="polite"></div>
+    </div><!-- /play-center -->
+
     <div class="hand-wrap">
       <div class="hand-meta">
         <button class="icon-btn" id="deckBtn">Deck · <span id="deckCountInline">20</span></button>
         <button class="icon-btn" id="shuffleBtn"><span class="ic">⇄</span> Shuffle</button>
-        <button class="icon-btn" id="recallBtn">Clear stick</button>
+        <button class="icon-btn" id="recallBtn">Clear canvas</button>
       </div>
       <div class="hand" id="hand"></div>
     </div>
@@ -490,7 +510,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
     <div class="howto">
       <p><b>Forge words</b> from the 7 letter slugs in your case. Longer words and rarer letters score more. Set a word and its letters shuffle back into your deck — you'll draw a fresh 7.</p>
       <p>Beat each round's <b>target</b> within your <b>words</b> (turns). Run out short and you go into <b>overtime</b> — each extra word costs a heart (you have five), keeping your score and hand, until the target falls or your hearts run out.</p>
-      <p>Stuck with junk? Drop letters on the stick and tap <b>Discard</b> to swap them (3 a round). A word can be set only once per run.</p>
+      <p>Stuck with junk? Drop letters on the canvas and tap <b>Discard</b> to swap them (3 a round). A word can be set only once per run.</p>
       <p>Clear a round to earn coins for the <b>print shop</b>: new letters, gilding, perks and more.</p>
     </div>
     <div class="ver" id="verTag"></div>
@@ -549,6 +569,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
     </div>
     <div class="select-hint hidden" id="selectHint"></div>
     <div class="deck-list" id="deckList"></div>
+    <div class="deck-perks" id="deckPerks"></div>
     <div class="deck-summary" id="deckSummary"></div>
   </div>
 </div>
@@ -330824,7 +330845,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "0r";
+const VERSION = "1a";
 const WIN_LEVEL = 8;   // clear this round to WIN; afterwards, optional endless mode
 const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10};
 // Scrabble-bag style weights — E most common; AIOU vowels common; SNRT common
@@ -330872,11 +330893,11 @@ function cardMult(c){ return c.mult||1; }                        // per-tile sco
 const G = {
   seed:null, level:1, hearts:MAX_HEARTS, coins:0, handSize:START_HAND,
   deck:[],                 // run-long collection of cards
-  perks:{ firstUp:{}, lastUp:{}, discardMoneyBoost:false, interest:false,
+  perks:{ firstUp:{}, lastUp:{}, discardMoneyBoost:false, interest:false, twinsies:false,
           vowelPower:false, fireSale:false, bigWords:false, freeRerolls:false },
   scoreMult:1,             // global "press multiplier" perk (compounds)
   extraDiscards:0, extraTurns:0, jazzCharges:0,
-  wordsPlayed:0, runBestWord:"", runBestScore:0, levelStats:{bestWord:"",bestScore:0,words:0},
+  wordsPlayed:0, runScore:0, runBestWord:"", runBestScore:0, levelStats:{bestWord:"",bestScore:0,words:0},
   // per-level
   attempt:0, target:0, score:0, handsLeft:0, discardsLeft:0,
   drawPile:[], hand:[], canvas:[], played:[],
@@ -330958,7 +330979,8 @@ function predRoll(seed){
   const el=shuffle(cards.filter(c=>c.base>1),rng); el.slice(0,2).forEach(c=>c.mult=1.5);
   return cards;
 }
-function predPx(base,fire){ return Math.max(1,Math.round(base*0.65*(fire?0.75:1))); }
+let _predLevel=1;
+function predPx(base,fire){ const infl=Math.pow(1.1,Math.max(0,(_predLevel||1)-1)); return Math.max(1,Math.round(base*0.65*(fire?0.75:1)*infl)); }
 function predCV(c){ return c.base*Math.pow(2,c.up||0); }
 function predScore(t,P){
   let s=0; t.forEach(x=>{let v=predCV(x)*(x.mult||1); if(P.vowelPower&&VOWELS.has(x.letter))v*=2; s+=v;});
@@ -330983,6 +331005,7 @@ function predLevel(P,seed){
   }
 }
 function predShop(P){
+  _predLevel=P.level;
   const fire=false, reserve=1; let buys=0; const maxBuys=99;   // skilled spender for the "played well" bar
   const buy=(p,f)=>{ if(buys>=maxBuys||P.coins-p<reserve) return false; P.coins-=p; f(); buys++; return true; };
   if(!P.vowelPower) buy(predPx(5,fire),()=>P.vowelPower=true);
@@ -331141,7 +331164,7 @@ function renderHud(){
   $("hearts").innerHTML=h;
   $("levelNum").textContent=G.level;
   { const lt=$("levelTag"); if(lt){ lt.classList.toggle("endless", !!G.infinite);
-      const sm=lt.querySelector("small"); if(sm) sm.textContent = G.infinite ? "Endless" : "Round"; } }
+      const lw=$("levelWord"); if(lw) lw.textContent = G.infinite ? "Endless" : "Round"; } }
   $("coinNum").textContent=G.coins;
   $("scoreNow").textContent=G.score;
   $("targetNum").textContent=G.target;
@@ -331327,8 +331350,12 @@ function scoreOf(res){
   const luStacks = res.length>0 ? (G.perks.lastUp[res[res.length-1].letter]||0) : 0;
   if(fuStacks>0) total*=(1+fuStacks);
   if(luStacks>0) total*=(1+luStacks);
+  // Twinsies: ×2 when two identical letters sit side by side in the word.
+  let twinHit=false;
+  if(G.perks.twinsies){ for(let i=1;i<res.length;i++){ if(res[i].letter===res[i-1].letter){ twinHit=true; break; } } }
+  if(twinHit) total*=2;
   total*=(G.scoreMult||1);
-  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks};
+  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,twinHit};
 }
 function updateLive(){
   const res=resolvedCanvas();
@@ -331345,6 +331372,7 @@ function updateLive(){
   if(sc.bingo) parts.push(`×1.5 full case`);
   if(sc.firstHit) parts.push(`×${1+sc.fuStacks} first`);
   if(sc.lastHit) parts.push(`×${1+sc.luStacks} finale`);
+  if(sc.twinHit) parts.push(`×2 twins`);
   ls.innerHTML = `${sc.total} <span class="mult">${parts.join(" ")}${label?" • "+label:""}</span>`;
   updateButtons();
 }
@@ -331582,8 +331610,10 @@ function submitWord(){
   if(isJazz && G.jazzCharges>0) G.jazzCharges--;
   // highlights
   G.wordsPlayed=(G.wordsPlayed||0)+1;
+  G.runScore=(G.runScore||0)+sc.total;
   G.levelStats.words++;
   statWord(w.toUpperCase(), sc.total, res.length, isJazz);
+  showDefinition(w, isJazz);
   if(sc.total>G.levelStats.bestScore){ G.levelStats.bestScore=sc.total; G.levelStats.bestWord=w.toUpperCase(); }
   if(sc.total>(G.runBestScore||0)){ G.runBestScore=sc.total; G.runBestWord=w.toUpperCase(); }
   G.handsLeft--;
@@ -331701,6 +331731,7 @@ function showWin(info){
   $("winStats").innerHTML=`
     <div class="stat-line">All <b>${WIN_LEVEL} rounds</b> set and locked.</div>
     <div class="stat-line">Run time: <b>${fmt}</b></div>
+    <div class="stat-line">Run score: <b>${(G.runScore||0).toLocaleString()}</b></div>
     <div class="stat-line">Words set: <b>${G.wordsPlayed||0}</b></div>
     ${G.runBestWord?`<div class="stat-line">Best word: <b>${G.runBestWord}</b> · ${G.runBestScore}</div>`:""}
     <div class="stat-line">Hearts left: <b>${G.hearts}</b> ♥ &nbsp;·&nbsp; Coins: <b>${G.coins}</b> ◉</div>
@@ -331742,7 +331773,10 @@ function levelFailed(){
    Shop
    ============================================================ */
 function priceMult(){ return 1; }   // shop inflation removed
-function px(base){ return Math.max(1,Math.round(base*0.65*(G.perks.fireSale?0.75:1))); }   // 35% off, Fire sale = 25% more off
+function px(base){
+  const infl=Math.pow(1.1, Math.max(0,(G.level||1)-1));   // +10% per round, compounding
+  return Math.max(1,Math.round(base*0.65*(G.perks.fireSale?0.75:1)*infl));
+}   // 35% off, Fire sale = 25% more off
 
 function buildShopPool(){
   const rng=makeRng("shop:"+G.level+":"+G.rerollCount);
@@ -331787,6 +331821,7 @@ function perkPool(rng){
   if(!G.perks.freeRerolls)       e.push({make:()=>freeRerollOffer(),  weight:1.1});
   if(!G.perks.discardMoneyBoost) e.push({make:()=>discardBoostOffer(),weight:1.2});
   if(!G.perks.interest)          e.push({make:()=>interestOffer(),    weight:1.2});
+  if(!G.perks.twinsies)          e.push({make:()=>twinsiesOffer(),    weight:1.3});
   return e;
 }
 function utilPool(){
@@ -331878,6 +331913,7 @@ function applyOffer(o){
     case "vowelPower":   G.perks.vowelPower=true; break;
     case "fireSale":     G.perks.fireSale=true; break;
     case "bigWords":     G.perks.bigWords=true; break;
+    case "twinsies":     G.perks.twinsies=true; break;
     case "freeRerolls":  G.perks.freeRerolls=true; break;
   }
 }
@@ -331900,6 +331936,10 @@ function fireSaleOffer(){
 function bigWordsOffer(){
   return {kind:"Perk",rarity:"epic",name:"Big words",desc:"Longer words give double the length multiplier.",
     price:px(12), art:"📏", d:{type:"bigWords"}};
+}
+function twinsiesOffer(){
+  return {kind:"Perk",rarity:"rare",name:"Twinsies",desc:"×2 the whole word when two identical letters sit side by side (e.g. LE\u200bTTER).",
+    price:px(10), art:"👯", d:{type:"twinsies"}};
 }
 function freeRerollOffer(){
   return {kind:"Perk",rarity:"epic",name:"Free re-rolls",desc:"Every shop reroll is free, for the rest of the run.",
@@ -332060,6 +332100,10 @@ function renderDeck(){
   if(wilds)  extras.push(`${wilds} wild vowel${wilds>1?"s":""}`);
   if(jazz)   extras.push(`${jazz} free jazz`);
   $("deckSummary").innerHTML=`${vowels} vowels · ${G.deck.filter(c=>c.kind==="letter").length-vowels} consonants${extras.length?" · "+extras.join(" · "):""}<br>total face value ${pts}`;
+  { const dp=$("deckPerks"); if(dp){ const perks=ownedPerksList();
+      dp.innerHTML='<div class="dp-title">Perks owned</div>'+(perks.length
+        ? perks.map(p=>`<span class="dp-chip">${escHtml(p)}</span>`).join("")
+        : '<span class="dp-none">None yet — buy some in the print shop.</span>'); } }
 }
 function buildStaticTile(c){
   const t=document.createElement("div");
@@ -332171,11 +332215,12 @@ function closeBonusChooser(){ $("bonusChooser").classList.add("hidden"); }
 function statInit(seed){
   G.stats={ game:"letterati", version:VERSION, seed,
     startedAt:new Date().toISOString(), words:[], shops:[], result:null,
-    finalRound:1, finalDeck:null, runMs:0, bestWord:"", bestScore:0 };
+    finalRound:1, finalDeck:null, runMs:0, runScore:0, bestWord:"", bestScore:0 };
   G._curShop=null;
 }
 function statWord(word, score, len, isJazz){
   if(!G.stats) return;
+  G.stats.runScore=G.runScore||0;   // mirror the canonical run score (set in submitWord)
   G.stats.words.push({ round:G.level, word, score, len, jazz:!!isJazz,
     overtime: G.handsLeft<=0 || G.hearts<MAX_HEARTS });
 }
@@ -332198,11 +332243,14 @@ function statFinish(result){
   if(!G.stats) return;
   G.stats.result=result; G.stats.finalRound=G.level; G.stats.endedAt=new Date().toISOString();
   G.stats.runMs=G.runMs; G.stats.finalDeck=snapshotDeck();
+  G.stats.runScore=G.runScore||0;
   G.stats.bestWord=G.runBestWord||""; G.stats.bestScore=G.runBestScore||0;
   G.stats.perks={ firstUp:G.perks.firstUp, lastUp:G.perks.lastUp, vowelPower:G.perks.vowelPower,
     bigWords:G.perks.bigWords, fireSale:G.perks.fireSale, interest:G.perks.interest,
     scoreMult:G.scoreMult, handSize:G.handSize, extraTurns:G.extraTurns };
   try{ localStorage.setItem("letterati_laststats", JSON.stringify(G.stats)); }catch(e){}
+  try{ const arr=JSON.parse(localStorage.getItem("letterati_runs")||"[]"); arr.push(G.stats);
+       while(arr.length>500) arr.shift(); localStorage.setItem("letterati_runs", JSON.stringify(arr)); }catch(e){}
 }
 function downloadJSON(filename, obj){
   try{
@@ -332221,6 +332269,65 @@ function exportStats(stats){
   else { try{ navigator.clipboard.writeText(JSON.stringify(stats)); toast("Stats copied"); }catch(e){ toast("Export failed"); } }
 }
 function lastStats(){ try{ return JSON.parse(localStorage.getItem("letterati_laststats")); }catch(e){ return null; } }
+function allRuns(){ try{ return JSON.parse(localStorage.getItem("letterati_runs")||"[]"); }catch(e){ return []; } }
+function exportAllRuns(){
+  const runs=allRuns();
+  if(!runs.length){ toast("No runs recorded yet"); return; }
+  const payload={ game:"letterati", version:VERSION, exportedAt:new Date().toISOString(), runCount:runs.length, runs };
+  if(downloadJSON("letterati_all_runs.json", payload)) toast(runs.length+(runs.length===1?" run exported":" runs exported"));
+  else { try{ navigator.clipboard.writeText(JSON.stringify(payload)); toast("Copied"); }catch(e){ toast("Export failed"); } }
+}
+
+/* ---------- Definition lookup (free dictionary API, cached) ---------- */
+const defCache={};
+function escHtml(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+async function lookupDefinition(word){
+  const key=String(word||"").toLowerCase().replace(/[^a-z]/g,"");
+  if(!key) return null;
+  if(key in defCache) return defCache[key];
+  try{
+    const r=await fetch("https://api.dictionaryapi.dev/api/v2/entries/en/"+encodeURIComponent(key));
+    if(!r.ok){ defCache[key]=null; return null; }
+    const data=await r.json();
+    const m=data && data[0] && data[0].meanings && data[0].meanings[0];
+    const def=m && m.definitions && m.definitions[0] && m.definitions[0].definition;
+    const res=def ? {pos:m.partOfSpeech||"", def} : null;
+    defCache[key]=res; return res;
+  }catch(e){ defCache[key]=null; return null; }
+}
+function showDefinition(word, isJazz){
+  const el=$("defStrip"); if(!el) return;
+  const w=escHtml(String(word||"").toUpperCase());
+  if(!w){ el.classList.add("hidden"); return; }
+  el.classList.remove("hidden");
+  if(isJazz){ el.innerHTML=`<span class="dw">${w}</span><span class="dd muted">free-jazz word — no dictionary entry</span>`; return; }
+  el.innerHTML=`<span class="dw">${w}</span><span class="dd muted">looking up…</span>`;
+  const token=String(Date.now()+Math.random()); el.dataset.token=token;
+  lookupDefinition(word).then(res=>{
+    if(el.dataset.token!==token) return;   // superseded by a newer word
+    if(res) el.innerHTML=`<span class="dw">${w}</span><span class="dpos">${escHtml(res.pos)}</span><span class="dd">${escHtml(res.def)}</span>`;
+    else    el.innerHTML=`<span class="dw">${w}</span><span class="dd muted">definition unavailable</span>`;
+  });
+}
+
+/* ---------- Owned perks (for the deck screen) ---------- */
+function ownedPerksList(){
+  const out=[];
+  if(G.perks.vowelPower) out.push("Vowel Power · ×2 vowels");
+  if(G.perks.bigWords)   out.push("Big Words · ×2 length bonus");
+  if(G.perks.twinsies)   out.push("Twinsies · ×2 side-by-side doubles");
+  if((G.scoreMult||1)>1) out.push("Press · ×"+Number(G.scoreMult).toFixed(2));
+  if(G.handSize>START_HAND) out.push("Fuller Case · hand of "+G.handSize);
+  if(G.extraTurns>0)     out.push("+"+G.extraTurns+" word"+(G.extraTurns>1?"s":"")+" / round");
+  if(G.extraDiscards>0)  out.push("+"+G.extraDiscards+" discard"+(G.extraDiscards>1?"s":"")+" / round");
+  if(G.perks.interest)   out.push("Compound Interest");
+  if(G.perks.discardMoneyBoost) out.push("Frugal Press · +50% discard coins");
+  if(G.perks.fireSale)   out.push("Fire Sale · cheaper shop");
+  if(G.perks.freeRerolls) out.push("Free Re-rolls");
+  Object.keys(G.perks.firstUp||{}).forEach(L=>{ const s=G.perks.firstUp[L]; if(s>0) out.push("First-up "+L+" · ×"+(1+s)); });
+  Object.keys(G.perks.lastUp||{}).forEach(L=>{ const s=G.perks.lastUp[L]; if(s>0) out.push("Finale "+L+" · ×"+(1+s)); });
+  return out;
+}
 
 /* ============================================================
    Pause menu (in-run) + Options menu (title)
@@ -332235,8 +332342,9 @@ function pauseQuit(){
   hideGame(); $("shopScreen").classList.add("hidden"); $("summaryScreen").classList.add("hidden");
   $("titleScreen").classList.remove("hidden"); refreshContinue();
 }
-function openOptions(){ const has=!!lastStats(); $("optExportBtn").disabled=!has;
-  $("optExportBtn").textContent = has ? "Export last run's stats" : "No run recorded yet";
+function openOptions(){ const runs=allRuns(); const n=runs.length;
+  $("optExportBtn").disabled=!n;
+  $("optExportBtn").textContent = n ? ("Export all run data ("+n+(n===1?" run)":" runs)")) : "No runs recorded yet";
   $("optionsScreen").classList.remove("hidden"); }
 function closeOptions(){ $("optionsScreen").classList.add("hidden"); }
 function closeGildConfirm(){ $("gildConfirm").classList.add("hidden"); }
@@ -332266,6 +332374,7 @@ function gameOver(won){
   $("overStats").innerHTML=`
     <div class="stat-line">${(G.wonRun && G.level>WIN_LEVEL) ? `Cleared all ${WIN_LEVEL} — then pushed to <b>round ${G.level}</b> in endless.` : `You reached <b>round ${G.level}</b>.`}</div>
     <div class="stat-line">Run time: <b>${fmtDuration(G.runMs)}</b></div>
+    <div class="stat-line">Run score: <b>${(G.runScore||0).toLocaleString()}</b></div>
     <div class="stat-line">Words set this run: <b>${G.wordsPlayed||0}</b></div>
     ${G.runBestWord?`<div class="stat-line">Best word: <b>${G.runBestWord}</b> · ${G.runBestScore}</div>`:""}
     <div class="stat-line">Coins left: <b>${G.coins}</b> ◉</div>
@@ -332294,7 +332403,7 @@ function save(){
       v:SAVE_VERSION, phase, seed:G.seed, level:G.level, hearts:G.hearts, coins:G.coins, handSize:G.handSize,
       infinite:G.infinite, wonRun:G.wonRun,
       perks:G.perks, scoreMult:G.scoreMult, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, jazzCharges:G.jazzCharges, runMs:G.runMs,
-      wordsPlayed:G.wordsPlayed, runBestWord:G.runBestWord, runBestScore:G.runBestScore, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
+      wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
       attempt:G.attempt, target:G.target, score:G.score, handsLeft:G.handsLeft, discardsLeft:G.discardsLeft,
       drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas),
       rerollCount:G.rerollCount, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
@@ -332309,10 +332418,10 @@ function continueRun(){
   cardSeq=d.cardSeq||0;
   G.seed=d.seed; G.level=d.level; G.hearts=d.hearts; G.coins=d.coins; G.handSize=d.handSize;
   G.infinite=!!d.infinite; G.wonRun=!!d.wonRun;
-  G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,vowelPower:false,fireSale:false,bigWords:false,freeRerolls:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
+  G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:false,fireSale:false,bigWords:false,freeRerolls:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
   G.scoreMult=d.scoreMult||1; G.extraDiscards=d.extraDiscards||0; G.extraTurns=d.extraTurns||0;
   G.jazzCharges=(typeof d.jazzCharges==="number")?d.jazzCharges:0;
-  G.wordsPlayed=d.wordsPlayed||0; G.runBestWord=d.runBestWord||""; G.runBestScore=d.runBestScore||0;
+  G.wordsPlayed=d.wordsPlayed||0; G.runScore=d.runScore||0; G.runBestWord=d.runBestWord||""; G.runBestScore=d.runBestScore||0;
   G.levelStats=d.levelStats||{bestWord:"",bestScore:0,words:0};
   G.best=d.best||1; G.lastReward=d.lastReward||null;
   G.runMs=d.runMs||0;
@@ -332350,14 +332459,15 @@ function newRun(seed){
   cardSeq=0;
   G.seed=seed;
   G.level=1; G.hearts=MAX_HEARTS; G.coins=0; G.handSize=START_HAND;
-  G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,vowelPower:false,fireSale:false,bigWords:false,freeRerolls:false};
+  G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:false,fireSale:false,bigWords:false,freeRerolls:false};
   G.scoreMult=1; G.extraDiscards=0; G.extraTurns=0; G.jazzCharges=0; G.lastReward=null;
   G.infinite=false; G.wonRun=false;
   G.rerollCount=0;   // reroll-price ladder resets each run
-  G.wordsPlayed=0; G.runBestWord=""; G.runBestScore=0; G.levelStats={bestWord:"",bestScore:0,words:0};
+  G.wordsPlayed=0; G.runScore=0; G.runBestWord=""; G.runBestScore=0; G.levelStats={bestWord:"",bestScore:0,words:0};
   G.attempt=0; G.best=1; G.shopOffers=[]; G.runMs=0;
   G.deck=rollStartingDeck();
   statInit(G.seed);
+  { const ds=$("defStrip"); if(ds){ ds.classList.add("hidden"); ds.innerHTML=""; } }
   $("titleScreen").classList.add("hidden");
   $("overScreen").classList.add("hidden");
   startLevel();
@@ -332407,7 +332517,7 @@ $("pauseQuitBtn").addEventListener("click",pauseQuit);
 // options menu
 $("optionsBtn").addEventListener("click",openOptions);
 $("optBackBtn").addEventListener("click",closeOptions);
-$("optExportBtn").addEventListener("click",()=>exportStats(lastStats()));
+$("optExportBtn").addEventListener("click",exportAllRuns);
 // first/last-up letter chooser
 $("bonusCancel").addEventListener("click",cancelBonus);
 
