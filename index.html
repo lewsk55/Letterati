@@ -828,7 +828,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "1f";
+const VERSION = "1g";
 const WIN_LEVEL = 8;   // clear this round to WIN; afterwards, optional endless mode
 const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10};
 // Scrabble-bag style weights — E most common; AIOU vowels common; SNRT common
@@ -2328,7 +2328,7 @@ function snapshotDeck(){ return G.deck.map(c=> c.kind==="letter"
   ? {letter:c.letter, value:cardValue(c), gild:c.upLevel||0, mult:c.mult||1}
   : {kind:c.kind}); }
 function statFinish(result){
-  if(!G.stats) return;
+  if(!G.stats) statInit(G.seed||"unknown");   // never silently drop a run (e.g. continued from a pre-fix save)
   G.stats.result=result; G.stats.finalRound=G.level; G.stats.endedAt=new Date().toISOString();
   G.stats.runMs=G.runMs; G.stats.finalDeck=snapshotDeck();
   G.stats.runScore=G.runScore||0;
@@ -2498,7 +2498,7 @@ function save(){
     const data={
       v:SAVE_VERSION, phase, seed:G.seed, level:G.level, hearts:G.hearts, coins:G.coins, handSize:G.handSize,
       infinite:G.infinite, wonRun:G.wonRun,
-      perks:G.perks, scoreMult:G.scoreMult, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, jazzCharges:G.jazzCharges, runMs:G.runMs,
+      perks:G.perks, scoreMult:G.scoreMult, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, jazzCharges:G.jazzCharges, runMs:G.runMs, stats:G.stats,
       wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
       attempt:G.attempt, target:G.target, score:G.score, handsLeft:G.handsLeft, discardsLeft:G.discardsLeft,
       drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas),
@@ -2521,6 +2521,10 @@ function continueRun(){
   G.levelStats=d.levelStats||{bestWord:"",bestScore:0,words:0};
   G.best=d.best||1; G.lastReward=d.lastReward||null;
   G.runMs=d.runMs||0;
+  // restore the run's stat tracker so a continued run still records on finish
+  G.stats=d.stats||null;
+  G._curShop=(d.phase==="shop" && G.stats && G.stats.shops && G.stats.shops.length) ? G.stats.shops[G.stats.shops.length-1] : null;
+  if(!G.stats) statInit(G.seed);   // legacy save with no stats → begin tracking now so the run isn't lost
   G.deck=(d.deck||[]).map(c=>Object.assign({},c));
   const byId={}; G.deck.forEach(c=>byId[c.id]=c);
   const map=a=>(a||[]).map(id=>byId[id]).filter(Boolean);
