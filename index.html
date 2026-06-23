@@ -219,8 +219,9 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
 .tile.pop{animation:lockPop .25s ease}
 .tile.fly-out{animation:flyOut .4s ease forwards}
 @keyframes flyOut{to{opacity:0;transform:translateY(-30px) scale(.6) rotate(8deg)}}
-.dragclone{position:fixed;z-index:200;pointer-events:none;transform:translate(-50%,-50%) rotate(-3deg);
-  box-shadow:0 12px 26px rgba(35,32,46,.32)}
+.dragclone{position:fixed;z-index:200;pointer-events:none;transform:translate(-50%,-50%) rotate(-3deg) scale(1.06);
+  box-shadow:0 14px 30px rgba(35,32,46,.34)}
+.tile.drag-source{opacity:0 !important;pointer-events:none}   /* the moving gap the others slide around */
 .drop-hover{outline:2px dashed var(--moss);outline-offset:3px;border-radius:10px}
 
 /* letter juice */
@@ -330849,7 +330850,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "1c";
+const VERSION = "1d";
 const WIN_LEVEL = 8;   // clear this round to WIN; afterwards, optional endless mode
 const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10};
 // Scrabble-bag style weights — E most common; AIOU vowels common; SNRT common
@@ -331413,6 +331414,34 @@ function onTileDown(e,el,card,where){
   document.addEventListener("pointerup",onTileUp);
   document.addEventListener("pointercancel",onTileUp);
 }
+/* ---- live drag with Balatro-style "make room" reordering ----
+   As you slide a held tile, the others FLIP-animate out of the way and a gap
+   follows the insertion point. Works hand→canvas, canvas→hand, and within either. */
+function rowZones(){ return { hand:$("hand"), canvas:$("canvas") }; }
+function rowTiles(zoneEl, exclude){ return [...zoneEl.children].filter(c=>c.classList&&c.classList.contains("tile")&&c!==exclude); }
+function rowInsertIndex(zoneEl, x, exclude){
+  const tiles=rowTiles(zoneEl, exclude);
+  for(let i=0;i<tiles.length;i++){ const r=tiles[i].getBoundingClientRect(); if(x < r.left+r.width/2) return i; }
+  return tiles.length;
+}
+// First-Last-Invert-Play: slide each tile from its old box to its new one with easy ease
+function flipReorder(animate, mutate){
+  const first=new Map(); animate.forEach(t=>first.set(t,t.getBoundingClientRect()));
+  mutate();
+  animate.forEach(t=>{
+    const f=first.get(t), l=t.getBoundingClientRect();
+    const dx=f.left-l.left, dy=f.top-l.top;
+    if(Math.abs(dx)<0.5 && Math.abs(dy)<0.5) return;
+    t.style.transition="none";
+    t.style.transform="translate("+dx+"px,"+dy+"px)";
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      t.style.transition="transform .3s cubic-bezier(.22,1,.36,1)";
+      t.style.transform="";
+    }));
+  });
+}
+function clearFlip(zoneEl){ rowTiles(zoneEl).forEach(t=>{ t.style.transition=""; t.style.transform=""; }); }
+
 function onTileMove(e){
   if(!drag)return;
   const dx=e.clientX-drag.startX, dy=e.clientY-drag.startY;
@@ -331422,17 +331451,28 @@ function onTileMove(e){
     const c=drag.el.cloneNode(true); c.classList.add("dragclone");
     c.style.width=r.width+"px"; c.style.height=r.height+"px";
     document.body.appendChild(c); drag.clone=c;
-    drag.el.style.opacity="0.32";
+    drag.el.classList.add("drag-source");      // the original becomes the invisible gap
+    drag.curZone=drag.where; drag.curIndex=-1; // force the first layout pass
   }
   if(drag.moved){
     e.preventDefault();
     drag.clone.style.left=e.clientX+"px"; drag.clone.style.top=e.clientY+"px";
-    if(drag.hover){ drag.hover.classList.remove("drop-hover"); drag.hover=null; }
+    const Z=rowZones();
     const under=document.elementFromPoint(e.clientX,e.clientY);
-    const canvasZone=under&&under.closest&&under.closest("#canvas");
-    const handZone=under&&under.closest&&under.closest("#hand");
-    if(canvasZone){ canvasZone.classList.add("drop-hover"); drag.hover=canvasZone; }
-    else if(handZone&&drag.where==="canvas"){ handZone.classList.add("drop-hover"); drag.hover=handZone; }
+    let zoneEl = (under&&under.closest) ? (under.closest("#canvas")||under.closest("#hand")) : null;
+    if(!zoneEl) zoneEl = (drag.curZone==="canvas")?Z.canvas:Z.hand;   // stay put when outside both
+    const zoneName = zoneEl.id==="canvas" ? "canvas" : "hand";
+    const idx = rowInsertIndex(zoneEl, e.clientX, drag.el);
+    if(zoneName!==drag.curZone || idx!==drag.curIndex){
+      const animate=[...rowTiles(Z.hand, drag.el), ...rowTiles(Z.canvas, drag.el)];
+      flipReorder(animate, ()=>{
+        const tiles=rowTiles(zoneEl, drag.el);
+        zoneEl.insertBefore(drag.el, tiles[idx] || null);
+        Z.canvas.classList.toggle("empty", rowTiles(Z.canvas).length===0);
+      });
+      drag.curZone=zoneName; drag.curIndex=idx;
+      haptic(6);
+    }
   }
 }
 function onTileUp(e){
@@ -331441,29 +331481,41 @@ function onTileUp(e){
   document.removeEventListener("pointerup",onTileUp);
   document.removeEventListener("pointercancel",onTileUp);
   const d=drag; drag=null;
-  if(d.hover) d.hover.classList.remove("drop-hover");
   if(d.clone) d.clone.remove();
-  if(d.el) d.el.style.opacity="";
-  if(!d.moved) return;
+  const Z=rowZones();
+  if(d.el) d.el.classList.remove("drag-source");
+  if(!d.moved) return;                       // a tap — let the click handler run
   justDragged=true; setTimeout(()=>justDragged=false,80);
-  const under=document.elementFromPoint(e.clientX,e.clientY);
-  const canvasZone=under&&under.closest&&under.closest("#canvas");
-  const handZone=under&&under.closest&&under.closest("#hand");
-  if(canvasZone){
-    const idx=canvasInsertIndex(e.clientX);
-    if(d.where==="hand") placeFromHand(d.card.id,idx);
-    else moveWithinCanvas(d.card.id,idx);
-  } else if(handZone && d.where==="canvas"){
-    removeFromCanvas(d.card.id);
+  // commit the final visual order straight from the DOM
+  const inCanvas = Z.canvas.contains(d.el);
+  const zoneEl = inCanvas ? Z.canvas : Z.hand;
+  const finalIdx = [...zoneEl.children].filter(c=>c.classList&&c.classList.contains("tile")).indexOf(d.el);
+  clearFlip(Z.hand); clearFlip(Z.canvas);
+  if(inCanvas){
+    if(d.where==="hand") placeFromHand(d.card.id, finalIdx);   // also handles clone/wild choosers
+    else moveWithinCanvasAbs(d.card.id, finalIdx);
+  } else {
+    if(d.where==="canvas") returnToHandAt(d.card.id, finalIdx);
+    else reorderHandAbs(d.card.id, finalIdx);
   }
 }
-function canvasInsertIndex(x){
-  const tiles=[...$("canvas").querySelectorAll(".tile")];
-  for(let i=0;i<tiles.length;i++){
-    const r=tiles[i].getBoundingClientRect();
-    if(x < r.left+r.width/2) return i;
-  }
-  return tiles.length;
+// absolute-index commits (finalIdx already counts the dragged tile's slot)
+function moveWithinCanvasAbs(id, idx){
+  const i=G.canvas.findIndex(c=>c.id===id); if(i<0){ renderCanvas(); return; }
+  const [c]=G.canvas.splice(i,1); idx=Math.max(0,Math.min(idx,G.canvas.length));
+  G.canvas.splice(idx,0,c); renderCanvas(); save();
+}
+function returnToHandAt(id, idx){
+  const i=G.canvas.findIndex(c=>c.id===id); if(i<0){ renderHand(); renderCanvas(); return; }
+  const [c]=G.canvas.splice(i,1);
+  if(c.kind==="clone") c.cloneLetter=null; if(c.kind==="wildvowel") c.vowel=null;
+  idx=Math.max(0,Math.min(idx,G.hand.length)); G.hand.splice(idx,0,c);
+  renderHand(); renderCanvas(); save();
+}
+function reorderHandAbs(id, idx){
+  const i=G.hand.findIndex(c=>c.id===id); if(i<0){ renderHand(); return; }
+  const [c]=G.hand.splice(i,1); idx=Math.max(0,Math.min(idx,G.hand.length));
+  G.hand.splice(idx,0,c); renderHand(); save();
 }
 
 /* ---- state ops for placement ---- */
