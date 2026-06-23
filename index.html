@@ -1,0 +1,2639 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, viewport-fit=cover" />
+<meta name="robots" content="noindex, nofollow" />
+<meta name="theme-color" content="#23202E" />
+<meta name="color-scheme" content="light only" />
+<title>Letterati — a letter-forging roguelike</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&display=swap" rel="stylesheet" />
+<style>
+/* ============================================================
+   LETTERATI — a letter-forging roguelike (prototype)
+   Sibling to Verbatim. Tile engine + juice ported from Verbatim;
+   roguelike systems (seeded streams, rising shop prices, rerolls,
+   deck view, card removal, hearts) modelled on Golf Gone Wrong.
+   ============================================================ */
+:root{
+  --ink:#23202E;          /* warm near-black ink */
+  --ink-soft:#6A6478;
+  --page:#E7DCC4;         /* aged parchment */
+  --page-deep:#DCCFB2;
+  --tile:#F6EFDD;         /* type-slug cream */
+  --tile-edge:#D8C8A4;
+  --brass:#B98A2E;        /* gold / coins / highlight */
+  --brass-deep:#8A6418;
+  --oxblood:#9E3B2E;      /* hearts / danger */
+  --moss:#3C6E63;         /* valid / success ink-stamp */
+  --paper:#FBF6EA;
+  --serif:"Fraunces", Georgia, "Times New Roman", serif;
+  --ui:"Helvetica Neue", Arial, sans-serif;
+}
+*{box-sizing:border-box}
+html{color-scheme:light only;-webkit-text-size-adjust:100%;forced-color-adjust:none}
+html,body{margin:0;padding:0;height:100%}
+html{touch-action:manipulation}
+body{
+  font-family:var(--ui);
+  color:var(--ink);
+  background:
+    radial-gradient(120% 80% at 50% -10%, #F0E7D2, transparent 60%),
+    var(--page);
+  -webkit-font-smoothing:antialiased;
+  overflow-x:hidden;
+}
+button{font-family:inherit}
+.hidden{display:none !important}
+
+/* paper grain overlay */
+body::before{
+  content:"";position:fixed;inset:0;pointer-events:none;z-index:0;opacity:.5;
+  background-image:radial-gradient(rgba(35,32,46,.05) 1px, transparent 1px);
+  background-size:4px 4px;
+}
+
+/* ---------- App frame ---------- */
+#app{position:relative;z-index:1;max-width:620px;margin:0 auto;min-height:100%;display:flex;flex-direction:column;}
+
+/* ---------- HUD ---------- */
+#hud{
+  position:sticky;top:0;z-index:20;
+  background:linear-gradient(180deg, rgba(231,220,196,.97), rgba(231,220,196,.86));
+  backdrop-filter:blur(6px);
+  border-bottom:1px solid var(--tile-edge);
+  padding:calc(8px + env(safe-area-inset-top,0)) 14px 9px;
+}
+.hud-row{display:grid;grid-template-columns:1fr auto 1fr;align-items:center;gap:10px}
+.hud-side{min-width:40px}
+.hud-center{display:flex;flex-direction:column;align-items:center;gap:3px;justify-self:center}
+.hearts{font-size:1.05rem;letter-spacing:2px;line-height:1;justify-self:end;text-align:right}
+.heart{color:var(--oxblood);transition:transform .2s ease, opacity .3s ease}
+.heart.spent{opacity:.18;color:var(--ink)}
+.heart.pulse{animation:heartPulse .5s ease}
+.heart.breaking{animation:heartBreak .55s cubic-bezier(.36,.07,.19,.97) both;color:var(--oxblood)}
+@keyframes heartBreak{
+  0%{transform:scale(1)}
+  22%{transform:scale(1.55) rotate(-9deg);filter:drop-shadow(0 0 9px rgba(139,0,0,.75))}
+  48%{transform:scale(.66) rotate(7deg)}
+  70%{transform:scale(1.18) rotate(-3deg)}
+  100%{transform:scale(1) rotate(0);opacity:.18}
+}
+/* whole-screen jolt when a heart is lost */
+#app.shake{animation:screenShake .55s cubic-bezier(.36,.07,.19,.97)}
+@keyframes screenShake{
+  0%,100%{transform:translate(0,0) rotate(0)}
+  10%{transform:translate(-8px,4px) rotate(-.5deg)}
+  20%{transform:translate(9px,-5px) rotate(.6deg)}
+  30%{transform:translate(-10px,3px) rotate(-.4deg)}
+  40%{transform:translate(8px,4px) rotate(.4deg)}
+  50%{transform:translate(-7px,-4px) rotate(-.3deg)}
+  60%{transform:translate(7px,3px) rotate(.3deg)}
+  70%{transform:translate(-5px,-2px)}
+  80%{transform:translate(4px,2px)}
+  90%{transform:translate(-2px,1px)}
+}
+/* floating "-1" that rises off the hearts */
+.heart-loss-float{
+  position:fixed;z-index:300;transform:translate(-50%,-50%);pointer-events:none;
+  font-family:var(--ui,inherit);font-weight:900;font-size:1.7rem;color:var(--oxblood);
+  text-shadow:0 2px 7px rgba(0,0,0,.28),0 0 14px rgba(139,0,0,.4);
+  animation:heartLossRise 1.1s cubic-bezier(.2,.7,.2,1) forwards;
+}
+@keyframes heartLossRise{
+  0%{opacity:0;transform:translate(-50%,-20%) scale(.6)}
+  16%{opacity:1;transform:translate(-50%,-65%) scale(1.3)}
+  44%{transform:translate(-50%,-105%) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-185%) scale(.92)}
+}
+/* shatter particles */
+.heart-burst{position:fixed;z-index:300;width:0;height:0;pointer-events:none}
+.heart-burst span{position:absolute;left:0;top:0;color:var(--oxblood);transform:translate(-50%,-50%);opacity:1;
+  animation:heartShatter .85s ease-out forwards}
+@keyframes heartShatter{
+  0%{transform:translate(-50%,-50%) scale(.5);opacity:1}
+  100%{transform:translate(calc(-50% + var(--tx)),calc(-50% + var(--ty))) scale(1.05);opacity:0}
+}
+@media (prefers-reduced-motion:reduce){
+  #app.shake{animation:none}
+  .heart-burst span{animation:none;display:none}
+  .heart-loss-float{animation:none}
+}
+@keyframes heartPulse{0%,100%{transform:scale(1)}40%{transform:scale(1.5)}}
+.coins{display:flex;align-items:center;gap:6px;font-weight:800;color:var(--brass-deep);font-size:.98rem;justify-content:center}
+.coins .c-ico{font-size:1.05rem}
+.coins.bump{animation:coinBump .4s ease}
+@keyframes coinBump{0%,100%{transform:scale(1)}45%{transform:scale(1.22)}}
+.level-tag{font-family:var(--serif);font-weight:600;font-size:1.05rem;color:var(--ink);display:flex;align-items:baseline;gap:6px;line-height:1}
+.level-tag .lvl-word{font-family:var(--ui);font-size:.62rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);font-weight:800}
+.level-tag.endless .lvl-word{color:var(--brass-deep)}
+.level-tag.endless #levelNum{color:var(--brass-deep)}
+.icon-btn{background:var(--paper);border:1px solid var(--tile-edge);border-radius:9px;color:var(--ink) !important;
+  padding:8px 11px;font-size:.74rem;font-weight:800;letter-spacing:.03em;cursor:pointer;white-space:nowrap;flex:0 0 auto;
+  box-shadow:0 1px 3px rgba(35,32,46,.08)}
+.icon-btn:active{transform:translateY(1px)}
+.icon-btn .ic{color:var(--brass-deep);font-weight:900}
+
+/* progress bar: score toward target */
+.progress-wrap{margin-top:9px}
+.progress-meta{display:flex;justify-content:space-between;align-items:flex-end;font-size:.72rem;margin-bottom:4px}
+.progress-meta .score-now{font-family:var(--serif);font-weight:700;font-size:1.15rem;color:var(--ink)}
+.progress-meta .target{color:var(--ink-soft);font-weight:800;display:flex;flex-direction:column;align-items:flex-end;line-height:1.15;text-align:right}
+.progress-meta .target b{color:var(--oxblood)}
+.progress-meta .target .to-go{font-size:.6rem;font-weight:800;letter-spacing:.02em;color:var(--ink-soft);text-transform:uppercase;margin-top:1px}
+.progress-meta .target .to-go.done{color:var(--moss)}
+.bar{height:9px;background:var(--page-deep);border-radius:999px;overflow:hidden;border:1px solid var(--tile-edge)}
+.bar > i{display:block;height:100%;width:0%;border-radius:999px;
+  background:linear-gradient(90deg,var(--moss),#5A9183);transition:width .5s cubic-bezier(.2,.7,.2,1)}
+.bar.met > i{background:linear-gradient(90deg,var(--brass),#E2B64B)}
+
+/* ---------- Main play area ---------- */
+main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
+.play-center{flex:1;display:flex;flex-direction:column;justify-content:center;gap:10px;min-height:0}
+.def-strip{background:var(--paper);border:1px solid var(--tile-edge);border-radius:12px;padding:9px 13px;text-align:center;
+  box-shadow:0 1px 0 #fff inset, 0 4px 14px rgba(35,32,46,.06)}
+.def-strip .dw{font-family:var(--serif);font-weight:700;font-size:.96rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink)}
+.def-strip .dpos{font-style:italic;font-family:var(--serif);font-size:.78rem;color:var(--brass-deep);margin-left:6px}
+.def-strip .dd{display:block;font-size:.82rem;color:var(--ink-soft);margin-top:3px;line-height:1.4}
+.def-strip .dd.muted{font-style:italic}
+.eyebrow{font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft);font-weight:800;text-align:center}
+
+/* word canvas */
+.canvas-wrap{
+  background:var(--paper);border:1px solid var(--tile-edge);border-radius:14px;
+  box-shadow:0 1px 0 #fff inset, 0 8px 22px rgba(35,32,46,.08);
+  padding:14px 12px 12px;position:relative;
+}
+.canvas{display:flex;flex-wrap:nowrap;gap:var(--tgap,8px);justify-content:center;align-items:center;min-height:64px;overflow:hidden}
+.canvas.empty::after{
+  content:"Tap or drag letters here to forge a word";
+  color:var(--ink-soft);font-size:.82rem;font-style:italic;font-family:var(--serif);
+}
+.canvas.shake{animation:nudge .4s ease}
+@keyframes nudge{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
+.canvas-foot{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px;min-height:24px}
+.live-word{font-family:var(--serif);font-weight:600;letter-spacing:.12em;text-transform:uppercase;font-size:.9rem}
+.live-word.ok{color:var(--moss)}
+.live-word.bad{color:var(--ink-soft)}
+.live-score{font-family:var(--serif);font-weight:700;font-size:1.05rem;color:var(--brass-deep)}
+.live-score .mult{font-size:.72rem;color:var(--ink-soft);font-weight:800}
+
+/* turns left */
+.turns{display:flex;align-items:center;justify-content:center;gap:8px;font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);font-weight:800}
+.turns .dots{display:flex;gap:4px}
+.turns .dot{width:9px;height:9px;border-radius:50%;background:var(--page-deep);border:1px solid var(--tile-edge)}
+.turns .dot.on{background:var(--ink);border-color:var(--ink)}
+.turns .dot.last{background:var(--oxblood);border-color:var(--oxblood);animation:lastPulse 1.1s ease-in-out infinite}
+@keyframes lastPulse{0%,100%{transform:scale(1)}50%{transform:scale(1.3)}}
+
+/* action buttons */
+.actions{display:flex;gap:9px;justify-content:center}
+.btn{border:none;border-radius:999px;padding:13px 18px;font-weight:800;font-size:.9rem;letter-spacing:.02em;cursor:pointer;transition:transform .1s ease,opacity .15s ease,background .15s ease;flex:1;max-width:200px}
+.btn:active{transform:translateY(1px)}
+.btn-primary{background:var(--moss);color:#fff}
+.btn-primary:disabled{background:var(--page-deep);color:var(--ink-soft);cursor:not-allowed}
+.btn-primary.jazzing{background:linear-gradient(110deg,#7A4FB0,#B98A2E,#9E3B2E);background-size:200% 100%;animation:jazzShift 2.4s linear infinite}
+@keyframes jazzShift{to{background-position:-200% 0}}
+.btn-warn{background:var(--oxblood);color:#fff;border:none;flex:0 0 auto;min-width:120px}
+.btn-warn:disabled{opacity:.35;cursor:not-allowed}
+.btn-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--tile-edge);flex:0 0 auto;min-width:96px}
+
+/* discard counter chip */
+.discard-lab{display:block;font-size:.56rem;letter-spacing:.1em;text-transform:uppercase;font-weight:800;opacity:.85}
+
+/* ---------- Hand ---------- */
+.hand-wrap{margin-top:auto;padding:8px 0 calc(12px + env(safe-area-inset-bottom,0))}
+.hand-meta{display:flex;justify-content:space-between;align-items:center;margin:0 2px 7px}
+.hand-meta .draw-left{font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);font-weight:800}
+.hand{display:flex;gap:var(--tgap,7px);justify-content:center;flex-wrap:nowrap;min-height:78px;align-items:flex-end}
+
+/* ---------- Letter tile (type slug) ---------- */
+.tile{
+  position:relative;width:var(--tw,50px);height:var(--th,62px);border-radius:8px;flex:0 0 auto;
+  background:linear-gradient(180deg,#FCF8EE,var(--tile));
+  border:1px solid var(--tile-edge);
+  box-shadow:0 2px 0 #C9B98F, 0 4px 9px rgba(35,32,46,.16);
+  display:flex;align-items:center;justify-content:center;cursor:pointer;
+  font-family:var(--serif);font-weight:600;font-size:var(--tfs,1.7rem);color:var(--ink);
+  user-select:none;-webkit-user-select:none;touch-action:none;
+  transition:transform .12s ease, box-shadow .12s ease, opacity .15s ease;
+}
+.tile:hover{transform:translateY(-3px)}
+.tile:active{transform:translateY(0)}
+.tile .val{position:absolute;right:5px;bottom:3px;font-family:var(--ui);font-size:.62rem;font-weight:800;color:var(--ink-soft);line-height:1}
+.tile.placed{box-shadow:0 2px 0 #C9B98F, 0 4px 11px rgba(60,110,99,.22);border-color:#B7C9BF}
+.tile.upgraded{background:linear-gradient(180deg,#FBEFC9,#F3DFA0);border-color:#D8B85C;box-shadow:0 2px 0 #B98A2E,0 4px 10px rgba(185,138,46,.3)}
+.tile.upgraded .val{color:var(--brass-deep)}
+.tile .val .up-sup{font-size:.78em;vertical-align:super;font-style:normal;color:var(--brass-deep);margin-left:1px;font-weight:900}
+.tile.clone{background:linear-gradient(180deg,#EDEAF6,#DED8EE);border-color:#C3B8DD}
+.tile.multi{border-color:#E2B64B;box-shadow:0 2px 0 #B98A2E, 0 0 0 2px #E2B64B inset, 0 4px 12px rgba(185,138,46,.4)}
+.tile.multi::after{content:"";position:absolute;inset:0;border-radius:8px;pointer-events:none;
+  background:linear-gradient(120deg,transparent 40%,rgba(255,245,200,.65) 50%,transparent 60%);
+  background-size:250% 100%;animation:shimmer 2.6s linear infinite}
+@keyframes shimmer{0%{background-position:160% 0}100%{background-position:-60% 0}}
+.tile .mult-badge{position:absolute;left:3px;top:3px;font-family:var(--ui);font-size:.5rem;font-weight:900;
+  color:#5A3E00;background:linear-gradient(180deg,#FBE08A,#E2B64B);border:1px solid #C8972E;border-radius:4px;
+  padding:0 3px;line-height:1.25;z-index:3;box-shadow:0 1px 2px rgba(120,80,0,.3)}
+.tile.clone .glyph-sub{font-size:.5rem;letter-spacing:.05em;position:absolute;bottom:4px;left:0;right:0;text-align:center;font-family:var(--ui);font-weight:800;color:#7A6CA8}
+.tile .fu-star{position:absolute;right:1px;top:0;font-size:.62em;line-height:1;z-index:3;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25))}
+.tile .lu-end{position:absolute;left:1px;bottom:0;font-size:.55em;line-height:1;z-index:3;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25))}
+.tile.clone .clone-mark{position:absolute;right:2px;top:1px;font-size:.5em;line-height:1;color:#7A6CA8;z-index:3}
+
+/* Free jazz tile */
+.tile.jazz{background:linear-gradient(180deg,#2B2740,#43395E);border-color:#6B5A8E;color:#fff;box-shadow:0 2px 0 #1C1830,0 4px 11px rgba(60,40,100,.35)}
+.tile.jazz .glyph{font-size:1.3em;filter:drop-shadow(0 1px 2px rgba(0,0,0,.45))}
+.tile.jazz .glyph-sub{position:absolute;bottom:4px;left:0;right:0;text-align:center;font-family:var(--ui);font-size:.5rem;font-weight:900;letter-spacing:.12em;color:#E2B64B}
+.tile.jazz.spent{filter:grayscale(.75);opacity:.5}
+
+/* Wild vowel tile — tie-dye field with a combined-vowel glyph */
+.tile.wildvowel{border-color:#C77BB0;color:#fff;background:conic-gradient(from 0deg,#FE704E,#FFCF00,#48D3CD,#7A4FB0,#FE704E)}
+.tile.wildvowel::before{content:"";position:absolute;inset:0;border-radius:8px;pointer-events:none;mix-blend-mode:screen;
+  background:radial-gradient(circle at 30% 24%,rgba(255,255,255,.55),transparent 38%),radial-gradient(circle at 72% 76%,rgba(255,255,255,.42),transparent 40%)}
+.tile.wildvowel .glyph{position:relative;z-index:2;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+.tile.wildvowel .val{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6);z-index:2}
+.tile.wildvowel .clone-mark{position:absolute;right:2px;top:1px;font-size:.5em;color:#fff;z-index:3;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.tile.wildvowel .glyph-sub{position:absolute;bottom:4px;left:0;right:0;text-align:center;font-family:var(--ui);font-size:.5rem;font-weight:900;letter-spacing:.1em;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.55);z-index:2}
+.wv-design{position:relative;z-index:2;display:inline-block;width:1.25em;height:1.25em}
+.wv-stack{position:absolute;inset:0}
+.wv-stack i{position:absolute;left:50%;top:50%;font-style:normal;font-family:var(--serif);font-weight:700;font-size:.6em;opacity:.5;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5);transform:translate(-50%,-52%) rotate(var(--r))}
+.wv-stack i:nth-child(3){opacity:1;font-size:.82em}
+.tile.dealing{animation:dealIn .42s cubic-bezier(.2,.7,.2,1) both}
+@keyframes dealIn{0%{opacity:0;transform:translateY(-24px) rotate(-6deg) scale(.8)}60%{opacity:1}100%{opacity:1;transform:none}}
+.tile.glow{animation:tileGlow .8s ease-out, lockPop .45s ease-out}
+@keyframes tileGlow{0%{box-shadow:0 2px 0 #C9B98F,0 0 0 0 rgba(60,110,99,0)}35%{box-shadow:0 2px 0 #C9B98F,0 0 22px 6px rgba(60,110,99,.5)}100%{box-shadow:0 2px 0 #C9B98F,0 0 0 0 rgba(60,110,99,0)}}
+@keyframes lockPop{0%{transform:scale(.86)}55%{transform:scale(1.07)}100%{transform:scale(1)}}
+.tile.pop{animation:lockPop .25s ease}
+.tile.fly-out{animation:flyOut .4s ease forwards}
+@keyframes flyOut{to{opacity:0;transform:translateY(-30px) scale(.6) rotate(8deg)}}
+.dragclone{position:fixed;z-index:200;pointer-events:none;transform:translate(-50%,-50%) rotate(-3deg) scale(1.06);
+  box-shadow:0 14px 30px rgba(35,32,46,.34)}
+.tile.drag-source{opacity:0 !important;pointer-events:none}   /* the moving gap the others slide around */
+.drop-hover{outline:2px dashed var(--moss);outline-offset:3px;border-radius:10px}
+
+/* letter juice */
+.cell-juice{position:absolute;left:50%;top:50%;width:0;height:0;z-index:5;pointer-events:none}
+.cell-juice .ring{position:absolute;left:0;top:0;width:18px;height:18px;margin:-9px 0 0 -9px;border-radius:50%;border:2px solid var(--brass);opacity:.9;animation:jRing .55s ease-out forwards}
+.cell-juice .spark{position:absolute;left:0;top:0;width:6px;height:6px;margin:-3px 0 0 -3px;border-radius:50%;background:var(--jc,var(--brass));animation:jSpark .6s ease-out forwards}
+@keyframes jRing{0%{transform:scale(.4);opacity:.9}100%{transform:scale(2.7);opacity:0}}
+@keyframes jSpark{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--tx),var(--ty)) scale(.2);opacity:0}}
+
+/* ---------- Overlays (title, shop, deck, over) ---------- */
+.overlay{position:fixed;inset:0;z-index:60;display:flex;align-items:stretch;justify-content:center;
+  background:rgba(35,32,46,.34);backdrop-filter:blur(3px);overflow-y:auto}
+.sheet{background:var(--page);width:100%;max-width:620px;margin:auto;min-height:100%;
+  padding:calc(20px + env(safe-area-inset-top,0)) 18px calc(24px + env(safe-area-inset-bottom,0));
+  display:flex;flex-direction:column}
+.sheet-center{justify-content:center;text-align:center}
+
+/* title */
+.brand{font-family:var(--serif);font-weight:700;font-size:3rem;line-height:.95;letter-spacing:-.01em}
+.brand .amp{color:var(--brass)}
+.brand-sub{font-size:.68rem;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-soft);font-weight:800;margin-top:8px}
+.title-art{font-family:var(--serif);font-size:1rem;letter-spacing:.3em;color:var(--brass-deep);margin:22px 0 26px}
+.field{display:flex;gap:8px;justify-content:center;margin:8px 0}
+.field input{background:var(--paper);border:1px solid var(--tile-edge);border-radius:10px;padding:11px 13px;font-size:1rem;font-family:var(--ui);color:var(--ink);text-align:center;width:170px}
+.field input:focus{outline:none;border-color:var(--brass)}
+.menu-btn{display:block;width:100%;max-width:300px;margin:9px auto 0;padding:15px;border-radius:12px;border:none;cursor:pointer;
+  background:var(--ink);color:var(--paper);font-weight:800;font-size:1rem;letter-spacing:.02em}
+.pause-fab{position:fixed;top:calc(env(safe-area-inset-top,0px) + 10px);left:10px;z-index:80;width:40px;height:40px;border-radius:50%;
+  border:1px solid var(--tile-edge);background:#fff;color:var(--ink);font-size:18px;line-height:1;cursor:pointer;
+  box-shadow:0 3px 10px rgba(10,20,90,.16);-webkit-tap-highlight-color:transparent;touch-action:manipulation;display:flex;align-items:center;justify-content:center}
+.pause-fab:active{transform:scale(.92)}
+.clone-choice .cc-cost{display:block;font-size:.7rem;font-weight:800;color:var(--brass-deep);margin-top:2px}
+.deck-perks{margin:6px 2px 2px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
+.deck-perks .dp-title{width:100%;font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);font-weight:800;margin-bottom:2px}
+.deck-perks .dp-chip{font-size:.74rem;font-weight:700;color:var(--ink);background:var(--paper);border:1px solid var(--tile-edge);border-radius:999px;padding:5px 10px}
+.deck-perks .dp-none{font-size:.78rem;font-style:italic;color:var(--ink-soft)}
+.menu-btn:active{transform:translateY(1px)}
+.menu-btn.alt{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
+#continueBtn{background:var(--moss)}
+/* clone chooser */
+.clone-sheet{background:var(--page);border-radius:16px;padding:22px 20px;max-width:340px;width:100%;margin:auto;text-align:center;box-shadow:0 18px 50px rgba(35,32,46,.3)}
+.clone-title{font-family:var(--serif);font-weight:700;font-size:1.4rem}
+.clone-sub{font-size:.78rem;color:var(--ink-soft);margin:4px 0 16px}
+.clone-choices{display:flex;flex-wrap:wrap;gap:9px;justify-content:center;margin-bottom:18px;max-height:46vh;overflow-y:auto}
+.clone-choice{position:relative;width:48px;height:60px;border-radius:8px;background:linear-gradient(180deg,#FCF8EE,var(--tile));
+  border:1px solid var(--tile-edge);box-shadow:0 2px 0 #C9B98F,0 3px 7px rgba(35,32,46,.14);
+  font-family:var(--serif);font-weight:600;font-size:1.6rem;color:var(--ink);cursor:pointer}
+.clone-choice:active{transform:translateY(1px)}
+.clone-choice .cc-val{position:absolute;right:5px;bottom:3px;font-family:var(--ui);font-size:.6rem;font-weight:800;color:var(--ink-soft)}
+
+/* wild-vowel fan-out chooser */
+.vowel-overlay{position:fixed;inset:0;z-index:60;background:rgba(20,18,30,.55);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);opacity:0;transition:opacity .2s ease}
+.vowel-overlay.show{opacity:1}
+.vowel-overlay.hidden{display:none}
+.vowel-cap{position:absolute;left:0;right:0;top:calc(env(safe-area-inset-top,0px) + 20px);text-align:center;color:#fff;font-family:var(--ui);font-weight:800;letter-spacing:.14em;text-transform:uppercase;font-size:.7rem;opacity:.9}
+.vowel-fan{position:absolute;left:var(--cx,50%);top:var(--cy,50%);width:0;height:0}
+.vowel-choice{position:absolute;left:0;top:0;width:56px;height:68px;margin:-34px 0 0 -28px;border:none;border-radius:11px;
+  background:linear-gradient(180deg,#FCF8EE,var(--tile));box-shadow:0 6px 16px rgba(0,0,0,.34);
+  font-family:var(--serif);font-weight:700;font-size:1.8rem;color:var(--ink);cursor:pointer;
+  display:flex;align-items:center;justify-content:center;
+  transform:translate(0,0) scale(.2);opacity:0;
+  animation:vowelPop .44s cubic-bezier(.34,1.56,.64,1) forwards}
+.vowel-choice .vc-l{position:relative;z-index:2}
+.vowel-choice .vc-v{position:absolute;right:6px;bottom:4px;font-family:var(--ui);font-size:.6rem;font-weight:800;color:var(--ink-soft)}
+.vowel-choice:hover{filter:brightness(1.04)}
+.vowel-choice:active{filter:brightness(.95)}
+@keyframes vowelPop{
+  0%{transform:translate(0,0) scale(.2);opacity:0}
+  50%{transform:translate(calc(var(--dx)*1.1),calc(var(--dy)*1.1)) scale(1.18,.82);opacity:1}
+  72%{transform:translate(var(--dx),var(--dy)) scale(.9,1.12)}
+  100%{transform:translate(var(--dx),var(--dy)) scale(1,1);opacity:1}
+}
+.vowel-overlay .menu-btn{position:absolute;left:50%;bottom:calc(env(safe-area-inset-bottom,0px) + 30px);transform:translateX(-50%)}
+@media (prefers-reduced-motion:reduce){
+  .vowel-choice{transform:translate(var(--dx),var(--dy)) !important;opacity:1 !important}
+}
+.gild-price{font-family:var(--serif);font-weight:700;font-size:1.7rem;color:var(--brass-deep);margin:6px 0 2px}
+.gild-price .c-ico{font-size:1.1rem;margin-right:3px}
+.gild-note{font-size:.72rem;color:var(--ink-soft)}
+.gild-actions{display:flex;gap:10px;justify-content:center;margin-top:14px}
+.howto{max-width:380px;margin:24px auto 0;text-align:left;font-size:.84rem;line-height:1.5;color:var(--ink)}
+.howto b{color:var(--oxblood)}
+.ver{margin-top:18px;font-size:.62rem;letter-spacing:.1em;color:var(--ink-soft);font-weight:700}
+
+/* shop */
+.sheet-head{display:flex;align-items:center;justify-content:space-between;margin-bottom:4px}
+.sheet-title{font-family:var(--serif);font-weight:700;font-size:1.7rem}
+.sheet-title small{display:block;font-family:var(--ui);font-size:.58rem;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft);font-weight:800;margin-top:2px}
+.shop-grid{display:grid;grid-template-columns:1fr 1fr;gap:10px;margin:16px 0}
+.offer{background:var(--paper);border:1px solid var(--tile-edge);border-radius:14px;padding:14px 12px;display:flex;flex-direction:column;align-items:center;text-align:center;gap:7px;position:relative;min-height:150px;justify-content:space-between}
+.offer.sold{opacity:.4}
+/* rarity edges */
+.offer.r-common{border-left:5px solid #7FB0C4}
+.offer.r-uncommon{border-left:5px solid #5AA46B}
+.offer.r-rare{border-left:5px solid #6A6FE0}
+.offer.r-epic{border-left:5px solid #B05BC0;box-shadow:0 0 16px rgba(176,91,192,.18),0 1px 0 #fff inset}
+.offer.r-legendary{border-left:5px solid #E2A12B;box-shadow:0 0 20px rgba(226,161,43,.30),0 1px 0 #fff inset;background:linear-gradient(180deg,#FFFDF6,#FBF3DE)}
+.offer.r-legendary .o-kind{color:#A9761A;font-weight:900}
+.offer.r-common .o-kind{color:#3F7E96}
+.offer.r-uncommon .o-kind{color:#3C7A52}
+.offer.r-rare .o-kind{color:#3E47B0}
+.offer.r-epic .o-kind{color:#8E3BA0}
+.offer .o-art{font-size:2rem;line-height:1;margin-top:4px}
+.offer .o-art .mini-tile{display:inline-flex;align-items:center;justify-content:center;width:46px;height:56px;border-radius:7px;background:linear-gradient(180deg,#FCF8EE,var(--tile));border:1px solid var(--tile-edge);box-shadow:0 2px 0 #C9B98F;font-family:var(--serif);font-weight:600;font-size:1.5rem;position:relative}
+.offer .o-art .mini-tile.upg{background:linear-gradient(180deg,#FBEFC9,#F3DFA0);border-color:#D8B85C}
+.offer .o-art .mini-tile .mv{position:absolute;right:4px;bottom:2px;font-family:var(--ui);font-size:.5rem;font-weight:800;color:var(--ink-soft)}
+.offer .o-art .mini-tile.wv-mini{background:conic-gradient(from 0deg,#FE704E,#FFCF00,#48D3CD,#7A4FB0,#FE704E);border-color:#C77BB0;color:#fff;overflow:hidden}
+.offer .o-art .mini-tile.wv-mini .wv-design{width:1.25em;height:1.25em}
+.offer .o-name{font-family:var(--serif);font-weight:600;font-size:1rem;line-height:1.15}
+.offer .o-desc{font-size:.72rem;color:var(--ink-soft);line-height:1.3}
+.offer .o-kind{position:absolute;top:8px;left:10px;font-size:.5rem;letter-spacing:.14em;text-transform:uppercase;font-weight:800;color:var(--brass-deep)}
+.buy-btn{width:100%;border:none;border-radius:9px;padding:9px;font-weight:800;font-size:.84rem;cursor:pointer;background:var(--brass);color:#241a02;display:flex;align-items:center;justify-content:center;gap:5px}
+.buy-btn:disabled{background:var(--page-deep);color:var(--ink-soft);cursor:not-allowed}
+.buy-btn .c-ico{font-size:.92rem}
+.shop-tools{display:flex;gap:10px;margin-top:auto;padding-top:6px}
+.shop-underrow{display:flex;gap:10px;justify-content:center;margin-top:12px}
+.shop-underrow .icon-btn{margin:0}
+.reroll-btn{flex:1;background:transparent;border:1.5px solid var(--tile-edge);border-radius:12px;padding:13px;font-weight:800;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
+.reroll-btn:disabled{opacity:.4;cursor:not-allowed}
+.next-btn{flex:1.3;background:var(--ink);color:var(--paper);border:none;border-radius:12px;padding:13px;font-weight:800;cursor:pointer}
+.purse{font-weight:800;color:var(--brass-deep);display:flex;align-items:center;gap:5px;font-size:1rem}
+
+/* deck overlay */
+.deck-list{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;margin:16px 0;align-content:flex-start}
+.deck-tile{position:relative}
+.deck-tile.selectable{cursor:pointer;outline:2px solid transparent;border-radius:9px;transition:outline-color .12s ease, transform .1s ease}
+.deck-tile.selectable:hover{transform:translateY(-3px)}
+.deck-tile.selectable.danger:hover{outline-color:var(--oxblood)}
+.deck-tile.selectable.gild:hover{outline-color:var(--brass)}
+.deck-summary{font-size:.78rem;color:var(--ink-soft);text-align:center;line-height:1.5}
+.select-hint{text-align:center;font-size:.86rem;font-weight:800;color:var(--oxblood);margin:6px 0 2px}
+.select-hint.gild{color:var(--brass-deep)}
+
+/* over screen */
+.over-result{font-family:var(--serif);font-weight:700;font-size:2.2rem;margin-bottom:6px}
+.over-result.win{color:var(--moss)}
+.over-result.lose{color:var(--oxblood)}
+.stat-line{font-size:.95rem;color:var(--ink);margin:3px 0}
+.stat-line b{font-family:var(--serif)}
+
+/* toast + coin/score floaters */
+.toast{position:fixed;left:50%;bottom:24px;transform:translateX(-50%) translateY(18px);background:var(--ink);color:var(--paper);
+  padding:11px 18px;border-radius:999px;font-size:.84rem;font-weight:800;opacity:0;pointer-events:none;
+  transition:opacity .25s ease,transform .25s ease;z-index:300}
+.toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
+.floater{position:fixed;z-index:250;pointer-events:none;font-family:var(--serif);font-weight:700;animation:floatUp 1s ease-out forwards}
+@keyframes floatUp{0%{opacity:0;transform:translate(-50%,0) scale(.8)}20%{opacity:1}100%{opacity:0;transform:translate(-50%,-46px) scale(1.1)}}
+.coin-fly{position:fixed;z-index:250;pointer-events:none;font-size:18px;animation:coinFly .7s ease-out forwards}
+@keyframes coinFly{0%{opacity:1;transform:translate(-50%,-50%) scale(.6)}100%{opacity:0;transform:translate(calc(-50% + var(--cx)),calc(-50% + var(--cy))) scale(1.1)}}
+
+@media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
+@media (max-width:380px){
+  .tile{width:44px;height:56px;font-size:1.5rem}
+  .brand{font-size:2.5rem}
+  .shop-grid{gap:8px}
+}
+/* ---------- words-left + discard digits ---------- */
+.turns .tnum{font-family:var(--serif);font-size:1.15rem;font-weight:800;color:var(--ink);line-height:1}
+.turns .tnum.low{color:var(--oxblood);animation:lastPulse 1.1s ease-in-out infinite}
+.turns .tlabel{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);font-weight:800}
+.discard-lab b{font-size:1rem;color:#fff}
+.btn-warn.low{opacity:.55}
+
+/* ---------- danger halo ---------- */
+#dangerHalo{position:fixed;inset:0;z-index:40;pointer-events:none;opacity:0;
+  box-shadow:inset 0 0 80px 10px rgba(158,59,46,.0);
+  transition:opacity .5s ease, box-shadow .5s ease}
+#dangerHalo.show{opacity:1;box-shadow:inset 0 0 70px 8px rgba(158,59,46,.30);animation:haloPulse 2.4s ease-in-out infinite}
+#dangerHalo.strong{box-shadow:inset 0 0 150px 26px rgba(158,59,46,.5);animation:haloPulse 1.5s ease-in-out infinite}
+@keyframes haloPulse{0%,100%{filter:brightness(1)}50%{filter:brightness(1.5)}}
+
+/* ---------- screen shake ---------- */
+#app.shake{animation:screenShake .5s cubic-bezier(.36,.07,.19,.97) both}
+@keyframes screenShake{
+  10%{transform:translate(calc(var(--shakeAmp,6px)*-1),calc(var(--shakeAmp,6px)*.4))}
+  20%{transform:translate(var(--shakeAmp,6px),calc(var(--shakeAmp,6px)*-.5))}
+  30%{transform:translate(calc(var(--shakeAmp,6px)*-.8),var(--shakeAmp,6px))}
+  45%{transform:translate(calc(var(--shakeAmp,6px)*.7),calc(var(--shakeAmp,6px)*-.4))}
+  60%{transform:translate(calc(var(--shakeAmp,6px)*-.5),calc(var(--shakeAmp,6px)*.3))}
+  80%{transform:translate(calc(var(--shakeAmp,6px)*.3),calc(var(--shakeAmp,6px)*-.2))}
+  100%{transform:translate(0,0)}
+}
+
+/* ---------- big score burst ---------- */
+.burst{position:fixed;z-index:150;width:0;height:0;pointer-events:none}
+.burst .b-flash{position:absolute;left:0;top:0;width:calc(var(--fr)*2);height:calc(var(--fr)*2);margin:calc(var(--fr)*-1) 0 0 calc(var(--fr)*-1);
+  border-radius:50%;background:radial-gradient(closest-side,rgba(255,221,90,.85),rgba(255,200,0,.35) 45%,rgba(255,200,0,0) 75%);
+  animation:bFlash .5s ease-out forwards}
+@keyframes bFlash{0%{opacity:0;transform:scale(.3)}30%{opacity:1}100%{opacity:0;transform:scale(1.2)}}
+.burst .b-ring{position:absolute;left:0;top:0;width:calc(var(--r)*2);height:calc(var(--r)*2);margin:calc(var(--r)*-1) 0 0 calc(var(--r)*-1);
+  border-radius:50%;border:3px solid rgba(255,207,0,.85);box-shadow:0 0 14px rgba(255,207,0,.6);
+  transform:scale(.2);opacity:.9;animation:bRing 1s ease-out forwards}
+@keyframes bRing{0%{transform:scale(.2);opacity:.95}100%{transform:scale(1);opacity:0}}
+.burst .b-spark{position:absolute;left:0;top:0;border-radius:50%;
+  box-shadow:0 0 8px rgba(255,207,0,.7);transform:translate(0,0);opacity:1;animation:bSpark 1s ease-out forwards}
+.burst .b-spark.streak{border-radius:2px;width:3px !important}
+@keyframes bSpark{0%{transform:translate(0,0) scale(1);opacity:1}100%{transform:translate(var(--tx),var(--ty)) scale(.2);opacity:0}}
+
+/* ---------- level summary ---------- */
+.sum-eyebrow{font-size:.6rem;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-soft);font-weight:800}
+.sum-round{font-family:var(--serif);font-weight:700;font-size:2rem;margin:6px 0 20px;color:var(--moss)}
+.sum-highlights{display:flex;flex-direction:column;gap:10px;max-width:360px;margin:0 auto;width:100%}
+.sum-card{background:var(--paper);border:1px solid var(--tile-edge);border-radius:12px;padding:12px 14px;display:flex;flex-direction:column;gap:3px;align-items:center}
+.sum-best{border-color:#D8B85C;background:linear-gradient(180deg,#FBF3DC,var(--paper))}
+.sum-row{display:flex;gap:10px}
+.sum-row .sum-card{flex:1}
+.sum-k{font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);font-weight:800}
+.sum-v{font-family:var(--serif);font-weight:700;font-size:1.2rem;color:var(--ink)}
+.sum-best .sum-v{font-size:1.35rem}
+.sum-best .sum-v b{letter-spacing:.06em}
+.sum-purse{display:flex;align-items:center;justify-content:center;gap:8px;margin:22px 0 4px;
+  font-family:var(--serif);font-weight:800;font-size:2.4rem;color:var(--brass-deep)}
+.sum-purse .c-ico{font-size:1.6rem;color:var(--brass)}
+.sum-purse #sumCoins.tickpop{animation:lockPop .18s ease}
+.sum-breakdown{font-size:.78rem;color:var(--ink-soft);font-weight:700}
+
+</style>
+</head>
+<body>
+<div id="dangerHalo" aria-hidden="true"></div>
+<div id="app">
+  <!-- HUD -->
+  <header id="hud" class="hidden">
+    <button id="pauseBtn" class="pause-fab hidden" type="button" aria-label="Pause">☰</button>
+    <div class="hud-row">
+      <div class="hud-side" aria-hidden="true"></div>
+      <div class="hud-center">
+        <div class="level-tag" id="levelTag"><span class="lvl-word" id="levelWord">Round</span> <span id="levelNum">1</span></div>
+        <div class="coins" id="coins"><span class="c-ico">◉</span><span id="coinNum">0</span></div>
+      </div>
+      <div class="hearts" id="hearts" aria-label="Lives"></div>
+    </div>
+    <div class="progress-wrap">
+      <div class="progress-meta">
+        <span class="score-now" id="scoreNow">0</span>
+        <span class="target">need <b id="targetNum">0</b><small class="to-go" id="toGo">0 to go</small></span>
+      </div>
+      <div class="bar" id="bar"><i id="barFill"></i></div>
+    </div>
+  </header>
+
+  <!-- Play area -->
+  <main id="play" class="hidden">
+    <div class="play-center">
+    <div class="eyebrow">Word Canvas</div>
+    <div class="canvas-wrap">
+      <div class="canvas empty" id="canvas" aria-label="Word you are forging"></div>
+      <div class="canvas-foot">
+        <span class="live-word bad" id="liveWord">—</span>
+        <span class="live-score" id="liveScore"></span>
+      </div>
+    </div>
+
+    <div class="turns" id="turns"></div>
+
+    <div class="actions">
+      <button class="btn btn-warn" id="discardBtn" disabled>
+        Discard<span class="discard-lab" id="discardLab">3 left</span>
+      </button>
+      <button class="btn btn-primary" id="submitBtn" disabled>Set the word</button>
+    </div>
+
+    <div class="def-strip hidden" id="defStrip" aria-live="polite"></div>
+    </div><!-- /play-center -->
+
+    <div class="hand-wrap">
+      <div class="hand-meta">
+        <button class="icon-btn" id="deckBtn">Deck · <span id="deckCountInline">20</span></button>
+        <button class="icon-btn" id="shuffleBtn"><span class="ic">⇄</span> Shuffle</button>
+        <button class="icon-btn" id="recallBtn">Clear canvas</button>
+      </div>
+      <div class="hand" id="hand"></div>
+    </div>
+  </main>
+</div>
+
+<!-- ===== Title ===== -->
+<div class="overlay" id="titleScreen">
+  <div class="sheet sheet-center">
+    <div class="brand">Letter<span class="amp">ati</span></div>
+    <div class="brand-sub">A Wordlike Deckbuilder</div>
+    <div class="title-art">A · B · C · … · X · Y · Z</div>
+    <button class="menu-btn hidden" id="continueBtn">Continue run</button>
+    <button class="menu-btn" id="playBtn">Start a run</button>
+    <div class="field">
+      <input id="seedInput" placeholder="seed (optional)" autocomplete="off" autocapitalize="characters" spellcheck="false" />
+      <button class="menu-btn alt" id="seedBtn" style="margin:0;width:auto;padding:11px 16px">Use seed</button>
+    </div>
+    <div class="howto">
+      <p><b>Forge words</b> from the 7 letter slugs in your case. Longer words and rarer letters score more. Set a word and its letters shuffle back into your deck — you'll draw a fresh 7.</p>
+      <p>Beat each round's <b>target</b> within your <b>words</b> (turns). Run out short and you go into <b>overtime</b> — each extra word costs a heart (you have five), keeping your score and hand, until the target falls or your hearts run out.</p>
+      <p>Stuck with junk? Drop letters on the canvas and tap <b>Discard</b> to swap them (3 a round). The same word can be set as many times as you like.</p>
+      <p>Clear a round to earn coins for the <b>print shop</b>: new letters, gilding, perks and more. Beat all <b>8 rounds</b> to win the press — then push your luck in <b>endless</b> if you dare.</p>
+    </div>
+    <div class="ver" id="verTag"></div>
+    <button class="menu-btn alt" id="optionsBtn" style="max-width:300px;margin-top:6px">Options</button>
+  </div>
+</div>
+
+<!-- ===== Level summary ===== -->
+<div class="overlay hidden" id="summaryScreen">
+  <div class="sheet sheet-center">
+    <div class="sum-eyebrow">Round complete</div>
+    <div class="sum-round" id="sumRound">Round 1 cleared</div>
+    <div class="sum-highlights">
+      <div class="sum-card sum-best">
+        <span class="sum-k">Best word</span>
+        <span class="sum-v" id="sumBest">—</span>
+      </div>
+      <div class="sum-row">
+        <div class="sum-card"><span class="sum-k">Score</span><span class="sum-v" id="sumScore">0 / 0</span></div>
+        <div class="sum-card"><span class="sum-k">Words set</span><span class="sum-v" id="sumWords">0</span></div>
+      </div>
+    </div>
+    <div class="sum-purse">
+      <span class="c-ico">◉</span><span id="sumCoins">0</span>
+    </div>
+    <div class="sum-breakdown" id="sumBreakdown"></div>
+    <button class="menu-btn" id="sumNextBtn" style="margin-top:20px">To the print shop →</button>
+  </div>
+</div>
+
+<!-- ===== Shop ===== -->
+<div class="overlay hidden" id="shopScreen">
+  <div class="sheet">
+    <div class="sheet-head">
+      <div class="sheet-title">The Print Shop<small id="shopRound">after round 1</small></div>
+      <div class="purse"><span class="c-ico">◉</span><span id="shopCoins">0</span></div>
+    </div>
+    <div class="shop-grid" id="shopGrid"></div>
+    <div class="shop-tools">
+      <button class="reroll-btn" id="rerollBtn">↻ Reroll · <span id="rerollCost">2</span><span class="c-ico">◉</span></button>
+      <button class="next-btn" id="nextBtn">Next round →</button>
+    </div>
+    <div class="shop-underrow">
+      <button class="icon-btn" id="shopUndoBtn" disabled>↩ Undo</button>
+      <button class="icon-btn" id="shopDeckBtn">View deck</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== Deck ===== -->
+<div class="overlay hidden" id="deckScreen">
+  <div class="sheet">
+    <div class="sheet-head">
+      <div class="sheet-title">Your Deck<small id="deckCount">20 letters</small></div>
+      <button class="icon-btn" id="deckCloseBtn">Close</button>
+    </div>
+    <div class="select-hint hidden" id="selectHint"></div>
+    <div class="deck-list" id="deckList"></div>
+    <div class="deck-perks" id="deckPerks"></div>
+    <div class="deck-summary" id="deckSummary"></div>
+  </div>
+</div>
+
+<!-- ===== Game over / win ===== -->
+<div class="overlay hidden" id="overScreen">
+  <div class="sheet sheet-center">
+    <div class="over-result" id="overResult">Game Over</div>
+    <div id="overStats"></div>
+    <button class="menu-btn" id="overNewBtn" style="margin-top:22px">New run</button>
+    <button class="menu-btn alt" id="overSeedBtn">Replay this seed</button>
+    <button class="menu-btn alt" id="overQuitBtn">Quit to title</button>
+  </div>
+</div>
+
+<!-- ===== Run won (all 8 rounds) ===== -->
+<div class="overlay hidden" id="winScreen">
+  <div class="sheet sheet-center">
+    <div class="over-result win">You Win the Press</div>
+    <div id="winStats"></div>
+    <button class="menu-btn" id="winEndlessBtn" style="margin-top:22px">Keep printing — Endless →</button>
+    <button class="menu-btn alt" id="winFinishBtn">Finish &amp; savor it</button>
+    <button class="menu-btn alt" id="winQuitBtn">Quit to title</button>
+  </div>
+</div>
+
+<div class="toast" id="toast"></div>
+
+<!-- ===== Clone chooser ===== -->
+<div class="overlay hidden" id="cloneChooser">
+  <div class="clone-sheet">
+    <div class="clone-title">Clone which letter?</div>
+    <div class="clone-sub">It becomes a copy for this word.</div>
+    <div class="clone-choices" id="cloneChoices"></div>
+    <button class="menu-btn alt" id="cloneCancel" style="max-width:200px">Cancel</button>
+  </div>
+</div>
+
+<div class="vowel-overlay hidden" id="vowelChooser">
+  <div class="vowel-cap">Pick a vowel</div>
+  <div class="vowel-fan" id="vowelFan"></div>
+  <button class="menu-btn alt" id="vowelCancel" style="max-width:200px">Cancel</button>
+</div>
+
+<div class="overlay hidden" id="gildConfirm">
+  <div class="clone-sheet">
+    <div class="clone-title">Gild this letter?</div>
+    <div class="clone-sub" id="gildMsg">—</div>
+    <div class="gild-price" id="gildPrice"></div>
+    <div class="gild-actions">
+      <button class="menu-btn alt" id="gildNo" style="max-width:150px">Cancel</button>
+      <button class="menu-btn" id="gildYes" style="max-width:190px">Gild</button>
+    </div>
+  </div>
+</div>
+
+<!-- ===== First-up / Finale letter chooser ===== -->
+<div class="overlay hidden" id="bonusChooser">
+  <div class="clone-sheet">
+    <div class="clone-title" id="bonusTitle">Pick a letter</div>
+    <div class="clone-sub" id="bonusSub">—</div>
+    <div class="clone-choices" id="bonusChoices"></div>
+    <button class="menu-btn alt" id="bonusCancel" style="max-width:200px">Cancel</button>
+  </div>
+</div>
+
+<!-- ===== Pause menu (in-run) ===== -->
+<div class="overlay hidden" id="pauseScreen">
+  <div class="sheet sheet-center">
+    <div class="over-result">Paused</div>
+    <div id="pauseStats" style="color:var(--ink-soft);font-size:.85rem;margin:6px 0 4px"></div>
+    <button class="menu-btn" id="pauseResumeBtn" style="margin-top:18px">Resume</button>
+    <button class="menu-btn alt" id="pauseExportBtn">Export this run's stats</button>
+    <button class="menu-btn alt" id="pauseQuitBtn">Quit to title</button>
+  </div>
+</div>
+
+<!-- ===== Options (title) ===== -->
+<div class="overlay hidden" id="optionsScreen">
+  <div class="sheet sheet-center">
+    <div class="over-result">Options</div>
+    <div style="color:var(--ink-soft);font-size:.85rem;margin:6px 0 4px">Run data is recorded locally and can be exported as JSON. Online sync is coming later.</div>
+    <button class="menu-btn" id="optExportBtn" style="margin-top:18px">Export last run's stats</button>
+    <button class="menu-btn alt" id="optBackBtn">Back</button>
+  </div>
+</div>
+
+<script src="letterati-dictionary.js"></script>
+<script>
+/* ============================================================
+   WORD LIST — ENABLE ∪ open word list (words_alpha), family-filtered,
+   capped at 12 letters for playability. ~330k words. FIRST PASS:
+   the family filter is exact-match only and MUST get an editorial
+   review before any public release.
+   ============================================================ */
+const WORD_BLOB = (typeof window!=="undefined" && window.WORD_BLOB) ? window.WORD_BLOB : "";
+const WORDS = new Set(WORD_BLOB.split("\n"));
+if(!(typeof window!=="undefined" && window.WORD_BLOB)){ try{ window.addEventListener("DOMContentLoaded",function(){document.body.innerHTML='<div style="font-family:system-ui;max-width:560px;margin:16vh auto;padding:24px;text-align:center;color:#3a2f2a;line-height:1.5">'+'<h2>Dictionary not loaded</h2><p>The word list <code>letterati-dictionary.js</code> could not be found. Put it in the <b>same folder</b> as this page, named exactly <code>letterati-dictionary.js</code>.</p></div>';}); }catch(e){} }
+
+/* ------------------------------------------------------------
+   EXTRA_WORDS — curated supplement layered on top of the big
+   general list (ENABLE ∪ open word list). Two jobs:
+     1. MODERN words that even large open lists miss (selfie, emoji,
+        vape…) — these are the proprietary NWL/Collins-era additions,
+        so they're hand-added here rather than licensed.
+     2. A VETTED proper-noun SCIENCE / GEOGRAPHY set (planets, eras,
+        elements, landforms, taxa) for PBS's educational angle.
+   All lowercase so proper nouns (e.g. "pangaea") still match.
+   FIRST PASS — still needs a human editorial sweep before release.
+   ------------------------------------------------------------ */
+const EXTRA_WORDS = [
+  // --- everyday slang / modern usage ---
+  "homie","homies","homey","homeys","bestie","besties","selfie","selfies",
+  "emoji","emojis","meme","memes","memed","blog","blogs","blogger","bloggers",
+  "vlog","vlogs","vlogger","podcast","podcasts","hashtag","hashtags","retweet",
+  "retweets","upvote","upvotes","downvote","downvotes","unfriend","unfriended",
+  "screenshot","screenshots","photobomb","photobombed","staycation","staycations",
+  "brunch","brunches","cosplay","cosplays","foodie","foodies","frenemy","frenemies",
+  "hangry","chillax","bromance","squad","squads","vibe","vibes","vibing","glam",
+  "legit","binge","binged","bingeing","glitch","glitches","glitchy","techie","techies",
+  "geeky","nerdy","avatar","avatars","emoticon","emoticons","gamer","gamers","spam",
+  "malware","wifi","internet","online","offline","app","apps","googled",
+  "googling","trending","influencer","influencers","crowdfund","crowdfunding",
+  "upcycle","upcycled","upcycling","wholesome","awesomeness","vape","vapes","vaping",
+  "selfcare","emojify","fistbump","sidehustle","megapixel","smartphone","smartwatch",
+  // --- geography: continents, supercontinents, oceans ---
+  "africa","asia","europe","antarctica","australia","america","oceania",
+  "pangaea","pangea","gondwana","laurasia","rodinia","pannotia",
+  "atlantic","pacific","arctic","antarctic","mediterranean","caribbean","baltic",
+  // --- geography: mountains, rivers, deserts, regions ---
+  "everest","kilimanjaro","denali","andes","alps","himalaya","himalayas","rockies",
+  "ararat","etna","vesuvius","matterhorn","fuji",
+  "nile","amazon","ganges","danube","volga","congo","mekong","yangtze","tigris",
+  "thames","rhine","rhone","seine","zambezi","yukon","colorado",
+  "sahara","gobi","kalahari","mojave","atacama","sonoran","namib",
+  "tundra","savanna","savannah","steppe","taiga","fjord","fjords","atoll","atolls",
+  "peninsula","isthmus","plateau","canyon","glacier","glaciers","geyser","geysers",
+  "delta","estuary","monsoon","monsoons","equator","tropics","sahel","outback",
+  "prairie","prairies","bayou","mangrove","mangroves","reef","reefs","caldera",
+  // --- astronomy / space ---
+  "mercury","venus","mars","jupiter","saturn","uranus","neptune","pluto",
+  "luna","titan","europa","ganymede","callisto","phobos","deimos","triton","charon",
+  "ceres","enceladus","andromeda","cosmos","galaxies","asteroid","asteroids",
+  "comet","comets","meteor","meteors","meteorite","meteoroid","eclipse","eclipses",
+  "solstice","equinox","zodiac","orbital","spacecraft","satellite","satellites",
+  "telescope","telescopes","astronaut","astronauts","cosmonaut","lightyear",
+  "parsec","parsecs","wormhole","aurora","auroras","hubble","kepler","sputnik",
+  "apollo","voyager","cassini","copernicus","nebulae","quasars","pulsars",
+  // --- chemistry: elements (educational, often missing) ---
+  "hydrogen","helium","lithium","beryllium","boron","carbon","nitrogen","oxygen",
+  "fluorine","neon","sodium","magnesium","aluminum","aluminium","silicon","sulfur",
+  "sulphur","chlorine","argon","potassium","calcium","titanium","vanadium",
+  "chromium","manganese","cobalt","nickel","copper","gallium","germanium","arsenic",
+  "selenium","bromine","krypton","rubidium","strontium","yttrium","zirconium",
+  "niobium","molybdenum","ruthenium","rhodium","palladium","cadmium","indium",
+  "antimony","tellurium","iodine","xenon","cesium","caesium","barium","lanthanum",
+  "cerium","samarium","europium","terbium","holmium","erbium","thulium","ytterbium",
+  "lutetium","hafnium","tantalum","tungsten","rhenium","osmium","iridium","platinum",
+  "thallium","bismuth","polonium","astatine","radon","francium","radium","actinium",
+  "thorium","uranium","neptunium","plutonium","americium","curium",
+  // --- physics ---
+  "electron","electrons","proton","protons","neutron","neutrons","molecule",
+  "molecules","velocity","momentum","inertia","friction","voltage","ampere","amperes",
+  "joule","joules","kelvin","newton","newtons","pascal","hertz","watt","watts",
+  "kilowatt","magnetism","photonics","refraction","wavelength","frequency","amplitude",
+  "resonance","quantum","quanta","relativity","kinetic","radiation","radioactive",
+  // --- biology / life ---
+  "nucleus","nuclei","cytoplasm","membrane","membranes","chromosome","chromosomes",
+  "genetics","hormone","hormones","bacteria","bacterium","virus","viruses",
+  "protozoa","amoeba","amoebas","paramecium","mitosis","meiosis","osmosis",
+  "respiration","digestion","evolution","adaptation","mutation","mutations",
+  "habitat","habitats","organism","organisms","mammal","mammals","reptile","reptiles",
+  "amphibian","amphibians","arthropod","mollusk","mollusks","marsupial","primate",
+  "primates","predator","predators","herbivore","carnivore","omnivore","omnivores",
+  "pollination","krill","larva","larvae","pupa","pupae",
+  // --- science: physics/chem/space (legacy set) ---
+  "tectonic","tectonics","subduction","magma","basalt","igneous","sedimentary",
+  "quartzite","photon","photons","quark","quarks","gluon","gluons","boson","bosons",
+  "lepton","leptons","neutrino","neutrinos","isotope","isotopes","quasar","pulsar",
+  "nebula","supernova","supernovae","supernovas","exoplanet","exoplanets","redshift",
+  "redshifts","spacetime","antimatter","fusion","fission","plasma","entropy","catalyst",
+  "catalysts","polymer","polymers","nanotube","nanotubes","graphene","semiconductor",
+  // --- biology / earth / life (legacy set) ---
+  "genome","genomes","genomic","ribosome","ribosomes","organelle","organelles",
+  "mitochondria","chloroplast","chloroplasts","chlorophyll","photosynthesis","biome",
+  "biomes","ecosystem","ecosystems","biodiversity","microbe","microbes","microbial",
+  "pathogen","pathogens","antibody","antibodies","antigen","antigens","vaccine","vaccines",
+  "enzyme","enzymes","protein","proteins","peptide","peptides","plankton","mycelium",
+  "neuron","neurons","synapse","synapses","dendrite","dendrites","biomarker","biomarkers",
+  // --- paleontology / geology eras ---
+  "fossilized","dinosaurian","jurassic","triassic","cretaceous","cambrian","devonian",
+  "permian","silurian","ordovician","paleozoic","mesozoic","cenozoic","precambrian",
+  "hominid","hominids","hominin","hominins","neanderthal","neanderthals","trilobite",
+  "trilobites","ammonite","ammonites","stratum","strata","mammoth","mammoths",
+  "mastodon","mastodons","raptor","raptors","velociraptor","stegosaurus","triceratops",
+  "pterodactyl","brontosaurus","allosaurus","sabertooth","sediment","sediments","amber",
+  // --- math / general science ---
+  "algebra","geometry","calculus","equation","equations","theorem","theorems",
+  "fraction","fractions","integer","integers","polygon","polygons","hexagon",
+  "pentagon","octagon","symmetry","fractal","fractals","infinity","logarithm",
+  "exponent","variable","variables","hypothesis","experiment"
+];
+EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
+
+/* ============================================================
+   Config / tunables
+   ============================================================ */
+const VERSION = "1g";
+const WIN_LEVEL = 8;   // clear this round to WIN; afterwards, optional endless mode
+const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10};
+// Scrabble-bag style weights — E most common; AIOU vowels common; SNRT common
+// consonants; JKQXZ rarest. Used to roll the starting deck and shop letters.
+const BAG_WEIGHTS = {E:12,A:9,I:9,O:8,N:6,R:6,T:6,L:4,S:4,U:4,D:4,G:3,B:2,C:2,M:2,P:2,F:2,H:2,V:2,W:2,Y:2,K:1,J:1,X:1,Q:1,Z:1};
+const VOWELS = new Set(["A","E","I","O","U"]);
+const START_DECK = 24;
+const DECK_VOWEL_MIN = Math.round(START_DECK*0.30);   // 7 at 24, 6 at 20
+const DECK_VOWEL_MAX = Math.round(START_DECK*0.55);   // 13 at 24, 11 at 20
+const START_HAND = 7;
+const GILD_BASE = 6;   // base price to gild a fresh letter (doubles per existing gild)
+const HANDS_PER_LEVEL = 4;     // "turns" — words you may set
+const DISCARDS_PER_LEVEL = 3;
+const PRICE_MULTIPLIER = 1.22; // per-round shop inflation (GGW used ~1.46)
+const MAX_HEARTS = 5;
+const COIN_CAP = 12;           // economy guard rail (caps base payout only)
+const INTEREST_CAP = 10;       // max compound-interest payout per round
+
+function lenMult(n){ return n<=3?1 : n===4?1.5 : (n-3); }   // 5→2,6→3,7→4,8→5,9→6… uncapped
+function targetFor(level){ return Math.round((20 + 8*(level-1)) * Math.pow(1.28, level-1)); }
+
+/* ============================================================
+   Seeded RNG — namespaced streams (deck / shop / level), GGW-style
+   ============================================================ */
+function xfnv1a(str){let h=2166136261>>>0;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
+function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
+function makeRng(label){ return mulberry32(xfnv1a(String(G.seed)+"::"+label)); }
+function shuffle(arr,rng){const a=arr.slice();for(let i=a.length-1;i>0;i--){const j=Math.floor(rng()*(i+1));[a[i],a[j]]=[a[j],a[i]];}return a;}
+function weightedLetter(rng,weights){
+  const entries=Object.entries(weights);let tot=0;entries.forEach(([,w])=>tot+=w);
+  let r=rng()*tot;for(const [L,w] of entries){r-=w;if(r<=0)return L;}return entries[0][0];
+}
+
+/* ============================================================
+   Game state + card factory
+   ============================================================ */
+let cardSeq=0;
+function makeLetterCard(letter){ return {id:++cardSeq, kind:"letter", letter, base:LETTER_VALUES[letter], upLevel:0, mult:1}; }
+function makeCloneCard(){ return {id:++cardSeq, kind:"clone", letter:null, base:0, upLevel:0, mult:1, cloneLetter:null}; }
+function makeJazzCard(){ return {id:++cardSeq, kind:"jazz", letter:null, base:0, upLevel:0, mult:1, jazzLeft:3}; }
+const JAZZ_USES=3;
+function canvasUsableJazz(){ return G.canvas.some(c=>c.kind==="jazz" && (c.jazzLeft||0)>0); }
+function makeWildVowelCard(){ return {id:++cardSeq, kind:"wildvowel", letter:null, base:0, upLevel:0, mult:1, vowel:null}; }
+function cardValue(c){ return (c.base|0) * Math.pow(2, c.upLevel||0); }   // points double per gild, no cap
+function gildLevel(c){ return c.upLevel||0; }
+function valHtml(c){ const p=cardValue(c), g=gildLevel(c); return p + (g>0?'<i class="up-sup">'+g+'</i>':''); }
+function cardMult(c){ return c.mult||1; }                        // per-tile score multiplier (e.g. 1.5×)
+
+const G = {
+  seed:null, level:1, hearts:MAX_HEARTS, coins:0, handSize:START_HAND,
+  deck:[],                 // run-long collection of cards
+  perks:{ firstUp:{}, lastUp:{}, discardMoneyBoost:false, interest:false, twinsies:false,
+          vowelPower:false, fireSale:false, bigWords:false, freeRerolls:false },
+  scoreMult:1,             // global "press multiplier" perk (compounds)
+  extraDiscards:0, extraTurns:0, jazzCharges:0,
+  wordsPlayed:0, runScore:0, runBestWord:"", runBestScore:0, levelStats:{bestWord:"",bestScore:0,words:0},
+  // per-level
+  attempt:0, target:0, score:0, handsLeft:0, discardsLeft:0,
+  drawPile:[], hand:[], canvas:[], played:[],
+  // win / endless
+  infinite:false, wonRun:false,
+  // ui transient
+  paused:false, bonusKind:null, bonusOfferIdx:null, stats:null, _curShop:null,
+  // shop
+  shopOffers:[], rerollCount:0, shopUndo:[],
+  // deck overlay select mode
+  selectMode:null,         // null | "remove" | "gild"
+  best:1, runMs:0
+};
+/* ---------- run timer (counts only while a run is in focus) ---------- */
+let runTicking=false, runSince=0, hasFocus=true;
+function runActive(){ return !!G.seed && ( !$("play").classList.contains("hidden") || !$("shopScreen").classList.contains("hidden") ); }
+function tickFlush(){ if(runTicking){ const now=Date.now(); G.runMs+=now-runSince; runSince=now; } }
+function syncTimer(){
+  const want = runActive() && !document.hidden && hasFocus && !G.paused;
+  if(want && !runTicking){ runSince=Date.now(); runTicking=true; }
+  else if(!want && runTicking){ G.runMs+=Date.now()-runSince; runTicking=false; }
+}
+function fmtDuration(ms){
+  const s=Math.max(0,Math.floor(ms/1000)), m=Math.floor(s/60), h=Math.floor(m/60);
+  return h>0 ? h+":"+String(m%60).padStart(2,"0")+":"+String(s%60).padStart(2,"0")
+             : m+":"+String(s%60).padStart(2,"0");
+}
+
+/* ---------- starting deck ---------- */
+function rollStartingDeck(){
+  const rng=makeRng("deck");
+  const MAX_DUP=3;   // never more than 3 of the same letter to open with
+  const drawCapped=(rng)=>{
+    const letters=[], counts={};
+    for(let i=0;i<START_DECK;i++){
+      let L,guard=0;
+      do { L=weightedLetter(rng,BAG_WEIGHTS); guard++; } while((counts[L]||0)>=MAX_DUP && guard<60);
+      counts[L]=(counts[L]||0)+1; letters.push(L);
+    }
+    return {letters,counts};
+  };
+  let cards=null;
+  for(let tries=0;tries<400;tries++){
+    const {letters,counts}=drawCapped(rng);
+    const v=letters.filter(L=>VOWELS.has(L)).length;
+    const hi=letters.filter(L=>LETTER_VALUES[L]>1).length;
+    const maxRep=Math.max(...Object.values(counts));
+    if(v>=DECK_VOWEL_MIN && v<=DECK_VOWEL_MAX && hi>=2 && maxRep<=MAX_DUP){ cards=letters.map(makeLetterCard); break; }
+  }
+  if(!cards){
+    const rng2=makeRng("deck2");
+    cards=drawCapped(rng2).letters.map(makeLetterCard);   // still capped at 3
+  }
+  // two starting multiplier slugs (1.5×), only on letters worth more than 1 point
+  const eligible=shuffle(cards.filter(c=>c.base>1),rng);
+  eligible.slice(0,2).forEach(c=>{ c.mult=1.5; });
+  return cards;
+}
+
+/* ============================================================
+   Seed predictor — a loose-but-skilled bot plays the whole run
+   under the SAME rules as the game, so we can reject any seed a
+   competent player couldn't clear. Used by the seed generator.
+   ============================================================ */
+let _ANA=null;
+function anaSet(){
+  if(_ANA) return _ANA;
+  _ANA=new Set();
+  for(const w of WORDS){ if(w.length<2||w.length>12||!/^[a-z]+$/.test(w)) continue; _ANA.add(w.split("").sort().join("")); }
+  return _ANA;
+}
+function predRoll(seed){
+  const rng=mulberry32(xfnv1a(String(seed)+"::deck")); const MAX=3;
+  const draw=(rng)=>{const L=[],c={};for(let i=0;i<START_DECK;i++){let x,g=0;do{x=weightedLetter(rng,BAG_WEIGHTS);g++;}while((c[x]||0)>=MAX&&g<60);c[x]=(c[x]||0)+1;L.push(x);}return{L,c};};
+  let ls=null;
+  for(let t=0;t<400;t++){const{L,c}=draw(rng);const v=L.filter(x=>VOWELS.has(x)).length,hi=L.filter(x=>LETTER_VALUES[x]>1).length,mx=Math.max(...Object.values(c));if(v>=DECK_VOWEL_MIN&&v<=DECK_VOWEL_MAX&&hi>=2&&mx<=MAX){ls=L;break;}}
+  if(!ls) ls=draw(mulberry32(xfnv1a(String(seed)+"::deck2"))).L;
+  const cards=ls.map(L=>({letter:L,base:LETTER_VALUES[L],mult:1,up:0}));
+  const el=shuffle(cards.filter(c=>c.base>1),rng); el.slice(0,2).forEach(c=>c.mult=1.5);
+  return cards;
+}
+let _predLevel=1;
+function predPx(base,fire){ const infl=Math.pow(1.1,Math.max(0,(_predLevel||1)-1)); return Math.max(1,Math.round(base*0.65*(fire?0.75:1)*infl)); }
+function predCV(c){ return c.base*Math.pow(2,c.up||0); }
+function predScore(t,P){
+  let s=0; t.forEach(x=>{let v=predCV(x)*(x.mult||1); if(P.vowelPower&&VOWELS.has(x.letter))v*=2; s+=v;});
+  let m=lenMult(t.length); if(P.bigWords)m=1+(m-1)*2;
+  let tot=s*m; if(t.length>=P.handSize)tot*=1.5; tot*=P.scoreMult||1; return Math.round(tot);
+}
+function predBest(hand,P){
+  const A=anaSet(),n=hand.length,lim=1<<n; let b=0,bt=null;
+  for(let mask=1;mask<lim;mask++){let c=0;for(let i=0;i<n;i++)if(mask&(1<<i))c++;if(c<2)continue;const sub=[];for(let i=0;i<n;i++)if(mask&(1<<i))sub.push(hand[i]);const k=sub.map(x=>x.letter.toLowerCase()).sort().join("");if(!A.has(k))continue;const sc=predScore(sub,P);if(sc>b){b=sc;bt=sub;}}
+  return {score:b,tiles:bt};
+}
+function predLevel(P,seed){
+  const rng=mulberry32(xfnv1a(String(seed)+"::lvl:"+P.level+":0"));
+  let pile=shuffle(P.deck,rng).slice(); let hand=[]; const draw=()=>{while(hand.length<P.handSize&&pile.length)hand.push(pile.shift());}; draw();
+  let score=0,hl=4+(P.extraTurns||0);
+  while(true){
+    if(score>=targetFor(P.level)) return {res:"clear",hl,score};
+    if(hl<=0){ P.hearts--; if(P.hearts<=0) return {res:"fail"}; hl=1; }
+    const {score:s,tiles}=predBest(hand,P);
+    if(!tiles){ hl--; if(hand.length){pile.push(hand.shift());draw();} continue; }
+    score+=s; const used=new Set(tiles); hand=hand.filter(t=>!used.has(t)); pile.push(...tiles); draw(); hl--;
+  }
+}
+function predShop(P){
+  _predLevel=P.level;
+  const fire=false, reserve=1; let buys=0; const maxBuys=99;   // skilled spender for the "played well" bar
+  const buy=(p,f)=>{ if(buys>=maxBuys||P.coins-p<reserve) return false; P.coins-=p; f(); buys++; return true; };
+  if(!P.vowelPower) buy(predPx(5,fire),()=>P.vowelPower=true);
+  if(!P.bigWords)   buy(predPx(12,fire),()=>P.bigWords=true);
+  buy(predPx(11,fire),()=>{ const inc=0.2/(1+0.4*((P.scoreMult||1)-1)); P.scoreMult=Math.round(((P.scoreMult||1)+inc)*100)/100; });
+  { let best=null; P.deck.forEach(c=>{ if((c.up||0)<3 && (!best||predCV(c)>predCV(best))) best=c; });
+    if(best){ const cost=predPx((GILD_BASE/2+predCV(best))*Math.pow(2,best.up||0),fire); buy(cost,()=>best.up=(best.up||0)+1); } }
+  { const added=Math.max(0,P.handSize-START_HAND); buy(predPx(9*Math.pow(2,added),fire),()=>P.handSize++); }
+  buy(predPx(10,fire),()=>P.extraTurns++);
+  { const L="SRTEN"[Math.floor(((P.level*2654435761)>>>0)%5)]; buy(predPx(2+Math.ceil(LETTER_VALUES[L]/2),fire),()=>P.deck.push({letter:L,base:LETTER_VALUES[L],mult:1,up:0})); }
+}
+function predictSeed(seed){
+  const P={level:1,hearts:MAX_HEARTS,coins:0,handSize:START_HAND,extraTurns:0,scoreMult:1,vowelPower:false,bigWords:false,deck:predRoll(seed)};
+  for(P.level=1;P.level<=WIN_LEVEL;P.level++){
+    const r=predLevel(P,seed);
+    if(r.res==="fail") return {winnable:false,round:P.level};
+    let b=4; const o=r.score-targetFor(P.level); b+=Math.min(5,Math.floor(o/Math.max(8,targetFor(P.level)*0.4))); b+=Math.max(0,r.hl); b=Math.max(2,Math.min(COIN_CAP,b));
+    P.coins+=b+DISCARDS_PER_LEVEL;
+    if(P.level<WIN_LEVEL) predShop(P);
+  }
+  return {winnable:true,round:WIN_LEVEL,heartsLeft:P.hearts};
+}
+function generateValidatedSeed(){
+  for(let i=0;i<40;i++){ const s=randomSeed(); try{ if(predictSeed(s).winnable) return s; }catch(e){ return s; } }
+  return randomSeed();
+}
+const $=id=>document.getElementById(id);
+function reduceMotion(){ return window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches; }
+function haptic(p){ try{ if(navigator.vibrate) navigator.vibrate(p); }catch(e){} }
+let toastTimer;
+function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),1700); }
+function popEl(el){ if(!el)return; el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
+function spawnCellJuice(cell,opts){
+  if(!cell||reduceMotion())return; opts=opts||{};
+  const j=document.createElement("span"); j.className="cell-juice";
+  const ring=document.createElement("span"); ring.className="ring"; j.appendChild(ring);
+  const N=opts.n||7;
+  for(let i=0;i<N;i++){
+    const s=document.createElement("span"); s.className="spark";
+    const ang=(Math.PI*2*i/N)+(Math.random()*0.6-0.3); const d=14+Math.random()*16;
+    s.style.setProperty("--tx",(Math.cos(ang)*d).toFixed(1)+"px");
+    s.style.setProperty("--ty",(Math.sin(ang)*d).toFixed(1)+"px");
+    if(opts.color)s.style.setProperty("--jc",opts.color);
+    s.style.animationDelay=(Math.random()*40).toFixed(0)+"ms";
+    j.appendChild(s);
+  }
+  cell.appendChild(j); setTimeout(()=>j.remove(),720);
+}
+function floatText(x,y,text,color){
+  const f=document.createElement("div"); f.className="floater"; f.textContent=text;
+  f.style.left=x+"px"; f.style.top=y+"px"; f.style.color=color||"var(--brass-deep)"; f.style.fontSize="1.4rem";
+  document.body.appendChild(f); setTimeout(()=>f.remove(),1000);
+}
+function coinBurst(fromX,fromY,n){
+  if(reduceMotion())return;
+  const tgt=$("coins").getBoundingClientRect();
+  for(let i=0;i<n;i++){
+    const c=document.createElement("div"); c.className="coin-fly"; c.textContent="◉"; c.style.color="var(--brass)";
+    c.style.left=fromX+"px"; c.style.top=fromY+"px";
+    c.style.setProperty("--cx",(tgt.left+tgt.width/2-fromX).toFixed(0)+"px");
+    c.style.setProperty("--cy",(tgt.top+tgt.height/2-fromY).toFixed(0)+"px");
+    c.style.animationDelay=(i*55)+"ms";
+    document.body.appendChild(c); setTimeout(()=>c.remove(),760+i*55);
+  }
+}
+
+/* ---------- audio (WebAudio blips) ---------- */
+let audioCtx=null;
+function audio(){
+  try{
+    if(!audioCtx){ const AC=window.AudioContext||window.webkitAudioContext; if(AC) audioCtx=new AC(); }
+    if(audioCtx && audioCtx.state==="suspended") audioCtx.resume();
+  }catch(e){}
+  return audioCtx;
+}
+function blip(freq,dur,vol,type){
+  const ac=audio(); if(!ac) return;
+  dur=dur||0.07; vol=vol==null?0.12:vol; type=type||"triangle";
+  const o=ac.createOscillator(), g=ac.createGain();
+  o.type=type; o.frequency.value=freq;
+  const t=ac.currentTime;
+  g.gain.setValueAtTime(0,t);
+  g.gain.linearRampToValueAtTime(vol,t+0.008);
+  g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g); g.connect(ac.destination);
+  o.start(t); o.stop(t+dur+0.02);
+}
+function submitSound(power){
+  // a soft thump that deepens + a sparkle that brightens with the score
+  blip(120+power*90, 0.16, 0.13, "sawtooth");
+  blip(520+power*620, 0.12, 0.10, "triangle");
+}
+
+/* ---------- screen shake ---------- */
+function screenShake(amp){
+  const el=$("app"); if(!el||reduceMotion()) return;
+  el.style.setProperty("--shakeAmp", Math.round(amp)+"px");
+  el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake");
+  setTimeout(()=>el.classList.remove("shake"), 560);
+}
+
+/* ---------- big celebratory burst, scaled by score ---------- */
+function bigBurst(x,y,power){
+  if(reduceMotion()) return;
+  const t=Math.max(0,Math.min(1,power));
+  const cont=document.createElement("div"); cont.className="burst";
+  cont.style.left=x+"px"; cont.style.top=y+"px";
+  const life=620+Math.round(t*1000);          // 0.62s … 1.62s
+  const maxR=72+Math.round(t*240);            // radius 72 … 312
+  const rings=2+Math.round(t*6);              // 2 … 8 rings
+  for(let i=0;i<rings;i++){
+    const r=document.createElement("span"); r.className="b-ring";
+    r.style.setProperty("--r",(maxR*(0.45+0.55*(i+1)/rings)).toFixed(0)+"px");
+    r.style.animationDuration=(life*(0.7+0.3*(i+1)/rings)).toFixed(0)+"ms";
+    r.style.animationDelay=(i*55)+"ms";
+    cont.appendChild(r);
+  }
+  const flash=document.createElement("span"); flash.className="b-flash";
+  flash.style.setProperty("--fr",(maxR*0.95).toFixed(0)+"px");
+  cont.appendChild(flash);
+  const cols=["#FFD23F","#FFE98A","#F6B41E","#FFF6CC","#FFC400"];
+  const sparks=16+Math.round(t*48);           // 16 … 64
+  for(let i=0;i<sparks;i++){
+    const s=document.createElement("span"); s.className="b-spark";
+    const ang=Math.random()*Math.PI*2, dist=maxR*(0.35+Math.random()*0.85);
+    s.style.setProperty("--tx",(Math.cos(ang)*dist).toFixed(1)+"px");
+    s.style.setProperty("--ty",(Math.sin(ang)*dist).toFixed(1)+"px");
+    const sz=3+Math.random()*(3+t*8);
+    s.style.width=sz.toFixed(1)+"px"; s.style.height=sz.toFixed(1)+"px";
+    s.style.background=cols[i%cols.length];
+    s.style.animationDuration=(life*(0.55+Math.random()*0.5)).toFixed(0)+"ms";
+    s.style.animationDelay=(Math.random()*90).toFixed(0)+"ms";
+    if(t>0.5 && i%5===0) s.classList.add("streak");   // streaky sparks on big hits
+    cont.appendChild(s);
+  }
+  document.body.appendChild(cont);
+  setTimeout(()=>cont.remove(), life+260);
+}
+
+/* ---------- Balatro-style coin count-up with rising-pitch ticks ---------- */
+function coinCountUp(el,from,to,done){
+  let cur=from; el.textContent=cur;
+  const total=to-from;
+  if(total<=0){ el.textContent=to; if(done)done(); return; }
+  const stepMs=Math.max(45,Math.min(150,Math.floor(1000/total)));
+  let i=0;
+  const timer=setInterval(()=>{
+    cur++; i++; el.textContent=cur;
+    el.classList.remove("tickpop"); void el.offsetWidth; el.classList.add("tickpop");
+    blip(300*Math.pow(1.05,i-1), 0.06, 0.13, "triangle");
+    if(cur>=to){ clearInterval(timer); blip(880,0.16,0.12,"triangle"); if(done)done(); }
+  }, stepMs);
+}
+function renderHud(){
+  let h=""; for(let i=0;i<MAX_HEARTS;i++) h+=`<span class="heart${i<G.hearts?"":" spent"}">♥</span>`;
+  $("hearts").innerHTML=h;
+  $("levelNum").textContent=G.level;
+  { const lt=$("levelTag"); if(lt){ lt.classList.toggle("endless", !!G.infinite);
+      const lw=$("levelWord"); if(lw) lw.textContent = G.infinite ? "Endless" : "Round"; } }
+  $("coinNum").textContent=G.coins;
+  $("scoreNow").textContent=G.score;
+  $("targetNum").textContent=G.target;
+  setToGo(G.score);
+  const pct=Math.min(100,Math.round(G.score/G.target*100));
+  $("barFill").style.width=pct+"%";
+  $("bar").classList.toggle("met",G.score>=G.target);
+  { const dc=$("deckCountInline"); if(dc) dc.textContent=G.deck.length; }
+  $("discardLab").innerHTML=`<b>${G.discardsLeft}</b> left`;
+  $("discardBtn").classList.toggle("low",G.discardsLeft===0);
+  let dots="";
+  const totalTurns=HANDS_PER_LEVEL+G.extraTurns;
+  for(let i=0;i<totalTurns;i++){
+    const on=i<G.handsLeft;
+    dots+=`<span class="dot${on?(G.handsLeft===1?" last":" on"):""}"></span>`;
+  }
+  $("turns").innerHTML=`<b class="tnum${G.handsLeft===1?" low":""}">${G.handsLeft}</b> <span class="tlabel">word${G.handsLeft===1?"":"s"} left</span> <span class="dots">${dots}</span>`;
+  // danger halo: faint at one heart OR one word; bigger when both
+  const halo=$("dangerHalo");
+  if(halo){
+    const oneHeart=G.hearts===1, oneWord=G.handsLeft===1;
+    halo.classList.toggle("show", oneHeart||oneWord);
+    halo.classList.toggle("strong", oneHeart&&oneWord);
+  }
+}
+
+/* ============================================================
+   Render: tiles, hand, canvas
+   ============================================================ */
+function tileGlyph(c){
+  if(c.kind==="clone") return c.cloneLetter ? c.cloneLetter : "❖";
+  if(c.kind==="jazz") return "🎷";
+  if(c.kind==="wildvowel") return c.vowel ? c.vowel : "✺";
+  return c.letter;
+}
+function isFirstUp(c){ return c.kind==="letter" && (G.perks.firstUp[c.letter]||0)>0; }
+function isLastUp(c){ return c.kind==="letter" && (G.perks.lastUp[c.letter]||0)>0; }
+function tileBadges(t,c){
+  if(isFirstUp(c)){ const s=document.createElement("span"); s.className="fu-star"; s.textContent="⭐"; t.appendChild(s); }
+  if(isLastUp(c)){ const e=document.createElement("span"); e.className="lu-end"; e.textContent="🔚"; t.appendChild(e); }
+  if(cardMult(c)!==1){ const m=document.createElement("span"); m.className="mult-badge"; m.textContent=cardMult(c)+"×"; t.appendChild(m); }
+}
+function buildTile(c,where){
+  const t=document.createElement("button");
+  const assignedClone = c.kind==="clone" && c.cloneLetter;
+  const wildSet = c.kind==="wildvowel" && c.vowel;
+  const jazzSpent = c.kind==="jazz" && (c.jazzLeft||0)<=0;
+  t.className="tile "
+    +(c.kind==="clone"?"clone ":"")
+    +(c.kind==="jazz"?"jazz ":"")
+    +(c.kind==="wildvowel"?"wildvowel ":"")
+    +(jazzSpent?"spent ":"")
+    +(gildLevel(c)>0?"upgraded ":"")+(cardMult(c)!==1?"multi ":"")
+    +(isFirstUp(c)?"firstup ":"")+(isLastUp(c)?"lastup ":"");
+  t.dataset.id=c.id;
+
+  if(c.kind==="jazz"){
+    const g=document.createElement("span"); g.className="glyph"; g.textContent="🎷"; t.appendChild(g);
+    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent=(c.jazzLeft||0)+"/"+JAZZ_USES; t.appendChild(s);
+    attachTileHandlers(t,c,where); return t;
+  }
+  if(c.kind==="wildvowel" && !wildSet){
+    const d=document.createElement("span"); d.className="wv-design"; d.innerHTML=wildVowelDesignHTML(); t.appendChild(d);
+    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="WILD"; t.appendChild(s);
+    attachTileHandlers(t,c,where); return t;
+  }
+
+  const g=document.createElement("span"); g.className="glyph";
+  g.textContent = wildSet ? c.vowel : tileGlyph(c); t.appendChild(g);
+  if(c.kind==="clone" && !c.cloneLetter){
+    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="CLONE"; t.appendChild(s);
+  } else if(assignedClone){
+    const v=document.createElement("span"); v.className="val"; v.textContent=LETTER_VALUES[c.cloneLetter]; t.appendChild(v);
+    const cm=document.createElement("span"); cm.className="clone-mark"; cm.textContent="❖"; t.appendChild(cm);
+  } else if(wildSet){
+    const v=document.createElement("span"); v.className="val"; v.textContent=LETTER_VALUES[c.vowel]; t.appendChild(v);
+    const cm=document.createElement("span"); cm.className="clone-mark"; cm.textContent="✺"; t.appendChild(cm);
+  } else {
+    const v=document.createElement("span"); v.className="val"; v.innerHTML=valHtml(c); t.appendChild(v);
+  }
+  tileBadges(t,c);
+  attachTileHandlers(t,c,where);
+  return t;
+}
+function wildVowelDesignHTML(){
+  return '<span class="wv-stack">'
+    +'<i style="--r:-30deg">A</i><i style="--r:-15deg">E</i><i style="--r:0deg">I</i>'
+    +'<i style="--r:15deg">O</i><i style="--r:30deg">U</i></span>';
+}
+/* size tiles so a row always fits on one line, shrinking as it grows */
+function fitRow(el,count,o){
+  if(count<=0){ el.style.removeProperty("--tw"); el.style.removeProperty("--th"); el.style.removeProperty("--tfs"); el.style.setProperty("--tgap",o.gap+"px"); return; }
+  const cs=getComputedStyle(el);
+  const avail=el.clientWidth-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0);
+  if(avail<=0) return;
+  let gap=o.gap;
+  let w=Math.floor((avail-gap*(count-1))/count);
+  w=Math.max(o.min,Math.min(o.max,w));
+  // if even min width overflows, tighten the gap
+  if(count*w+gap*(count-1)>avail){ gap=Math.max(2,Math.floor((avail-count*w)/Math.max(1,count-1))); }
+  const h=Math.round(w*o.ratio);
+  const fs=(w/o.fsDiv).toFixed(2);
+  el.style.setProperty("--tw",w+"px");
+  el.style.setProperty("--th",h+"px");
+  el.style.setProperty("--tfs",fs+"rem");
+  el.style.setProperty("--tgap",gap+"px");
+}
+function fitHand(){ fitRow($("hand"),G.hand.length,{min:30,max:50,ratio:1.24,fsDiv:29,gap:6}); }
+function fitCanvas(){ fitRow($("canvas"),G.canvas.length,{min:24,max:54,ratio:1.24,fsDiv:29,gap:7}); }
+function renderHand(){
+  const el=$("hand"); el.innerHTML="";
+  G.hand.forEach(c=>{ el.appendChild(buildTile(c,"hand")); });
+  fitHand();
+}
+function renderCanvas(){
+  const el=$("canvas"); el.innerHTML="";
+  el.classList.toggle("empty",G.canvas.length===0);
+  G.canvas.forEach(c=>{ const t=buildTile(c,"canvas"); t.classList.add("placed"); el.appendChild(t); });
+  fitCanvas();
+  updateLive();
+}
+function shuffleHand(){
+  if(!G.hand.length) return;
+  const rng=makeRng("handshuf:"+G.level+":"+G.attempt+":"+(G.reshuffleCount++)+":"+Date.now());
+  G.hand=shuffle(G.hand,rng);
+  renderHand();
+  // gentle re-deal flourish
+  const tiles=[...$("hand").querySelectorAll(".tile")];
+  tiles.forEach((t,i)=>{ t.classList.add("dealing"); t.style.animationDelay=(i*35)+"ms"; });
+  haptic(10); save();
+}
+
+/* resolve clones: each clone becomes the letter to its left */
+function resolvedCanvas(){
+  const out=[];
+  for(let i=0;i<G.canvas.length;i++){
+    const c=G.canvas[i];
+    if(c.kind==="jazz"){ continue; }   // marker, not a scored letter
+    if(c.kind==="clone"){
+      const L=c.cloneLetter;
+      out.push(L?{letter:L,value:LETTER_VALUES[L]||0,mult:1,clone:true,card:c}:{letter:null,value:0,mult:1,clone:true,card:c});
+    } else if(c.kind==="wildvowel"){
+      const L=c.vowel;
+      out.push(L?{letter:L,value:LETTER_VALUES[L]||0,mult:1,wild:true,card:c}:{letter:null,value:0,mult:1,wild:true,card:c});
+    } else {
+      out.push({letter:c.letter,value:cardValue(c),mult:cardMult(c),card:c});
+    }
+  }
+  return out;
+}
+function canvasHasJazz(){ return G.canvas.some(c=>c.kind==="jazz"); }
+function isRealWord(){
+  const res=resolvedCanvas();
+  if(res.length<2 || res.some(r=>!r.letter)) return false;
+  return WORDS.has(res.map(r=>r.letter.toLowerCase()).join(""));
+}
+function jazzSubmit(){ return canvasUsableJazz() && !isRealWord() && resolvedCanvas().filter(r=>r.letter).length>=2; }
+function currentWord(){ return resolvedCanvas().map(r=>r.letter||"·").join(""); }
+function wordValid(){
+  const res=resolvedCanvas();
+  if(res.length<2) return false;
+  if(res.some(r=>!r.letter)) return false; // unresolved clone / wild vowel
+  if(WORDS.has(res.map(r=>r.letter.toLowerCase()).join(""))) return true;
+  if(canvasUsableJazz()) return true;   // free jazz: anything goes while uses remain
+  return false;
+}
+function scoreOf(res){
+  let sum=0;
+  res.forEach((r)=>{
+    let v=r.value*(r.mult||1);
+    if(G.perks.vowelPower && VOWELS.has(r.letter)) v*=2;
+    sum+=v;
+  });
+  let m=lenMult(res.length);
+  if(G.perks.bigWords) m=1+(m-1)*2;             // double the length bonus above ×1
+  m=Math.round(m*100)/100;
+  let total=sum*m;
+  let bingo=false;
+  if(res.length>=G.handSize){ total*=1.5; bingo=true; }
+  // First-up / Finale: stackable. A letter with s stacks multiplies the whole
+  // word by (1 + s) when the word starts (first-up) / ends (finale) with it.
+  const fuStacks = res.length>0 ? (G.perks.firstUp[res[0].letter]||0) : 0;
+  const luStacks = res.length>0 ? (G.perks.lastUp[res[res.length-1].letter]||0) : 0;
+  if(fuStacks>0) total*=(1+fuStacks);
+  if(luStacks>0) total*=(1+luStacks);
+  // Twinsies: ×2 when two identical letters sit side by side in the word.
+  let twinHit=false;
+  if(G.perks.twinsies){ for(let i=1;i<res.length;i++){ if(res[i].letter===res[i-1].letter){ twinHit=true; break; } } }
+  if(twinHit) total*=2;
+  total*=(G.scoreMult||1);
+  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,twinHit};
+}
+function updateLive(){
+  const res=resolvedCanvas();
+  const lw=$("liveWord"), ls=$("liveScore");
+  if(res.length===0){ lw.textContent="—"; lw.className="live-word bad"; ls.textContent=""; updateButtons(); return; }
+  const w=currentWord();
+  const sc=scoreOf(res);
+  const valid=wordValid();
+  lw.textContent=w;
+  lw.className="live-word "+(valid?"ok":"bad");
+  let label=valid?(jazzSubmit()?"free jazz 🎷":""):(res.length<2?"":"not a word");
+  const parts=[`${sc.sum} base`, `×${sc.mult} length`];
+  if(sc.press!==1) parts.push(`×${sc.press.toFixed(2)} press`);
+  if(sc.bingo) parts.push(`×1.5 full case`);
+  if(sc.firstHit) parts.push(`×${1+sc.fuStacks} first`);
+  if(sc.lastHit) parts.push(`×${1+sc.luStacks} finale`);
+  if(sc.twinHit) parts.push(`×2 twins`);
+  ls.innerHTML = `${sc.total} <span class="mult">${parts.join(" ")}${label?" • "+label:""}</span>`;
+  updateButtons();
+}
+function updateButtons(){
+  const jazz=jazzSubmit();
+  $("submitBtn").disabled = !wordValid() || G.handsLeft<=0;
+  $("submitBtn").textContent = jazz ? "Free jazz 🎷" : "Set the word";
+  $("submitBtn").classList.toggle("jazzing", jazz);
+  $("discardBtn").disabled = G.canvas.length===0 || G.discardsLeft<=0;
+}
+
+/* ============================================================
+   Interactions: tap + drag (ported & adapted from Verbatim)
+   ============================================================ */
+let drag=null, justDragged=false;
+const DRAG_THRESHOLD=6;
+function attachTileHandlers(el,card,where){
+  el.addEventListener("pointerdown",e=>onTileDown(e,el,card,where));
+  el.addEventListener("click",e=>{
+    if(justDragged){ e.preventDefault(); return; }
+    if(where==="hand") placeFromHand(card.id);
+    else removeFromCanvas(card.id);
+  });
+}
+function onTileDown(e,el,card,where){
+  if(e.pointerType==="mouse"&&e.button!==0) return;
+  haptic(8);
+  drag={el,card,where,startX:e.clientX,startY:e.clientY,moved:false,clone:null,hover:null};
+  document.addEventListener("pointermove",onTileMove);
+  document.addEventListener("pointerup",onTileUp);
+  document.addEventListener("pointercancel",onTileUp);
+}
+/* ---- live drag with Balatro-style "make room" reordering ----
+   As you slide a held tile, the others FLIP-animate out of the way and a gap
+   follows the insertion point. Works hand→canvas, canvas→hand, and within either. */
+function rowZones(){ return { hand:$("hand"), canvas:$("canvas") }; }
+function rowTiles(zoneEl, exclude){ return [...zoneEl.children].filter(c=>c.classList&&c.classList.contains("tile")&&c!==exclude); }
+function rowInsertIndex(zoneEl, x, exclude){
+  const tiles=rowTiles(zoneEl, exclude);
+  for(let i=0;i<tiles.length;i++){ const r=tiles[i].getBoundingClientRect(); if(x < r.left+r.width/2) return i; }
+  return tiles.length;
+}
+// First-Last-Invert-Play: slide each tile from its old box to its new one with easy ease
+function flipReorder(animate, mutate){
+  const first=new Map(); animate.forEach(t=>first.set(t,t.getBoundingClientRect()));
+  mutate();
+  animate.forEach(t=>{
+    const f=first.get(t), l=t.getBoundingClientRect();
+    const dx=f.left-l.left, dy=f.top-l.top;
+    if(Math.abs(dx)<0.5 && Math.abs(dy)<0.5) return;
+    t.style.transition="none";
+    t.style.transform="translate("+dx+"px,"+dy+"px)";
+    requestAnimationFrame(()=>requestAnimationFrame(()=>{
+      t.style.transition="transform .3s cubic-bezier(.22,1,.36,1)";
+      t.style.transform="";
+    }));
+  });
+}
+function clearFlip(zoneEl){ rowTiles(zoneEl).forEach(t=>{ t.style.transition=""; t.style.transform=""; }); }
+
+function onTileMove(e){
+  if(!drag)return;
+  const dx=e.clientX-drag.startX, dy=e.clientY-drag.startY;
+  if(!drag.moved && Math.hypot(dx,dy)>DRAG_THRESHOLD){
+    drag.moved=true;
+    const r=drag.el.getBoundingClientRect();
+    const c=drag.el.cloneNode(true); c.classList.add("dragclone");
+    c.style.width=r.width+"px"; c.style.height=r.height+"px";
+    document.body.appendChild(c); drag.clone=c;
+    drag.el.classList.add("drag-source");      // the original becomes the invisible gap
+    drag.curZone=drag.where; drag.curIndex=-1; // force the first layout pass
+  }
+  if(drag.moved){
+    e.preventDefault();
+    drag.clone.style.left=e.clientX+"px"; drag.clone.style.top=e.clientY+"px";
+    const Z=rowZones();
+    const under=document.elementFromPoint(e.clientX,e.clientY);
+    let zoneEl = (under&&under.closest) ? (under.closest("#canvas")||under.closest("#hand")) : null;
+    if(!zoneEl) zoneEl = (drag.curZone==="canvas")?Z.canvas:Z.hand;   // stay put when outside both
+    const zoneName = zoneEl.id==="canvas" ? "canvas" : "hand";
+    const idx = rowInsertIndex(zoneEl, e.clientX, drag.el);
+    if(zoneName!==drag.curZone || idx!==drag.curIndex){
+      const animate=[...rowTiles(Z.hand, drag.el), ...rowTiles(Z.canvas, drag.el)];
+      flipReorder(animate, ()=>{
+        const tiles=rowTiles(zoneEl, drag.el);
+        zoneEl.insertBefore(drag.el, tiles[idx] || null);
+        Z.canvas.classList.toggle("empty", rowTiles(Z.canvas).length===0);
+      });
+      drag.curZone=zoneName; drag.curIndex=idx;
+      haptic(6);
+    }
+  }
+}
+function onTileUp(e){
+  if(!drag)return;
+  document.removeEventListener("pointermove",onTileMove);
+  document.removeEventListener("pointerup",onTileUp);
+  document.removeEventListener("pointercancel",onTileUp);
+  const d=drag; drag=null;
+  if(d.clone) d.clone.remove();
+  const Z=rowZones();
+  if(d.el) d.el.classList.remove("drag-source");
+  if(!d.moved) return;                       // a tap — let the click handler run
+  justDragged=true; setTimeout(()=>justDragged=false,80);
+  // commit the final visual order straight from the DOM
+  const inCanvas = Z.canvas.contains(d.el);
+  const zoneEl = inCanvas ? Z.canvas : Z.hand;
+  const finalIdx = [...zoneEl.children].filter(c=>c.classList&&c.classList.contains("tile")).indexOf(d.el);
+  clearFlip(Z.hand); clearFlip(Z.canvas);
+  if(inCanvas){
+    if(d.where==="hand") placeFromHand(d.card.id, finalIdx);   // also handles clone/wild choosers
+    else moveWithinCanvasAbs(d.card.id, finalIdx);
+  } else {
+    if(d.where==="canvas") returnToHandAt(d.card.id, finalIdx);
+    else reorderHandAbs(d.card.id, finalIdx);
+  }
+}
+// absolute-index commits (finalIdx already counts the dragged tile's slot)
+function moveWithinCanvasAbs(id, idx){
+  const i=G.canvas.findIndex(c=>c.id===id); if(i<0){ renderCanvas(); return; }
+  const [c]=G.canvas.splice(i,1); idx=Math.max(0,Math.min(idx,G.canvas.length));
+  G.canvas.splice(idx,0,c); renderCanvas(); save();
+}
+function returnToHandAt(id, idx){
+  const i=G.canvas.findIndex(c=>c.id===id); if(i<0){ renderHand(); renderCanvas(); return; }
+  const [c]=G.canvas.splice(i,1);
+  if(c.kind==="clone") c.cloneLetter=null; if(c.kind==="wildvowel") c.vowel=null;
+  idx=Math.max(0,Math.min(idx,G.hand.length)); G.hand.splice(idx,0,c);
+  renderHand(); renderCanvas(); save();
+}
+function reorderHandAbs(id, idx){
+  const i=G.hand.findIndex(c=>c.id===id); if(i<0){ renderHand(); return; }
+  const [c]=G.hand.splice(i,1); idx=Math.max(0,Math.min(idx,G.hand.length));
+  G.hand.splice(idx,0,c); renderHand(); save();
+}
+
+/* ---- state ops for placement ---- */
+function placeFromHand(id,idx){
+  const c0=G.hand.find(c=>c.id===id);
+  if(c0 && c0.kind==="clone" && !c0.cloneLetter){ openCloneChooser(c0,idx); return; }
+  if(c0 && c0.kind==="wildvowel" && !c0.vowel){ openVowelChooser(c0,idx); return; }
+  const i=G.hand.findIndex(c=>c.id===id); if(i<0)return;
+  const [c]=G.hand.splice(i,1);
+  if(typeof idx==="number" && idx>=0 && idx<=G.canvas.length) G.canvas.splice(idx,0,c);
+  else G.canvas.push(c);
+  renderHand(); renderCanvas();
+  // juice on the freshly placed tile
+  const placed=[...$("canvas").querySelectorAll(".tile")].find(t=>t.dataset.id==id);
+  if(placed){ popEl(placed); spawnCellJuice(placed,{n:6}); }
+  haptic(12); save();
+}
+function removeFromCanvas(id){
+  const i=G.canvas.findIndex(c=>c.id===id); if(i<0)return;
+  const [c]=G.canvas.splice(i,1);
+  if(c.kind==="clone") c.cloneLetter=null;   // unassign on return
+  if(c.kind==="wildvowel") c.vowel=null;
+  G.hand.push(c);
+  renderHand(); renderCanvas(); save();
+}
+function moveWithinCanvas(id,idx){
+  const i=G.canvas.findIndex(c=>c.id===id); if(i<0)return;
+  const [c]=G.canvas.splice(i,1);
+  if(idx>i) idx--;
+  if(typeof idx==="number"&&idx>=0&&idx<=G.canvas.length) G.canvas.splice(idx,0,c);
+  else G.canvas.push(c);
+  renderCanvas(); save();
+}
+function recallAll(){
+  while(G.canvas.length){ const c=G.canvas.pop(); if(c.kind==="clone") c.cloneLetter=null; if(c.kind==="wildvowel") c.vowel=null; G.hand.push(c); }
+  renderHand(); renderCanvas(); save();
+}
+
+/* ---------- Clone: pick any letter you currently hold ---------- */
+let clonePending=null;
+function openCloneChooser(card,idx){
+  const letters=new Set();
+  G.hand.concat(G.canvas).forEach(c=>{ if(c.kind==="letter") letters.add(c.letter); });
+  if(letters.size===0){ toast("No letters to copy yet"); return; }
+  clonePending={cardId:card.id, idx};
+  const wrap=$("cloneChoices"); wrap.innerHTML="";
+  [...letters].sort().forEach(L=>{
+    const b=document.createElement("button"); b.className="clone-choice";
+    b.innerHTML=`${L}<span class="cc-val">${LETTER_VALUES[L]}</span>`;
+    b.addEventListener("click",()=>pickClone(L));
+    wrap.appendChild(b);
+  });
+  $("cloneChooser").classList.remove("hidden");
+}
+function pickClone(L){
+  if(!clonePending) return;
+  const {cardId,idx}=clonePending; clonePending=null;
+  $("cloneChooser").classList.add("hidden");
+  const c=G.hand.find(x=>x.id===cardId); if(!c) return;
+  c.cloneLetter=L;
+  placeFromHand(cardId,idx);
+}
+function cancelClone(){ clonePending=null; $("cloneChooser").classList.add("hidden"); }
+
+/* ---------- Wild vowel: fan the five vowels above & below the canvas ---------- */
+let vowelPending=null;
+function openVowelChooser(card,idx){
+  vowelPending={cardId:card.id, idx};
+  const ov=$("vowelChooser");
+  const fan=$("vowelFan"); fan.innerHTML="";
+  // anchor the fan over the letter canvas
+  const cr=$("canvas").getBoundingClientRect();
+  const cx=cr.left+cr.width/2, cy=cr.top+cr.height/2;
+  ov.style.setProperty("--cx",cx+"px");
+  ov.style.setProperty("--cy",cy+"px");
+  const vowels=["A","E","I","O","U"];
+  // positions: A E above the canvas, I centred, O U below — a fanned arc
+  const layout=[
+    {x:-150,y:-118,rot:-16},{x:-72,y:-150,rot:-8},
+    {x:0,y:0,rot:0},
+    {x:72,y:150,rot:8},{x:150,y:118,rot:16}
+  ];
+  vowels.forEach((L,k)=>{
+    const b=document.createElement("button");
+    b.className="vowel-choice"; b.style.setProperty("--dx",layout[k].x+"px");
+    b.style.setProperty("--dy",layout[k].y+"px"); b.style.setProperty("--rot",layout[k].rot+"deg");
+    b.style.animationDelay=(k*55)+"ms";
+    b.innerHTML=`<span class="vc-l">${L}</span><span class="vc-v">${LETTER_VALUES[L]}</span>`;
+    b.addEventListener("click",()=>pickVowel(L));
+    fan.appendChild(b);
+  });
+  ov.classList.remove("hidden");
+  requestAnimationFrame(()=>ov.classList.add("show"));
+}
+function pickVowel(L){
+  if(!vowelPending) return;
+  const {cardId,idx}=vowelPending; vowelPending=null;
+  const ov=$("vowelChooser"); ov.classList.remove("show"); ov.classList.add("hidden");
+  const c=G.hand.find(x=>x.id===cardId); if(!c) return;
+  c.vowel=L;
+  placeFromHand(cardId,idx);
+}
+function cancelVowel(){ vowelPending=null; const ov=$("vowelChooser"); ov.classList.remove("show"); ov.classList.add("hidden"); }
+
+function handVowelSource(){
+  // a real vowel, or a wild-vowel tile that's guaranteed to become one
+  return G.hand.some(c => (c.kind==="letter" && VOWELS.has(c.letter)) || c.kind==="wildvowel");
+}
+function dealUpToHand(animate){
+  let dealt=0;
+  while(G.hand.length<G.handSize && G.drawPile.length>0){
+    G.hand.push(G.drawPile.shift()); dealt++;
+  }
+  // mercy rule: never strand the player with a vowel-less hand
+  if(!handVowelSource() && G.drawPile.length>0){
+    toast("No vowels — bonus draw!");            // announce BEFORE the extra tiles land
+    while(!handVowelSource() && G.drawPile.length>0){ G.hand.push(G.drawPile.shift()); dealt++; }
+  }
+  renderHand(); renderHud();
+  if(animate && dealt>0){
+    const tiles=[...$("hand").querySelectorAll(".tile")];
+    const fresh=tiles.slice(tiles.length-dealt);
+    fresh.forEach((t,i)=>{ t.classList.add("dealing"); t.style.animationDelay=(i*60)+"ms"; });
+  }
+  save();
+}
+function startLevel(){
+  G.target=targetFor(G.level);
+  G.score=0;
+  G.handsLeft=HANDS_PER_LEVEL+G.extraTurns;
+  G.discardsLeft=DISCARDS_PER_LEVEL+G.extraDiscards;
+  { const ds=$("defStrip"); if(ds){ ds.classList.add("hidden"); ds.innerHTML=""; } }  // clear last word's definition
+  G.reshuffleCount=0;
+  G.levelStats={bestWord:"",bestScore:0,words:0};
+  const rng=makeRng("lvl:"+G.level+":"+G.attempt);
+  G.drawPile=shuffle(G.deck,rng).map(c=>c); // same card objects, fresh order
+  G.hand=[]; G.canvas=[]; G.played=[];
+  showGame();
+  renderCanvas();
+  dealUpToHand(true);
+  renderHud();
+  syncTimer();
+  save();
+}
+// Letters are never burned: a played (or discarded) word's slugs go to the
+// BOTTOM of the deck, and you draw fresh ones off the top — a predictable
+// queue, not a reshuffle. The turn limit bounds a round; words may repeat freely.
+function returnCanvasToPile(){
+  if(G.canvas.length){
+    G.canvas.forEach(c=>{ if(c.kind==="clone") c.cloneLetter=null; if(c.kind==="wildvowel") c.vowel=null; });
+    G.drawPile.push(...G.canvas); G.canvas=[];
+  }
+}
+function bigWordCash(n){ return n>=7?5 : n===6?2 : n===5?1 : 0; }
+function submitWord(){
+  if(!wordValid()||G.handsLeft<=0) return;
+  const isJazz = canvasHasJazz() && !isRealWord();   // free-jazz play (non-word)
+  const res=resolvedCanvas();
+  const sc=scoreOf(res);
+  const w=res.map(r=>r.letter.toLowerCase()).join("");
+  if(isJazz){ G.canvas.forEach(c=>{ if(c.kind==="jazz" && (c.jazzLeft||0)>0) c.jazzLeft--; }); }
+  // highlights
+  G.wordsPlayed=(G.wordsPlayed||0)+1;
+  G.runScore=(G.runScore||0)+sc.total;
+  G.levelStats.words++;
+  statWord(w.toUpperCase(), sc.total, res.length, isJazz);
+  showDefinition(w, isJazz);
+  if(sc.total>G.levelStats.bestScore){ G.levelStats.bestScore=sc.total; G.levelStats.bestWord=w.toUpperCase(); }
+  if(sc.total>(G.runBestScore||0)){ G.runBestScore=sc.total; G.runBestWord=w.toUpperCase(); }
+  G.handsLeft--;
+  // big-word cash bonus, paid straight into the bank
+  const cash=bigWordCash(res.length);
+  if(cash>0){ G.coins=Math.min(999,G.coins+cash); }
+  renderHud();
+  // juice — scaled by the size of the score
+  const power=Math.max(0,Math.min(1, sc.total/140));
+  const cr=$("canvas").getBoundingClientRect();
+  const tiles=[...$("canvas").querySelectorAll(".tile")];
+  tiles.forEach((t,i)=>{ setTimeout(()=>{ popEl(t); t.classList.add("glow"); spawnCellJuice(t,{n:8,color:"var(--brass)"}); },i*45); });
+  bigBurst(cr.left+cr.width/2, cr.top+cr.height/2, power);
+  screenShake(3+power*17);
+  submitSound(power);
+  floatText(cr.left+cr.width/2, cr.top+6, "+"+sc.total, "#B98A2E");
+  if(cash>0){ setTimeout(()=>{ floatText(cr.left+cr.width/2, cr.top+34, "+"+cash+"◉ big word", "#3C6E63"); blip(660,0.08); },180); }
+  haptic([10,40,10,30]);
+  returnCanvasToPile();
+  // a Free jazz card with no uses left is exhausted and leaves the deck for good
+  { const dead=G.deck.filter(c=>c.kind==="jazz" && (c.jazzLeft||0)<=0);
+    if(dead.length){ const ids=new Set(dead.map(c=>c.id));
+      G.deck=G.deck.filter(c=>!ids.has(c.id));
+      if(G.drawPile) G.drawPile=G.drawPile.filter(c=>!ids.has(c.id));
+      toast("Free jazz exhausted"); } }
+  animateScore(G.score, G.score+sc.total);
+  G.score+=sc.total;
+  setTimeout(()=>{
+    renderCanvas();
+    if(G.score>=G.target){ levelCleared(); return; }
+    if(G.handsLeft<=0){ levelFailed(); return; }
+    dealUpToHand(true);
+    renderHud();
+  }, 420);
+}
+function setToGo(score){
+  const el=$("toGo"); if(!el) return;
+  const left=Math.max(0,Math.ceil(G.target-score));
+  el.textContent = left>0 ? left+" to go" : "reached ✓";
+  el.classList.toggle("done", left<=0);
+}
+function animateScore(from,to){
+  const el=$("scoreNow"); const dur=420; const t0=performance.now();
+  function step(t){
+    const k=Math.min(1,(t-t0)/dur);
+    const cur=from+(to-from)*k;
+    el.textContent=Math.round(cur);
+    setToGo(cur);
+    const pct=Math.min(100,Math.round(cur/G.target*100));
+    $("barFill").style.width=pct+"%"; $("bar").classList.toggle("met",cur>=G.target);
+    if(k<1) requestAnimationFrame(step); else { $("targetNum").textContent=G.target; setToGo(to); }
+  }
+  requestAnimationFrame(step);
+}
+function discardCanvas(){
+  if(G.canvas.length===0||G.discardsLeft<=0) return;
+  G.discardsLeft--;
+  const tiles=[...$("canvas").querySelectorAll(".tile")];
+  tiles.forEach((t,i)=>{ setTimeout(()=>t.classList.add("fly-out"),i*40); });
+  returnCanvasToPile();
+  renderHud();
+  haptic(16);
+  setTimeout(()=>{ renderCanvas(); dealUpToHand(true); renderHud(); },300);
+}
+
+/* ---------- level resolution ---------- */
+function levelCleared(){
+  const rw=computeReward();
+  G.best=Math.max(G.best,G.level);
+  const info={ score:G.score, target:G.target,
+    bestWord:G.levelStats.bestWord, bestScore:G.levelStats.bestScore, words:G.levelStats.words,
+    fromCoins:G.coins, toCoins:Math.min(999,G.coins+rw.total), round:G.level, rw };
+  G.coins=info.toCoins;
+  G.lastReward=rw;
+  const justCleared=G.level;
+  G.level++;
+  if(justCleared===WIN_LEVEL && !G.infinite && !G.wonRun){
+    G.wonRun=true;
+    G.pendingSummary=info;            // held so "endless" can resume the normal shop flow
+    save();
+    setTimeout(()=>{ showWin(info); }, 600);
+    return;
+  }
+  setTimeout(()=>{ showLevelSummary(info); }, 600);   // summary first → shop on tap
+}
+function computeReward(){
+  let base=4;                                              // base purse
+  const over=G.score-G.target;
+  base+=Math.min(5,Math.floor(over/Math.max(8,G.target*0.4)));  // beat-target bonus
+  base+=G.handsLeft;                                       // unused turns
+  base=Math.max(2,Math.min(COIN_CAP,base));
+  let discardPay=G.discardsLeft*(G.perks.discardMoneyBoost?1.5:1);   // $1 per leftover discard
+  discardPay=Math.ceil(discardPay);
+  let interest=G.perks.interest?Math.min(INTEREST_CAP,Math.ceil(G.coins*0.10)):0;  // 10% on the bank
+  return {base,discardPay,interest,total:base+discardPay+interest};
+}
+function showLevelSummary(info){
+  G.pendingSummary=info;
+  const rw=info.rw;
+  $("sumRound").textContent="Round "+info.round+" cleared";
+  $("sumScore").textContent=info.score+" / "+info.target+" pts";
+  $("sumWords").textContent=info.words;
+  $("sumBest").innerHTML = info.bestWord ? `<b>${info.bestWord}</b> · ${info.bestScore}` : "—";
+  const bits=["base "+rw.base];
+  if(rw.discardPay) bits.push("discards "+rw.discardPay);
+  if(rw.interest)   bits.push("interest "+rw.interest);
+  $("sumBreakdown").textContent=bits.join("  ·  ");
+  const coinEl=$("sumCoins"); coinEl.textContent=info.fromCoins;
+  $("summaryScreen").classList.remove("hidden");
+  save();
+  setTimeout(()=>{ audio(); coinCountUp(coinEl, info.fromCoins, info.toCoins); }, 480);
+}
+function closeSummary(){ $("summaryScreen").classList.add("hidden"); }
+
+/* ---------- WIN (cleared all 8 rounds) ---------- */
+function showWin(info){
+  hideGame();
+  $("shopScreen").classList.add("hidden");
+  $("summaryScreen").classList.add("hidden");
+  const fmt = (typeof fmtDuration==="function") ? fmtDuration(G.runMs) : "";
+  $("winStats").innerHTML=`
+    <div class="stat-line">All <b>${WIN_LEVEL} rounds</b> set and locked.</div>
+    <div class="stat-line">Run time: <b>${fmt}</b></div>
+    <div class="stat-line">Run score: <b>${(G.runScore||0).toLocaleString()}</b></div>
+    <div class="stat-line">Words set: <b>${G.wordsPlayed||0}</b></div>
+    ${G.runBestWord?`<div class="stat-line">Best word: <b>${G.runBestWord}</b> · ${G.runBestScore}</div>`:""}
+    <div class="stat-line">Hearts left: <b>${G.hearts}</b> ♥ &nbsp;·&nbsp; Coins: <b>${G.coins}</b> ◉</div>
+    <div class="stat-line" style="margin-top:8px;color:var(--ink-soft);font-size:.8rem">Seed <b>${G.seed}</b></div>`;
+  $("winScreen").classList.remove("hidden");
+}
+// "Keep printing" → flip on endless and rejoin the normal post-clear flow (shop, then round 9+)
+function winContinueEndless(){
+  G.infinite=true;
+  $("winScreen").classList.add("hidden");
+  save();
+  const info=G.pendingSummary;
+  if(info) showLevelSummary(info); else openShop();
+}
+// "Finish & savor it" → end the run on a victory note
+function winFinish(){
+  $("winScreen").classList.add("hidden");
+  gameOver(true);
+}
+function floatMinusOne(anchorEl){
+  if(!anchorEl) return;
+  const r=anchorEl.getBoundingClientRect();
+  const s=document.createElement("div"); s.className="heart-loss-float"; s.textContent="\u22121";
+  s.style.left=(r.left+r.width/2)+"px"; s.style.top=(r.top+r.height/2)+"px";
+  document.body.appendChild(s);
+  setTimeout(()=>s.remove(),1150);
+}
+function heartBreakBurst(el){
+  if(!el || reduceMotion()) return;
+  const r=el.getBoundingClientRect();
+  const burst=document.createElement("div"); burst.className="heart-burst";
+  burst.style.left=(r.left+r.width/2)+"px"; burst.style.top=(r.top+r.height/2)+"px";
+  const N=11;
+  for(let i=0;i<N;i++){
+    const s=document.createElement("span"); s.textContent = i%3===0 ? "\u2665" : "\u2726";
+    const ang=(Math.PI*2*i/N)+(Math.random()*0.5-0.25);
+    const dist=20+Math.random()*28;
+    s.style.setProperty("--tx",(Math.cos(ang)*dist).toFixed(1)+"px");
+    s.style.setProperty("--ty",(Math.sin(ang)*dist).toFixed(1)+"px");
+    s.style.fontSize=(9+Math.random()*9).toFixed(0)+"px";
+    s.style.animationDelay=(Math.random()*50).toFixed(0)+"ms";
+    burst.appendChild(s);
+  }
+  document.body.appendChild(burst);
+  setTimeout(()=>burst.remove(),900);
+}
+function screenShake(){
+  if(reduceMotion()) return;
+  const a=$("app"); if(!a) return;
+  a.classList.remove("shake"); void a.offsetWidth; a.classList.add("shake");
+  setTimeout(()=>a.classList.remove("shake"),560);
+}
+function levelFailed(){
+  G.hearts--;
+  const hs=[...$("hearts").querySelectorAll(".heart")];
+  const lost=hs[G.hearts];
+  if(lost){ lost.classList.add("breaking"); heartBreakBurst(lost); floatMinusOne(lost); }
+  screenShake();
+  haptic([40,70,40,70,40]);
+  setTimeout(()=>{
+    renderHud();
+    if(G.hearts<=0){ gameOver(false); return; }
+    // Overtime: every time you're over the turn limit under target you spend a
+    // heart for ONE more word. Score, hand, deck and discards all carry over.
+    G.handsLeft=1;
+    toast("Overtime — a heart for one more word. "+G.hearts+" health left");
+    renderHud();
+    dealUpToHand(true);
+    save();
+  },500);
+}
+
+/* ============================================================
+   Shop
+   ============================================================ */
+function priceMult(){ return 1; }   // shop inflation removed
+function px(base){
+  const infl=Math.pow(1.1, Math.max(0,(G.level||1)-1));   // +10% per round, compounding
+  return Math.max(1,Math.round(base*0.65*(G.perks.fireSale?0.75:1)*infl));
+}   // 35% off, Fire sale = 25% more off
+
+function buildShopPool(){
+  const rng=makeRng("shop:"+G.level+":"+G.rerollCount);
+  const offers=[];
+  const seen=new Set();
+  const commonPool={E:12,A:9,I:9,O:8,N:6,R:6,T:6,L:4,S:4,U:4,D:4,G:3};
+  const rarePool={B:2,C:2,M:2,P:2,F:2,H:2,V:2,W:2,Y:2,K:1,J:1,X:1,Q:1,Z:1};
+  const pushUnique=(make)=>{ // avoid duplicate perk/card offers within one shop
+    for(let tries=0;tries<6;tries++){ const o=make(); if(!seen.has(o.name)){ seen.add(o.name); offers.push(o); return; } }
+    offers.push(make());
+  };
+  offers.push(letterOffer(weightedLetter(rng,commonPool)));
+  offers.push(letterOffer(weightedLetter(rng,rarePool)));
+  pushUnique(()=>pickWeighted(rng,perkPool(rng)));
+  pushUnique(()=>pickWeighted(rng,utilPool()));
+  // round out to 6: a mix of letters and perks/cards
+  pushUnique(()=> rng()<0.5 ? letterOffer(weightedLetter(rng,Object.assign({},commonPool,rarePool))) : pickWeighted(rng,perkPool(rng)) );
+  pushUnique(()=> rng()<0.45 ? letterOffer(weightedLetter(rng,Object.assign({},commonPool,rarePool))) : pickWeighted(rng,perkPool(rng)) );
+  return offers.slice(0,6).map(o=>({...o,sold:false}));
+}
+function pickWeighted(rng,entries){
+  let tot=0; entries.forEach(e=>tot+=e.weight);
+  let r=rng()*tot;
+  for(const e of entries){ r-=e.weight; if(r<=0) return e.make(); }
+  return entries[0].make();
+}
+function perkPool(rng){
+  const e=[
+    {make:()=>cloneOffer(),        weight:1.4},
+    {make:()=>wildVowelOffer(),    weight:2},
+    {make:()=>firstUpOffer(rng),   weight:2.4},
+    {make:()=>lastUpOffer(rng),    weight:2.4},
+    {make:()=>fullerOffer(),       weight:1.8},
+    {make:()=>extraDiscardOffer(), weight:1.8},
+    {make:()=>extraTurnOffer(),    weight:1.8},
+    {make:()=>pressMultOffer(rng), weight:1.3},
+    {make:()=>freeJazzOffer(),     weight:0.5},
+  ];
+  if(!G.perks.vowelPower)        e.push({make:()=>vowelPowerOffer(),  weight:2.4});
+  if(!G.perks.fireSale)          e.push({make:()=>fireSaleOffer(),    weight:1.4});
+  if(!G.perks.bigWords)          e.push({make:()=>bigWordsOffer(),    weight:1.1});
+  if(!G.perks.freeRerolls)       e.push({make:()=>freeRerollOffer(),  weight:1.1});
+  if(!G.perks.discardMoneyBoost) e.push({make:()=>discardBoostOffer(),weight:1.2});
+  if(!G.perks.interest)          e.push({make:()=>interestOffer(),    weight:1.2});
+  if(!G.perks.twinsies)          e.push({make:()=>twinsiesOffer(),    weight:1.3});
+  return e;
+}
+function utilPool(){
+  const e=[{make:()=>gildOffer(),weight:3},{make:()=>eraserOffer(),weight:3}];
+  if(G.hearts<MAX_HEARTS) e.push({make:()=>heartOffer(),weight:2});
+  return e;
+}
+function letterOffer(L){
+  const v=LETTER_VALUES[L];
+  const rarity=v<=2?"common":v<=4?"uncommon":"rare";
+  return {kind:"Letter",rarity,name:"Add "+L,desc:"A "+v+"-point "+L+" joins your deck.",
+    price:px(2+Math.ceil(v/2)), art:`<span class="mini-tile">${L}<span class="mv">${v}</span></span>`,
+    d:{type:"letter",L}};
+}
+function cloneOffer(){
+  return {kind:"Card",rarity:"epic",name:"Clone",desc:"Play it as a copy of any letter you're holding.",
+    price:px(11), art:`<span class="mini-tile" style="background:linear-gradient(180deg,#EDEAF6,#DED8EE);border-color:#C3B8DD">❖</span>`,
+    d:{type:"clone"}};
+}
+function deckLetters(){ const s=new Set(); G.deck.forEach(c=>{ if(c.kind==="letter") s.add(c.letter); }); const a=[...s].sort(); return a.length?a:["E"]; }
+function firstUpOffer(rng){
+  return {kind:"Perk",rarity:"rare",name:"First-up letter",desc:"Pick a letter — words that START with it score ×(1+stacks). Stackable; re-stacking costs more.",
+    price:px(7), art:"⭐", needsTarget:"firstUp", d:{type:"firstUp"}};
+}
+function lastUpOffer(rng){
+  return {kind:"Perk",rarity:"rare",name:"Finale letter",desc:"Pick a letter — words that END with it score ×(1+stacks). Stackable; re-stacking costs more.",
+    price:px(7), art:"🔚", needsTarget:"lastUp", d:{type:"lastUp"}};
+}
+function fullerOffer(){
+  const added=Math.max(0,G.handSize-START_HAND);
+  return {kind:"Perk",rarity:"rare",name:"Fuller case",desc:"Hold +1 letter every hand (now "+(G.handSize+1)+").",
+    price:px(9*Math.pow(2,added)), art:"🗄️", d:{type:"fuller"}};
+}
+function extraDiscardOffer(){
+  return {kind:"Perk",rarity:"rare",name:"Extra discard",desc:"+1 discard every round (now "+(DISCARDS_PER_LEVEL+G.extraDiscards+1)+").",
+    price:px(8), art:"♻️", d:{type:"extraDiscard"}};
+}
+function extraTurnOffer(){
+  return {kind:"Perk",rarity:"rare",name:"Extra word",desc:"+1 word (turn) every round (now "+(HANDS_PER_LEVEL+G.extraTurns+1)+").",
+    price:px(10), art:"⏳", d:{type:"extraTurn"}};
+}
+function discardBoostOffer(){
+  return {kind:"Perk",rarity:"epic",name:"Frugal press",desc:"+50% coins from your leftover discards.",
+    price:px(9), art:"💸", d:{type:"discardBoost"}};
+}
+function interestOffer(){
+  return {kind:"Perk",rarity:"epic",name:"Compound interest",desc:"Earn 10% of your coins each round (max "+INTEREST_CAP+").",
+    price:px(11), art:"🏦", d:{type:"interest"}};
+}
+function pressMultOffer(rng){
+  // bonus in 0.05 steps; price scales with the size of the bonus
+  const opts=[0.10,0.15,0.20,0.25];
+  const b=opts[Math.floor(rng()*opts.length)];
+  const f=Math.round((1+b)*100)/100;
+  const price=px(Math.round(6 + b*46));   // .10≈7 · .15≈8 · .20≈10 · .25≈12
+  return {kind:"Perk",rarity:"epic",name:"Press multiplier",desc:"All word scores ×"+f.toFixed(2)+" (stacks, with mild diminishing returns).",
+    price, art:"✖️", d:{type:"pressMult",f}};
+}
+function gildOffer(){
+  return {kind:"Upgrade",rarity:"rare",name:"Gilded Letter",desc:"Double a letter's points. Re-gilding the same letter costs double each time.",
+    price:px(GILD_BASE), art:"✨", needsTarget:"gild", d:{type:"gild"}};
+}
+function eraserOffer(){
+  return {kind:"Item",rarity:"uncommon",name:"Eraser",desc:"Remove one letter from your deck for good.",
+    price:px(4), art:"🩹", needsTarget:"remove", d:{type:"eraser"}};
+}
+function heartOffer(){
+  return {kind:"Item",rarity:"uncommon",name:"Mend",desc:"Restore one heart.",
+    price:px(6), art:"❤️", d:{type:"heart"}};
+}
+function applyOffer(o){
+  const d=o.d||{};
+  switch(d.type){
+    case "letter":       G.deck.push(makeLetterCard(d.L)); break;
+    case "clone":        G.deck.push(makeCloneCard()); break;
+    case "firstUp":      openBonusChooser("firstUp"); break;
+    case "lastUp":       openBonusChooser("lastUp"); break;
+    case "fuller":       G.handSize++; break;
+    case "extraDiscard": G.extraDiscards++; break;
+    case "extraTurn":    G.extraTurns++; break;
+    case "discardBoost": G.perks.discardMoneyBoost=true; break;
+    case "interest":     G.perks.interest=true; break;
+    case "pressMult":    { const cur=G.scoreMult||1; const inc=(d.f-1)/(1+0.4*(cur-1)); G.scoreMult=Math.round((cur+inc)*100)/100; } break;
+    case "gild":         openDeck("gild"); break;
+    case "eraser":       openDeck("remove"); break;
+    case "heart":        G.hearts=Math.min(MAX_HEARTS,G.hearts+1); break;
+    case "wildVowel":    G.deck.push(makeWildVowelCard()); break;
+    case "freeJazz":     G.deck.push(makeJazzCard()); break;
+    case "vowelPower":   G.perks.vowelPower=true; break;
+    case "fireSale":     G.perks.fireSale=true; break;
+    case "bigWords":     G.perks.bigWords=true; break;
+    case "twinsies":     G.perks.twinsies=true; break;
+    case "freeRerolls":  G.perks.freeRerolls=true; break;
+  }
+}
+function wildVowelOffer(){
+  return {kind:"Card",rarity:"rare",name:"Wild vowel",desc:"A slug that becomes any vowel you choose.",
+    price:px(8), art:`<span class="mini-tile wv-mini">${wildVowelDesignHTML()}</span>`, d:{type:"wildVowel"}};
+}
+function freeJazzOffer(){
+  return {kind:"Card",rarity:"legendary",name:"Free jazz",desc:"Set ANY combination of letters — real word or not. 3 uses, then it leaves your deck.",
+    price:px(14), art:"🎷", d:{type:"freeJazz"}};
+}
+function vowelPowerOffer(){
+  return {kind:"Perk",rarity:"common",name:"Vowel power",desc:"Double the points of every vowel (A E I O U).",
+    price:px(5), art:"🅰️", d:{type:"vowelPower"}};
+}
+function fireSaleOffer(){
+  return {kind:"Perk",rarity:"rare",name:"Fire sale",desc:"All shop prices 25% cheaper, forever.",
+    price:px(7), art:"🔥", d:{type:"fireSale"}};
+}
+function bigWordsOffer(){
+  return {kind:"Perk",rarity:"epic",name:"Big words",desc:"Longer words give double the length multiplier.",
+    price:px(12), art:"📏", d:{type:"bigWords"}};
+}
+function twinsiesOffer(){
+  return {kind:"Perk",rarity:"rare",name:"Twinsies",desc:"×2 the whole word when two identical letters sit side by side (e.g. LE\u200bTTER).",
+    price:px(10), art:"👯", d:{type:"twinsies"}};
+}
+function freeRerollOffer(){
+  return {kind:"Perk",rarity:"epic",name:"Free re-rolls",desc:"Every shop reroll is free, for the rest of the run.",
+    price:px(11), art:"♻️", d:{type:"freeRerolls"}};
+}
+
+function setShopHeader(){
+  const rw=G.lastReward;
+  $("shopRound").textContent= rw
+    ? "earned +"+rw.total+"  ·  base "+rw.base+" · discards "+rw.discardPay+(rw.interest?" · interest "+rw.interest:"")
+    : "after round "+(G.level-1);
+}
+function openShop(){
+  G.shopOffers=buildShopPool();   // reroll count persists for the whole run
+  statShopOpen(G.shopOffers);
+  G.shopUndo=[];                  // fresh undo history per shop visit
+  setShopHeader();
+  hideGame();
+  $("shopScreen").classList.remove("hidden");
+  renderShop();
+  syncTimer();
+  save();
+}
+function shopSnapshot(){
+  return {
+    coins:G.coins, handSize:G.handSize, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns,
+    scoreMult:G.scoreMult, jazzCharges:G.jazzCharges, hearts:G.hearts, rerollCount:G.rerollCount,
+    gildOfferIdx:G.gildOfferIdx,
+    perks:JSON.parse(JSON.stringify(G.perks)),
+    deck:G.deck.map(c=>({...c})),
+    offers:G.shopOffers.map(o=>({...o, d:{...o.d}}))
+  };
+}
+function pushShopUndo(){ G.shopUndo.push(shopSnapshot()); if(G.shopUndo.length>40) G.shopUndo.shift(); }
+function shopUndo(){
+  if(!G.shopUndo.length) return;
+  const s=G.shopUndo.pop();
+  G.coins=s.coins; G.handSize=s.handSize; G.extraDiscards=s.extraDiscards; G.extraTurns=s.extraTurns;
+  G.scoreMult=s.scoreMult; G.jazzCharges=s.jazzCharges; G.hearts=s.hearts; G.rerollCount=s.rerollCount;
+  G.gildOfferIdx=s.gildOfferIdx; G.perks=s.perks; G.deck=s.deck; G.shopOffers=s.offers;
+  haptic(12); toast("Undone");
+  renderShop(); save();
+}
+function renderShop(){
+  $("shopCoins").textContent=G.coins;
+  { const u=$("shopUndoBtn"); if(u) u.disabled = !G.shopUndo.length; }
+  const rc=rerollCost();
+  const ic=$("rerollBtn").querySelector(".c-ico");
+  if(rc===0){ $("rerollCost").textContent="Free"; if(ic) ic.style.display="none"; }
+  else { $("rerollCost").textContent=rc; if(ic) ic.style.display=""; }
+  $("rerollBtn").disabled=G.coins<rc;
+  const grid=$("shopGrid"); grid.innerHTML="";
+  G.shopOffers.forEach((o,i)=>{
+    const card=document.createElement("div");
+    card.className="offer r-"+(o.rarity||"common")+(o.sold?" sold":"");
+    card.innerHTML=`
+      <span class="o-kind">${(o.rarity||"common").toUpperCase()} · ${o.kind}</span>
+      <div class="o-art">${o.art}</div>
+      <div>
+        <div class="o-name">${o.name}</div>
+        <div class="o-desc">${o.desc}</div>
+      </div>
+      <button class="buy-btn" ${o.sold||G.coins<o.price?"disabled":""}>
+        ${o.sold?"Bought":'<span class="c-ico">◉</span>'+o.price}
+      </button>`;
+    if(!o.sold){ card.querySelector(".buy-btn").addEventListener("click",()=>buyOffer(i)); }
+    grid.appendChild(card);
+  });
+}
+function rerollCost(){ if(G.perks.freeRerolls) return 0; return G.rerollCount + 1; }   // 1,2,3… and the count persists all run
+function buyOffer(i){
+  const o=G.shopOffers[i];
+  if(o.sold) return;
+  if(o.d && o.d.type==="gild"){
+    if(G.coins<o.price) return;     // need at least the base price to start
+    pushShopUndo();                 // snapshot before the (charge-on-apply) gild
+    G.gildOfferIdx=i;               // the coin charge happens once a letter is chosen
+    openDeck("gild");
+    return;
+  }
+  if(o.d && (o.d.type==="firstUp" || o.d.type==="lastUp")){
+    if(G.coins<o.price) return;     // need at least the base price to start
+    pushShopUndo();
+    G.bonusOfferIdx=i;              // charged once a letter is chosen
+    applyOffer(o);                  // opens the chooser
+    return;
+  }
+  if(G.coins<o.price) return;
+  pushShopUndo();
+  G.coins-=o.price;
+  o.sold=true;
+  statShopBuy(o.name, o.price, o.d&&o.d.type);
+  applyOffer(o);
+  haptic(18);
+  renderShop();
+  if(!o.needsTarget) toast(o.name+" — done");
+  save();
+}
+function rerollShop(){
+  if(G.coins<rerollCost()) return;
+  pushShopUndo();
+  G.coins-=rerollCost();
+  G.rerollCount++;
+  statShopReroll();
+  G.shopOffers=buildShopPool();
+  haptic(12);
+  renderShop();
+  save();
+}
+function nextRound(){
+  statShopClose();
+  $("shopScreen").classList.add("hidden");
+  G.attempt=0;
+  startLevel();
+}
+
+/* ============================================================
+   Deck overlay (view + card removal / gild select)
+   ============================================================ */
+function openDeck(mode){
+  G.selectMode=mode||null;
+  $("deckScreen").classList.remove("hidden");
+  const hint=$("selectHint");
+  if(mode==="remove"){ hint.textContent="Tap a letter to remove it from your deck."; hint.className="select-hint"; }
+  else if(mode==="gild"){ hint.textContent="Tap a letter to gild it. Re-gilding the same letter costs double each time."; hint.className="select-hint gild"; }
+  else hint.classList.add("hidden");
+  if(mode){ hint.classList.remove("hidden"); }
+  renderDeck();
+}
+function renderDeck(){
+  const list=$("deckList"); list.innerHTML="";
+  const rank=c=>({letter:0,clone:1,wildvowel:2,jazz:3}[c.kind]??4);
+  const sorted=G.deck.slice().sort((a,b)=>{
+    if(rank(a)!==rank(b)) return rank(a)-rank(b);
+    if(a.kind==="letter") return a.letter.localeCompare(b.letter) || (cardValue(b)-cardValue(a));
+    return 0;
+  });
+  sorted.forEach(c=>{
+    const wrap=document.createElement("div");
+    wrap.className="deck-tile";
+    wrap.appendChild(buildStaticTile(c));
+    if(G.selectMode==="remove"){ wrap.classList.add("selectable","danger"); wrap.addEventListener("click",()=>doRemove(c.id)); }
+    if(G.selectMode==="gild" && c.kind==="letter" && (c.upLevel||0)<GILD_CAP){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doGild(c.id)); }
+    list.appendChild(wrap);
+  });
+  $("deckCount").textContent=G.deck.length+" cards";
+  // summary
+  let pts=0, clones=0, jazz=0, wilds=0;
+  G.deck.forEach(c=>{
+    if(c.kind==="clone"){clones++;return;}
+    if(c.kind==="jazz"){jazz++;return;}
+    if(c.kind==="wildvowel"){wilds++;return;}
+    pts+=cardValue(c);
+  });
+  const vowels=G.deck.filter(c=>c.kind==="letter"&&VOWELS.has(c.letter)).length;
+  const extras=[];
+  if(clones) extras.push(`${clones} clone${clones>1?"s":""}`);
+  if(wilds)  extras.push(`${wilds} wild vowel${wilds>1?"s":""}`);
+  if(jazz)   extras.push(`${jazz} free jazz`);
+  $("deckSummary").innerHTML=`${vowels} vowels · ${G.deck.filter(c=>c.kind==="letter").length-vowels} consonants${extras.length?" · "+extras.join(" · "):""}<br>total face value ${pts}`;
+  { const dp=$("deckPerks"); if(dp){ const perks=ownedPerksList();
+      dp.innerHTML='<div class="dp-title">Perks owned</div>'+(perks.length
+        ? perks.map(p=>`<span class="dp-chip">${escHtml(p)}</span>`).join("")
+        : '<span class="dp-none">None yet — buy some in the print shop.</span>'); } }
+}
+function buildStaticTile(c){
+  const t=document.createElement("div");
+  t.className="tile "+(c.kind==="clone"?"clone ":"")+(c.kind==="jazz"?"jazz ":"")+(c.kind==="wildvowel"?"wildvowel ":"")+(gildLevel(c)>0?"upgraded ":"")+(cardMult(c)!==1?"multi ":"")+(isFirstUp(c)?"firstup ":"")+(isLastUp(c)?"lastup ":"");
+  if(c.kind==="jazz"){
+    const g=document.createElement("span"); g.className="glyph"; g.textContent="🎷"; t.appendChild(g);
+    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent=(c.jazzLeft||0)+"/"+JAZZ_USES; t.appendChild(s);
+    return t;
+  }
+  if(c.kind==="wildvowel"){
+    const d=document.createElement("span"); d.className="wv-design"; d.innerHTML=wildVowelDesignHTML(); t.appendChild(d);
+    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="WILD"; t.appendChild(s);
+    return t;
+  }
+  const g=document.createElement("span"); g.textContent=tileGlyph(c); t.appendChild(g);
+  if(c.kind==="clone"){ const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="CLONE"; t.appendChild(s); }
+  else { const v=document.createElement("span"); v.className="val"; v.innerHTML=valHtml(c); t.appendChild(v); }
+  tileBadges(t,c);
+  return t;
+}
+function doRemove(id){
+  if(G.deck.length<=4){ toast("Deck can't go below 4 cards"); return; }
+  const i=G.deck.findIndex(c=>c.id===id); if(i<0)return;
+  G.deck.splice(i,1);
+  G.selectMode=null;
+  toast("Removed");
+  closeDeck(); save();
+}
+let gildPending=null;
+const GILD_CAP = 3;   // a letter can be gilded at most 3 times
+function gildCostFor(c){
+  const u=c.upLevel||0;
+  // value-scaled: gilding a high-value letter (X/Z/Q) costs far more than an E,
+  // and each successive gild on the same letter doubles.
+  return px((GILD_BASE/2 + cardValue(c)) * Math.pow(2, u));
+}
+function doGild(id){
+  const c=G.deck.find(x=>x.id===id); if(!c||c.kind!=="letter")return;
+  const u=c.upLevel||0;
+  if(u>=GILD_CAP){ toast(c.letter+" is already gilded ×"+GILD_CAP+" (max)"); return; }
+  const cost=gildCostFor(c);
+  gildPending={cardId:id, cost};
+  const now=cardValue(c), next=now*2;
+  $("gildMsg").innerHTML=`<b>${c.letter}</b> &nbsp;${now} → ${next} pts`+(u>0?`<br><span class="gild-note">already gilded ×${u} · ${GILD_CAP-u} left</span>`:"");
+  $("gildPrice").innerHTML=`<span class="c-ico">◉</span>${cost}`;
+  const yes=$("gildYes"); yes.disabled=G.coins<cost;
+  yes.textContent = G.coins<cost ? "Not enough ◉" : "Gild for ◉"+cost;
+  $("gildConfirm").classList.remove("hidden");
+}
+function confirmGild(){
+  if(!gildPending) return;
+  const {cardId,cost}=gildPending;
+  const c=G.deck.find(x=>x.id===cardId); if(!c){ closeGildConfirm(); return; }
+  if(G.coins<cost){ toast("Not enough coins"); return; }
+  G.coins-=cost;
+  c.upLevel=(c.upLevel||0)+1;
+  if(typeof G.gildOfferIdx==="number" && G.shopOffers[G.gildOfferIdx]) G.shopOffers[G.gildOfferIdx].sold=true;
+  G.gildOfferIdx=null; gildPending=null; G.selectMode=null;
+  statShopBuy("Gild "+c.letter, cost, "gild");
+  haptic(24);
+  toast(c.letter+" now "+cardValue(c)+" pts");
+  closeGildConfirm(); closeDeck(); save();
+}
+function cancelGild(){ gildPending=null; closeGildConfirm(); }   // back to the picker
+
+/* ============================================================
+   First-up / Finale letter chooser (stackable)
+   ============================================================ */
+function bonusCostFor(kind, L){ const stacks=(G.perks[kind][L]||0); return px(7*Math.pow(2,stacks)); }
+function openBonusChooser(kind){
+  G.bonusKind=kind;
+  $("bonusTitle").textContent = kind==="firstUp" ? "First-up — pick a letter" : "Finale — pick a letter";
+  $("bonusSub").textContent   = kind==="firstUp"
+    ? "Words that START with it score ×(1+stacks)."
+    : "Words that END with it score ×(1+stacks).";
+  const wrap=$("bonusChoices"); wrap.innerHTML="";
+  const letters=[...new Set(G.deck.filter(c=>c.kind==="letter").map(c=>c.letter))].sort();
+  letters.forEach(L=>{
+    const stacks=(G.perks[kind][L]||0), cost=bonusCostFor(kind,L);
+    const b=document.createElement("button");
+    b.className="clone-choice"+(G.coins<cost?" disabled":"");
+    b.innerHTML=`${L}<span class="cc-val">→×${2+stacks}</span><span class="cc-cost"><span class="c-ico">◉</span>${cost}</span>`;
+    if(G.coins>=cost) b.addEventListener("click",()=>chooseBonus(L));
+    wrap.appendChild(b);
+  });
+  $("bonusChooser").classList.remove("hidden");
+}
+function chooseBonus(L){
+  const kind=G.bonusKind, cost=bonusCostFor(kind,L);
+  if(G.coins<cost){ toast("Not enough coins"); return; }
+  G.coins-=cost;
+  G.perks[kind][L]=(G.perks[kind][L]||0)+1;
+  if(typeof G.bonusOfferIdx==="number" && G.shopOffers[G.bonusOfferIdx]) G.shopOffers[G.bonusOfferIdx].sold=true;
+  G.bonusOfferIdx=null;
+  statShopBuy((kind==="firstUp"?"First-up ":"Finale ")+L, cost, kind);
+  haptic(24);
+  toast((kind==="firstUp"?"First-up ":"Finale ")+L+" → ×"+(1+G.perks[kind][L]));
+  closeBonusChooser(); renderShop(); save();
+}
+function cancelBonus(){
+  if(G.shopUndo && G.shopUndo.length) G.shopUndo.pop();   // discard the snapshot taken at buy
+  G.bonusOfferIdx=null; closeBonusChooser(); renderShop();
+}
+function closeBonusChooser(){ $("bonusChooser").classList.add("hidden"); }
+
+/* ============================================================
+   Run stat tracker (exportable; DB sync is future work)
+   ============================================================ */
+function statInit(seed){
+  G.stats={ game:"letterati", version:VERSION, seed,
+    startedAt:new Date().toISOString(), words:[], shops:[], result:null,
+    finalRound:1, finalDeck:null, runMs:0, runScore:0, bestWord:"", bestScore:0 };
+  G._curShop=null;
+}
+function statWord(word, score, len, isJazz){
+  if(!G.stats) return;
+  G.stats.runScore=G.runScore||0;   // mirror the canonical run score (set in submitWord)
+  G.stats.words.push({ round:G.level, word, score, len, jazz:!!isJazz,
+    overtime: G.handsLeft<=0 || G.hearts<MAX_HEARTS });
+}
+function statShopOpen(offers){
+  if(!G.stats) return;
+  G._curShop={ round:G.level, coinsIn:G.coins,
+    offered:(offers||[]).map(o=>({name:o.name,kind:o.kind,price:o.price})),
+    bought:[], rerolls:0 };
+  G.stats.shops.push(G._curShop);
+}
+function statShopBuy(name, price, type){ if(G._curShop) G._curShop.bought.push({name,price,type:type||null}); }
+function statShopReroll(){ if(G._curShop) G._curShop.rerolls++; }
+function statShopClose(){ if(G._curShop){ G._curShop.coinsOut=G.coins;
+  G._curShop.passed=G._curShop.offered.filter(o=>!G._curShop.bought.some(b=>b.name===o.name)).map(o=>o.name); }
+  G._curShop=null; }
+function snapshotDeck(){ return G.deck.map(c=> c.kind==="letter"
+  ? {letter:c.letter, value:cardValue(c), gild:c.upLevel||0, mult:c.mult||1}
+  : {kind:c.kind}); }
+function statFinish(result){
+  if(!G.stats) statInit(G.seed||"unknown");   // never silently drop a run (e.g. continued from a pre-fix save)
+  G.stats.result=result; G.stats.finalRound=G.level; G.stats.endedAt=new Date().toISOString();
+  G.stats.runMs=G.runMs; G.stats.finalDeck=snapshotDeck();
+  G.stats.runScore=G.runScore||0;
+  G.stats.bestWord=G.runBestWord||""; G.stats.bestScore=G.runBestScore||0;
+  G.stats.perks={ firstUp:G.perks.firstUp, lastUp:G.perks.lastUp, vowelPower:G.perks.vowelPower,
+    bigWords:G.perks.bigWords, fireSale:G.perks.fireSale, interest:G.perks.interest,
+    scoreMult:G.scoreMult, handSize:G.handSize, extraTurns:G.extraTurns };
+  try{ localStorage.setItem("letterati_laststats", JSON.stringify(G.stats)); }catch(e){}
+  try{ const arr=JSON.parse(localStorage.getItem("letterati_runs")||"[]"); arr.push(G.stats);
+       while(arr.length>500) arr.shift(); localStorage.setItem("letterati_runs", JSON.stringify(arr)); }catch(e){}
+}
+function downloadJSON(filename, obj){
+  try{
+    const blob=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"});
+    const url=URL.createObjectURL(blob);
+    const a=document.createElement("a"); a.href=url; a.download=filename;
+    document.body.appendChild(a); a.click();
+    setTimeout(()=>{ URL.revokeObjectURL(url); a.remove(); }, 120);
+    return true;
+  }catch(e){ return false; }
+}
+function exportStats(stats){
+  if(!stats){ toast("No run data yet"); return; }
+  const name="letterati_"+(stats.seed||"run")+"_stats.json";
+  if(downloadJSON(name, stats)){ toast("Stats exported"); }
+  else { try{ navigator.clipboard.writeText(JSON.stringify(stats)); toast("Stats copied"); }catch(e){ toast("Export failed"); } }
+}
+function lastStats(){ try{ return JSON.parse(localStorage.getItem("letterati_laststats")); }catch(e){ return null; } }
+function allRuns(){ try{ return JSON.parse(localStorage.getItem("letterati_runs")||"[]"); }catch(e){ return []; } }
+function exportAllRuns(){
+  const runs=allRuns();
+  if(!runs.length){ toast("No runs recorded yet"); return; }
+  const payload={ game:"letterati", version:VERSION, exportedAt:new Date().toISOString(), runCount:runs.length, runs };
+  if(downloadJSON("letterati_all_runs.json", payload)) toast(runs.length+(runs.length===1?" run exported":" runs exported"));
+  else { try{ navigator.clipboard.writeText(JSON.stringify(payload)); toast("Copied"); }catch(e){ toast("Export failed"); } }
+}
+
+/* ---------- Definition lookup (free dictionary API, cached) ---------- */
+const defCache={};
+function escHtml(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+async function lookupDefinition(word){
+  const key=String(word||"").toLowerCase().replace(/[^a-z]/g,"");
+  if(!key) return null;
+  if(key in defCache) return defCache[key];
+  try{
+    const r=await fetch("https://api.dictionaryapi.dev/api/v2/entries/en/"+encodeURIComponent(key));
+    if(!r.ok){ defCache[key]=null; return null; }
+    const data=await r.json();
+    const m=data && data[0] && data[0].meanings && data[0].meanings[0];
+    const def=m && m.definitions && m.definitions[0] && m.definitions[0].definition;
+    const res=def ? {pos:m.partOfSpeech||"", def} : null;
+    defCache[key]=res; return res;
+  }catch(e){ defCache[key]=null; return null; }
+}
+function showDefinition(word, isJazz){
+  const el=$("defStrip"); if(!el) return;
+  const w=escHtml(String(word||"").toUpperCase());
+  if(!w){ el.classList.add("hidden"); return; }
+  el.classList.remove("hidden");
+  if(isJazz){ el.innerHTML=`<span class="dw">${w}</span><span class="dd muted">free-jazz word — no dictionary entry</span>`; return; }
+  el.innerHTML=`<span class="dw">${w}</span><span class="dd muted">looking up…</span>`;
+  const token=String(Date.now()+Math.random()); el.dataset.token=token;
+  lookupDefinition(word).then(res=>{
+    if(el.dataset.token!==token) return;   // superseded by a newer word
+    if(res) el.innerHTML=`<span class="dw">${w}</span><span class="dpos">${escHtml(res.pos)}</span><span class="dd">${escHtml(res.def)}</span>`;
+    else    el.innerHTML=`<span class="dw">${w}</span><span class="dd muted">definition unavailable</span>`;
+  });
+}
+
+/* ---------- Owned perks (for the deck screen) ---------- */
+function ownedPerksList(){
+  const out=[];
+  if(G.perks.vowelPower) out.push("Vowel Power · ×2 vowels");
+  if(G.perks.bigWords)   out.push("Big Words · ×2 length bonus");
+  if(G.perks.twinsies)   out.push("Twinsies · ×2 side-by-side doubles");
+  if((G.scoreMult||1)>1) out.push("Press · ×"+Number(G.scoreMult).toFixed(2));
+  if(G.handSize>START_HAND) out.push("Fuller Case · hand of "+G.handSize);
+  if(G.extraTurns>0)     out.push("+"+G.extraTurns+" word"+(G.extraTurns>1?"s":"")+" / round");
+  if(G.extraDiscards>0)  out.push("+"+G.extraDiscards+" discard"+(G.extraDiscards>1?"s":"")+" / round");
+  if(G.perks.interest)   out.push("Compound Interest");
+  if(G.perks.discardMoneyBoost) out.push("Frugal Press · +50% discard coins");
+  if(G.perks.fireSale)   out.push("Fire Sale · cheaper shop");
+  if(G.perks.freeRerolls) out.push("Free Re-rolls");
+  Object.keys(G.perks.firstUp||{}).forEach(L=>{ const s=G.perks.firstUp[L]; if(s>0) out.push("First-up "+L+" · ×"+(1+s)); });
+  Object.keys(G.perks.lastUp||{}).forEach(L=>{ const s=G.perks.lastUp[L]; if(s>0) out.push("Finale "+L+" · ×"+(1+s)); });
+  return out;
+}
+
+/* ============================================================
+   Pause menu (in-run) + Options menu (title)
+   ============================================================ */
+function openPause(){ G.paused=true;
+  const ps=$("pauseStats"); if(ps) ps.textContent="Round "+G.level+" · "+(G.stats?G.stats.words.length:0)+" words set · "+G.coins+" ◉";
+  $("pauseScreen").classList.remove("hidden"); syncTimer(); }
+function closePause(){ G.paused=false; $("pauseScreen").classList.add("hidden"); syncTimer(); }
+function pauseQuit(){
+  statFinish("quit"); clearSave();
+  G.paused=false; $("pauseScreen").classList.add("hidden");
+  hideGame(); $("shopScreen").classList.add("hidden"); $("summaryScreen").classList.add("hidden");
+  $("titleScreen").classList.remove("hidden"); refreshContinue();
+}
+// Return to the title from an end screen. The run is already finalized by gameOver();
+// for a quit straight off the win screen, finalize it as a win first.
+function goToTitle(){
+  ["winScreen","overScreen","pauseScreen","shopScreen","summaryScreen"].forEach(id=>{ const e=$(id); if(e) e.classList.add("hidden"); });
+  hideGame();
+  $("titleScreen").classList.remove("hidden"); refreshContinue();
+}
+function winQuit(){ statFinish("win"); clearSave(); goToTitle(); }
+function openOptions(){ const runs=allRuns(); const n=runs.length;
+  $("optExportBtn").disabled=!n;
+  $("optExportBtn").textContent = n ? ("Export all run data ("+n+(n===1?" run)":" runs)")) : "No runs recorded yet";
+  $("optionsScreen").classList.remove("hidden"); }
+function closeOptions(){ $("optionsScreen").classList.add("hidden"); }
+function closeGildConfirm(){ $("gildConfirm").classList.add("hidden"); }
+function closeDeck(){
+  $("deckScreen").classList.add("hidden");
+  $("selectHint").classList.add("hidden");
+  G.selectMode=null; G.gildOfferIdx=null;
+  if(!$("shopScreen").classList.contains("hidden")) renderShop();
+}
+
+/* ============================================================
+   Screen switches
+   ============================================================ */
+function showGame(){ $("hud").classList.remove("hidden"); $("play").classList.remove("hidden"); { const p=$("pauseBtn"); if(p) p.classList.remove("hidden"); } }
+function hideGame(){ $("hud").classList.add("hidden"); $("play").classList.add("hidden"); { const p=$("pauseBtn"); if(p) p.classList.add("hidden"); } const h=$("dangerHalo"); if(h) h.classList.remove("show","strong"); }
+
+function gameOver(won){
+  tickFlush(); runTicking=false;   // freeze run time
+  statFinish((won||G.wonRun) ? "win" : "lose");
+  clearSave();
+  hideGame();
+  $("shopScreen").classList.add("hidden");
+  const r=$("overResult");
+  const mastered = won || G.wonRun;
+  r.textContent=mastered?"Press Mastered":"The Press Goes Cold";
+  r.className="over-result "+(mastered?"win":"lose");
+  $("overStats").innerHTML=`
+    <div class="stat-line">${(G.wonRun && G.level>WIN_LEVEL) ? `Cleared all ${WIN_LEVEL} — then pushed to <b>round ${G.level}</b> in endless.` : `You reached <b>round ${G.level}</b>.`}</div>
+    <div class="stat-line">Run time: <b>${fmtDuration(G.runMs)}</b></div>
+    <div class="stat-line">Run score: <b>${(G.runScore||0).toLocaleString()}</b></div>
+    <div class="stat-line">Words set this run: <b>${G.wordsPlayed||0}</b></div>
+    ${G.runBestWord?`<div class="stat-line">Best word: <b>${G.runBestWord}</b> · ${G.runBestScore}</div>`:""}
+    <div class="stat-line">Coins left: <b>${G.coins}</b> ◉</div>
+    <div class="stat-line" style="margin-top:8px;color:var(--ink-soft);font-size:.8rem">Seed <b>${G.seed}</b></div>`;
+  $("overScreen").classList.remove("hidden");
+}
+
+/* ============================================================
+   Autosave / continue
+   ============================================================ */
+const SAVE_KEY="wordsmith_save_v0";
+const SAVE_VERSION=8;
+function hasSave(){ try{ const s=JSON.parse(localStorage.getItem(SAVE_KEY)); return !!(s&&s.v===SAVE_VERSION); }catch(e){ return false; } }
+function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} refreshContinue(); }
+function save(){
+  try{
+    if(!G.seed) return;
+    const inSummary=!$("summaryScreen").classList.contains("hidden");
+    const inShop=!$("shopScreen").classList.contains("hidden");
+    const inPlay=!$("play").classList.contains("hidden");
+    const phase=inSummary?"summary":(inShop?"shop":(inPlay?"play":null));
+    if(!phase) return;
+    tickFlush();
+    const ids=a=>a.map(c=>c.id);
+    const data={
+      v:SAVE_VERSION, phase, seed:G.seed, level:G.level, hearts:G.hearts, coins:G.coins, handSize:G.handSize,
+      infinite:G.infinite, wonRun:G.wonRun,
+      perks:G.perks, scoreMult:G.scoreMult, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, jazzCharges:G.jazzCharges, runMs:G.runMs, stats:G.stats,
+      wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
+      attempt:G.attempt, target:G.target, score:G.score, handsLeft:G.handsLeft, discardsLeft:G.discardsLeft,
+      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas),
+      rerollCount:G.rerollCount, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
+    };
+    localStorage.setItem(SAVE_KEY,JSON.stringify(data));
+  }catch(e){}
+  refreshContinue();
+}
+function continueRun(){
+  let d; try{ d=JSON.parse(localStorage.getItem(SAVE_KEY)); }catch(e){ return; }
+  if(!d || d.v!==SAVE_VERSION) return;
+  cardSeq=d.cardSeq||0;
+  G.seed=d.seed; G.level=d.level; G.hearts=d.hearts; G.coins=d.coins; G.handSize=d.handSize;
+  G.infinite=!!d.infinite; G.wonRun=!!d.wonRun;
+  G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:false,fireSale:false,bigWords:false,freeRerolls:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
+  G.scoreMult=d.scoreMult||1; G.extraDiscards=d.extraDiscards||0; G.extraTurns=d.extraTurns||0;
+  G.jazzCharges=(typeof d.jazzCharges==="number")?d.jazzCharges:0;
+  G.wordsPlayed=d.wordsPlayed||0; G.runScore=d.runScore||0; G.runBestWord=d.runBestWord||""; G.runBestScore=d.runBestScore||0;
+  G.levelStats=d.levelStats||{bestWord:"",bestScore:0,words:0};
+  G.best=d.best||1; G.lastReward=d.lastReward||null;
+  G.runMs=d.runMs||0;
+  // restore the run's stat tracker so a continued run still records on finish
+  G.stats=d.stats||null;
+  G._curShop=(d.phase==="shop" && G.stats && G.stats.shops && G.stats.shops.length) ? G.stats.shops[G.stats.shops.length-1] : null;
+  if(!G.stats) statInit(G.seed);   // legacy save with no stats → begin tracking now so the run isn't lost
+  G.deck=(d.deck||[]).map(c=>Object.assign({},c));
+  const byId={}; G.deck.forEach(c=>byId[c.id]=c);
+  const map=a=>(a||[]).map(id=>byId[id]).filter(Boolean);
+  G.attempt=d.attempt||0; G.target=d.target||targetFor(G.level);
+  G.score=d.score||0; G.handsLeft=d.handsLeft||0; G.discardsLeft=d.discardsLeft||0;
+  G.drawPile=map(d.drawPile); G.hand=map(d.hand); G.canvas=map(d.canvas);
+  $("titleScreen").classList.add("hidden"); $("overScreen").classList.add("hidden");
+  if(d.phase==="summary" && d.summaryInfo){
+    hideGame();
+    showLevelSummary(d.summaryInfo);
+  } else if(d.phase==="shop"){
+    G.rerollCount=d.rerollCount||0;
+    G.shopOffers=d.offers||[];
+    setShopHeader();
+    hideGame(); $("shopScreen").classList.remove("hidden");
+    renderShop();
+  } else {
+    showGame(); renderCanvas(); renderHand(); renderHud(); updateLive();
+  }
+  syncTimer();
+}
+function refreshContinue(){
+  const b=$("continueBtn"); if(!b) return;
+  b.classList.toggle("hidden", !hasSave());
+}
+
+/* ============================================================
+   New run / boot
+   ============================================================ */
+function newRun(seed){
+  clearSave();
+  cardSeq=0;
+  G.seed=seed;
+  G.level=1; G.hearts=MAX_HEARTS; G.coins=0; G.handSize=START_HAND;
+  G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:false,fireSale:false,bigWords:false,freeRerolls:false};
+  G.scoreMult=1; G.extraDiscards=0; G.extraTurns=0; G.jazzCharges=0; G.lastReward=null;
+  G.infinite=false; G.wonRun=false;
+  G.rerollCount=0;   // reroll-price ladder resets each run
+  G.wordsPlayed=0; G.runScore=0; G.runBestWord=""; G.runBestScore=0; G.levelStats={bestWord:"",bestScore:0,words:0};
+  G.attempt=0; G.best=1; G.shopOffers=[]; G.runMs=0;
+  G.deck=rollStartingDeck();
+  statInit(G.seed);
+  { const ds=$("defStrip"); if(ds){ ds.classList.add("hidden"); ds.innerHTML=""; } }
+  $("titleScreen").classList.add("hidden");
+  $("overScreen").classList.add("hidden");
+  startLevel();
+}
+function randomSeed(){ return Math.random().toString(36).slice(2,7).toUpperCase(); }
+
+/* ---------- wire up ---------- */
+$("verTag").textContent="Prototype v"+VERSION+" · "+WORDS.size.toLocaleString()+" words";
+$("playBtn").addEventListener("click",()=>newRun(generateValidatedSeed()));
+$("continueBtn").addEventListener("click",continueRun);
+refreshContinue();
+$("cloneCancel").addEventListener("click",cancelClone);
+$("vowelCancel").addEventListener("click",cancelVowel);
+$("gildYes").addEventListener("click",confirmGild);
+$("gildNo").addEventListener("click",cancelGild);
+$("seedBtn").addEventListener("click",()=>{
+  const s=($("seedInput").value||"").trim().toUpperCase();
+  newRun(s||generateValidatedSeed());
+});
+$("submitBtn").addEventListener("click",submitWord);
+$("discardBtn").addEventListener("click",discardCanvas);
+$("recallBtn").addEventListener("click",recallAll);
+$("shuffleBtn").addEventListener("click",shuffleHand);
+window.addEventListener("resize",()=>{ if(!$("play").classList.contains("hidden")){ fitHand(); fitCanvas(); } });
+hasFocus = (typeof document.hasFocus==="function") ? document.hasFocus() : true;
+document.addEventListener("visibilitychange", syncTimer);
+window.addEventListener("focus", ()=>{ hasFocus=true; syncTimer(); });
+window.addEventListener("blur",  ()=>{ hasFocus=false; tickFlush(); syncTimer(); });
+window.addEventListener("pagehide", ()=>{ tickFlush(); save(); });
+$("deckBtn").addEventListener("click",()=>openDeck(null));
+$("shopDeckBtn").addEventListener("click",()=>openDeck(null));
+$("deckCloseBtn").addEventListener("click",closeDeck);
+$("rerollBtn").addEventListener("click",rerollShop);
+$("shopUndoBtn").addEventListener("click",shopUndo);
+$("nextBtn").addEventListener("click",nextRound);
+$("sumNextBtn").addEventListener("click",()=>{ openShop(); closeSummary(); });
+document.addEventListener("pointerdown",()=>audio(),{passive:true});
+$("overNewBtn").addEventListener("click",()=>newRun(generateValidatedSeed()));
+$("overSeedBtn").addEventListener("click",()=>newRun(G.seed));
+$("winEndlessBtn").addEventListener("click",winContinueEndless);
+$("winFinishBtn").addEventListener("click",winFinish);
+$("winQuitBtn").addEventListener("click",winQuit);
+$("overQuitBtn").addEventListener("click",goToTitle);
+// pause menu
+$("pauseBtn").addEventListener("click",openPause);
+$("pauseResumeBtn").addEventListener("click",closePause);
+$("pauseExportBtn").addEventListener("click",()=>exportStats(G.stats));
+$("pauseQuitBtn").addEventListener("click",pauseQuit);
+// options menu
+$("optionsBtn").addEventListener("click",openOptions);
+$("optBackBtn").addEventListener("click",closeOptions);
+$("optExportBtn").addEventListener("click",exportAllRuns);
+// first/last-up letter chooser
+$("bonusCancel").addEventListener("click",cancelBonus);
+
+// physical keyboard: type letters to place from hand, Enter submit, Backspace recall one
+document.addEventListener("keydown",e=>{
+  if($("play").classList.contains("hidden")) return;
+  if(e.key==="Enter"){ submitWord(); return; }
+  if(e.key==="Backspace"){ e.preventDefault(); if(G.canvas.length){ removeFromCanvas(G.canvas[G.canvas.length-1].id); } return; }
+  if(/^[a-zA-Z]$/.test(e.key)){
+    const L=e.key.toUpperCase();
+    const c=G.hand.find(x=>x.kind==="letter" && x.letter===L);
+    if(c) placeFromHand(c.id);
+  }
+});
+</script>
+</body>
+</html>
