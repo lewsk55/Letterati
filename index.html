@@ -73,6 +73,54 @@ body::before{
 .heart{color:var(--oxblood);transition:transform .2s ease, opacity .3s ease}
 .heart.spent{opacity:.18;color:var(--ink)}
 .heart.pulse{animation:heartPulse .5s ease}
+.heart.breaking{animation:heartBreak .55s cubic-bezier(.36,.07,.19,.97) both;color:var(--oxblood)}
+@keyframes heartBreak{
+  0%{transform:scale(1)}
+  22%{transform:scale(1.55) rotate(-9deg);filter:drop-shadow(0 0 9px rgba(139,0,0,.75))}
+  48%{transform:scale(.66) rotate(7deg)}
+  70%{transform:scale(1.18) rotate(-3deg)}
+  100%{transform:scale(1) rotate(0);opacity:.18}
+}
+/* whole-screen jolt when a heart is lost */
+#app.shake{animation:screenShake .55s cubic-bezier(.36,.07,.19,.97)}
+@keyframes screenShake{
+  0%,100%{transform:translate(0,0) rotate(0)}
+  10%{transform:translate(-8px,4px) rotate(-.5deg)}
+  20%{transform:translate(9px,-5px) rotate(.6deg)}
+  30%{transform:translate(-10px,3px) rotate(-.4deg)}
+  40%{transform:translate(8px,4px) rotate(.4deg)}
+  50%{transform:translate(-7px,-4px) rotate(-.3deg)}
+  60%{transform:translate(7px,3px) rotate(.3deg)}
+  70%{transform:translate(-5px,-2px)}
+  80%{transform:translate(4px,2px)}
+  90%{transform:translate(-2px,1px)}
+}
+/* floating "-1" that rises off the hearts */
+.heart-loss-float{
+  position:fixed;z-index:300;transform:translate(-50%,-50%);pointer-events:none;
+  font-family:var(--ui,inherit);font-weight:900;font-size:1.7rem;color:var(--oxblood);
+  text-shadow:0 2px 7px rgba(0,0,0,.28),0 0 14px rgba(139,0,0,.4);
+  animation:heartLossRise 1.1s cubic-bezier(.2,.7,.2,1) forwards;
+}
+@keyframes heartLossRise{
+  0%{opacity:0;transform:translate(-50%,-20%) scale(.6)}
+  16%{opacity:1;transform:translate(-50%,-65%) scale(1.3)}
+  44%{transform:translate(-50%,-105%) scale(1)}
+  100%{opacity:0;transform:translate(-50%,-185%) scale(.92)}
+}
+/* shatter particles */
+.heart-burst{position:fixed;z-index:300;width:0;height:0;pointer-events:none}
+.heart-burst span{position:absolute;left:0;top:0;color:var(--oxblood);transform:translate(-50%,-50%);opacity:1;
+  animation:heartShatter .85s ease-out forwards}
+@keyframes heartShatter{
+  0%{transform:translate(-50%,-50%) scale(.5);opacity:1}
+  100%{transform:translate(calc(-50% + var(--tx)),calc(-50% + var(--ty))) scale(1.05);opacity:0}
+}
+@media (prefers-reduced-motion:reduce){
+  #app.shake{animation:none}
+  .heart-burst span{animation:none;display:none}
+  .heart-loss-float{animation:none}
+}
 @keyframes heartPulse{0%,100%{transform:scale(1)}40%{transform:scale(1.5)}}
 .coins{display:flex;align-items:center;gap:6px;font-weight:800;color:var(--brass-deep);font-size:.98rem;justify-content:center}
 .coins .c-ico{font-size:1.05rem}
@@ -780,7 +828,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "1e";
+const VERSION = "1f";
 const WIN_LEVEL = 8;   // clear this round to WIN; afterwards, optional endless mode
 const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10};
 // Scrabble-bag style weights — E most common; AIOU vowels common; SNRT common
@@ -1550,10 +1598,19 @@ function pickVowel(L){
 }
 function cancelVowel(){ vowelPending=null; const ov=$("vowelChooser"); ov.classList.remove("show"); ov.classList.add("hidden"); }
 
+function handVowelSource(){
+  // a real vowel, or a wild-vowel tile that's guaranteed to become one
+  return G.hand.some(c => (c.kind==="letter" && VOWELS.has(c.letter)) || c.kind==="wildvowel");
+}
 function dealUpToHand(animate){
   let dealt=0;
   while(G.hand.length<G.handSize && G.drawPile.length>0){
     G.hand.push(G.drawPile.shift()); dealt++;
+  }
+  // mercy rule: never strand the player with a vowel-less hand
+  if(!handVowelSource() && G.drawPile.length>0){
+    toast("No vowels — bonus draw!");            // announce BEFORE the extra tiles land
+    while(!handVowelSource() && G.drawPile.length>0){ G.hand.push(G.drawPile.shift()); dealt++; }
   }
   renderHand(); renderHud();
   if(animate && dealt>0){
@@ -1747,11 +1804,46 @@ function winFinish(){
   $("winScreen").classList.add("hidden");
   gameOver(true);
 }
+function floatMinusOne(anchorEl){
+  if(!anchorEl) return;
+  const r=anchorEl.getBoundingClientRect();
+  const s=document.createElement("div"); s.className="heart-loss-float"; s.textContent="\u22121";
+  s.style.left=(r.left+r.width/2)+"px"; s.style.top=(r.top+r.height/2)+"px";
+  document.body.appendChild(s);
+  setTimeout(()=>s.remove(),1150);
+}
+function heartBreakBurst(el){
+  if(!el || reduceMotion()) return;
+  const r=el.getBoundingClientRect();
+  const burst=document.createElement("div"); burst.className="heart-burst";
+  burst.style.left=(r.left+r.width/2)+"px"; burst.style.top=(r.top+r.height/2)+"px";
+  const N=11;
+  for(let i=0;i<N;i++){
+    const s=document.createElement("span"); s.textContent = i%3===0 ? "\u2665" : "\u2726";
+    const ang=(Math.PI*2*i/N)+(Math.random()*0.5-0.25);
+    const dist=20+Math.random()*28;
+    s.style.setProperty("--tx",(Math.cos(ang)*dist).toFixed(1)+"px");
+    s.style.setProperty("--ty",(Math.sin(ang)*dist).toFixed(1)+"px");
+    s.style.fontSize=(9+Math.random()*9).toFixed(0)+"px";
+    s.style.animationDelay=(Math.random()*50).toFixed(0)+"ms";
+    burst.appendChild(s);
+  }
+  document.body.appendChild(burst);
+  setTimeout(()=>burst.remove(),900);
+}
+function screenShake(){
+  if(reduceMotion()) return;
+  const a=$("app"); if(!a) return;
+  a.classList.remove("shake"); void a.offsetWidth; a.classList.add("shake");
+  setTimeout(()=>a.classList.remove("shake"),560);
+}
 function levelFailed(){
   G.hearts--;
   const hs=[...$("hearts").querySelectorAll(".heart")];
-  const lost=hs[G.hearts]; if(lost){ lost.classList.add("pulse"); }
-  haptic([30,60,30]);
+  const lost=hs[G.hearts];
+  if(lost){ lost.classList.add("breaking"); heartBreakBurst(lost); floatMinusOne(lost); }
+  screenShake();
+  haptic([40,70,40,70,40]);
   setTimeout(()=>{
     renderHud();
     if(G.hearts<=0){ gameOver(false); return; }
