@@ -317,6 +317,8 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
 .offer.r-uncommon{border-left:5px solid #5AA46B}
 .offer.r-rare{border-left:5px solid #6A6FE0}
 .offer.r-epic{border-left:5px solid #B05BC0;box-shadow:0 0 16px rgba(176,91,192,.18),0 1px 0 #fff inset}
+.offer.r-legendary{border-left:5px solid #E2A12B;box-shadow:0 0 20px rgba(226,161,43,.30),0 1px 0 #fff inset;background:linear-gradient(180deg,#FFFDF6,#FBF3DE)}
+.offer.r-legendary .o-kind{color:#A9761A;font-weight:900}
 .offer.r-common .o-kind{color:#3F7E96}
 .offer.r-uncommon .o-kind{color:#3C7A52}
 .offer.r-rare .o-kind{color:#3E47B0}
@@ -510,8 +512,8 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
     <div class="howto">
       <p><b>Forge words</b> from the 7 letter slugs in your case. Longer words and rarer letters score more. Set a word and its letters shuffle back into your deck — you'll draw a fresh 7.</p>
       <p>Beat each round's <b>target</b> within your <b>words</b> (turns). Run out short and you go into <b>overtime</b> — each extra word costs a heart (you have five), keeping your score and hand, until the target falls or your hearts run out.</p>
-      <p>Stuck with junk? Drop letters on the canvas and tap <b>Discard</b> to swap them (3 a round). A word can be set only once per run.</p>
-      <p>Clear a round to earn coins for the <b>print shop</b>: new letters, gilding, perks and more.</p>
+      <p>Stuck with junk? Drop letters on the canvas and tap <b>Discard</b> to swap them (3 a round). The same word can be set as many times as you like.</p>
+      <p>Clear a round to earn coins for the <b>print shop</b>: new letters, gilding, perks and more. Beat all <b>8 rounds</b> to win the press — then push your luck in <b>endless</b> if you dare.</p>
     </div>
     <div class="ver" id="verTag"></div>
     <button class="menu-btn alt" id="optionsBtn" style="max-width:300px;margin-top:6px">Options</button>
@@ -581,6 +583,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
     <div id="overStats"></div>
     <button class="menu-btn" id="overNewBtn" style="margin-top:22px">New run</button>
     <button class="menu-btn alt" id="overSeedBtn">Replay this seed</button>
+    <button class="menu-btn alt" id="overQuitBtn">Quit to title</button>
   </div>
 </div>
 
@@ -591,6 +594,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
     <div id="winStats"></div>
     <button class="menu-btn" id="winEndlessBtn" style="margin-top:22px">Keep printing — Endless →</button>
     <button class="menu-btn alt" id="winFinishBtn">Finish &amp; savor it</button>
+    <button class="menu-btn alt" id="winQuitBtn">Quit to title</button>
   </div>
 </div>
 
@@ -330845,14 +330849,16 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "1a";
+const VERSION = "1c";
 const WIN_LEVEL = 8;   // clear this round to WIN; afterwards, optional endless mode
 const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10};
 // Scrabble-bag style weights — E most common; AIOU vowels common; SNRT common
 // consonants; JKQXZ rarest. Used to roll the starting deck and shop letters.
 const BAG_WEIGHTS = {E:12,A:9,I:9,O:8,N:6,R:6,T:6,L:4,S:4,U:4,D:4,G:3,B:2,C:2,M:2,P:2,F:2,H:2,V:2,W:2,Y:2,K:1,J:1,X:1,Q:1,Z:1};
 const VOWELS = new Set(["A","E","I","O","U"]);
-const START_DECK = 20;
+const START_DECK = 24;
+const DECK_VOWEL_MIN = Math.round(START_DECK*0.30);   // 7 at 24, 6 at 20
+const DECK_VOWEL_MAX = Math.round(START_DECK*0.55);   // 13 at 24, 11 at 20
 const START_HAND = 7;
 const GILD_BASE = 6;   // base price to gild a fresh letter (doubles per existing gild)
 const HANDS_PER_LEVEL = 4;     // "turns" — words you may set
@@ -330883,7 +330889,9 @@ function weightedLetter(rng,weights){
 let cardSeq=0;
 function makeLetterCard(letter){ return {id:++cardSeq, kind:"letter", letter, base:LETTER_VALUES[letter], upLevel:0, mult:1}; }
 function makeCloneCard(){ return {id:++cardSeq, kind:"clone", letter:null, base:0, upLevel:0, mult:1, cloneLetter:null}; }
-function makeJazzCard(){ return {id:++cardSeq, kind:"jazz", letter:null, base:0, upLevel:0, mult:1}; }
+function makeJazzCard(){ return {id:++cardSeq, kind:"jazz", letter:null, base:0, upLevel:0, mult:1, jazzLeft:3}; }
+const JAZZ_USES=3;
+function canvasUsableJazz(){ return G.canvas.some(c=>c.kind==="jazz" && (c.jazzLeft||0)>0); }
 function makeWildVowelCard(){ return {id:++cardSeq, kind:"wildvowel", letter:null, base:0, upLevel:0, mult:1, vowel:null}; }
 function cardValue(c){ return (c.base|0) * Math.pow(2, c.upLevel||0); }   // points double per gild, no cap
 function gildLevel(c){ return c.upLevel||0; }
@@ -330945,7 +330953,7 @@ function rollStartingDeck(){
     const v=letters.filter(L=>VOWELS.has(L)).length;
     const hi=letters.filter(L=>LETTER_VALUES[L]>1).length;
     const maxRep=Math.max(...Object.values(counts));
-    if(v>=6 && v<=11 && hi>=2 && maxRep<=MAX_DUP){ cards=letters.map(makeLetterCard); break; }
+    if(v>=DECK_VOWEL_MIN && v<=DECK_VOWEL_MAX && hi>=2 && maxRep<=MAX_DUP){ cards=letters.map(makeLetterCard); break; }
   }
   if(!cards){
     const rng2=makeRng("deck2");
@@ -330973,7 +330981,7 @@ function predRoll(seed){
   const rng=mulberry32(xfnv1a(String(seed)+"::deck")); const MAX=3;
   const draw=(rng)=>{const L=[],c={};for(let i=0;i<START_DECK;i++){let x,g=0;do{x=weightedLetter(rng,BAG_WEIGHTS);g++;}while((c[x]||0)>=MAX&&g<60);c[x]=(c[x]||0)+1;L.push(x);}return{L,c};};
   let ls=null;
-  for(let t=0;t<400;t++){const{L,c}=draw(rng);const v=L.filter(x=>VOWELS.has(x)).length,hi=L.filter(x=>LETTER_VALUES[x]>1).length,mx=Math.max(...Object.values(c));if(v>=6&&v<=11&&hi>=2&&mx<=MAX){ls=L;break;}}
+  for(let t=0;t<400;t++){const{L,c}=draw(rng);const v=L.filter(x=>VOWELS.has(x)).length,hi=L.filter(x=>LETTER_VALUES[x]>1).length,mx=Math.max(...Object.values(c));if(v>=DECK_VOWEL_MIN&&v<=DECK_VOWEL_MAX&&hi>=2&&mx<=MAX){ls=L;break;}}
   if(!ls) ls=draw(mulberry32(xfnv1a(String(seed)+"::deck2"))).L;
   const cards=ls.map(L=>({letter:L,base:LETTER_VALUES[L],mult:1,up:0}));
   const el=shuffle(cards.filter(c=>c.base>1),rng); el.slice(0,2).forEach(c=>c.mult=1.5);
@@ -331211,7 +331219,7 @@ function buildTile(c,where){
   const t=document.createElement("button");
   const assignedClone = c.kind==="clone" && c.cloneLetter;
   const wildSet = c.kind==="wildvowel" && c.vowel;
-  const jazzSpent = c.kind==="jazz" && G.jazzCharges<=0;
+  const jazzSpent = c.kind==="jazz" && (c.jazzLeft||0)<=0;
   t.className="tile "
     +(c.kind==="clone"?"clone ":"")
     +(c.kind==="jazz"?"jazz ":"")
@@ -331223,7 +331231,7 @@ function buildTile(c,where){
 
   if(c.kind==="jazz"){
     const g=document.createElement("span"); g.className="glyph"; g.textContent="🎷"; t.appendChild(g);
-    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="FREE"; t.appendChild(s);
+    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent=(c.jazzLeft||0)+"/"+JAZZ_USES; t.appendChild(s);
     attachTileHandlers(t,c,where); return t;
   }
   if(c.kind==="wildvowel" && !wildSet){
@@ -331321,14 +331329,14 @@ function isRealWord(){
   if(res.length<2 || res.some(r=>!r.letter)) return false;
   return WORDS.has(res.map(r=>r.letter.toLowerCase()).join(""));
 }
-function jazzSubmit(){ return canvasHasJazz() && G.jazzCharges>0 && !isRealWord() && resolvedCanvas().filter(r=>r.letter).length>=2; }
+function jazzSubmit(){ return canvasUsableJazz() && !isRealWord() && resolvedCanvas().filter(r=>r.letter).length>=2; }
 function currentWord(){ return resolvedCanvas().map(r=>r.letter||"·").join(""); }
 function wordValid(){
   const res=resolvedCanvas();
   if(res.length<2) return false;
   if(res.some(r=>!r.letter)) return false; // unresolved clone / wild vowel
   if(WORDS.has(res.map(r=>r.letter.toLowerCase()).join(""))) return true;
-  if(canvasHasJazz() && G.jazzCharges>0) return true;   // free jazz: anything goes
+  if(canvasUsableJazz()) return true;   // free jazz: anything goes while uses remain
   return false;
 }
 function scoreOf(res){
@@ -331578,7 +331586,7 @@ function startLevel(){
   G.score=0;
   G.handsLeft=HANDS_PER_LEVEL+G.extraTurns;
   G.discardsLeft=DISCARDS_PER_LEVEL+G.extraDiscards;
-  G.jazzCharges=G.deck.filter(c=>c.kind==="jazz").length;   // one free-jazz play per Free jazz card, per round
+  { const ds=$("defStrip"); if(ds){ ds.classList.add("hidden"); ds.innerHTML=""; } }  // clear last word's definition
   G.reshuffleCount=0;
   G.levelStats={bestWord:"",bestScore:0,words:0};
   const rng=makeRng("lvl:"+G.level+":"+G.attempt);
@@ -331593,7 +331601,7 @@ function startLevel(){
 }
 // Letters are never burned: a played (or discarded) word's slugs go to the
 // BOTTOM of the deck, and you draw fresh ones off the top — a predictable
-// queue, not a reshuffle. The turn limit and once-per-run word rule bound a round.
+// queue, not a reshuffle. The turn limit bounds a round; words may repeat freely.
 function returnCanvasToPile(){
   if(G.canvas.length){
     G.canvas.forEach(c=>{ if(c.kind==="clone") c.cloneLetter=null; if(c.kind==="wildvowel") c.vowel=null; });
@@ -331607,7 +331615,7 @@ function submitWord(){
   const res=resolvedCanvas();
   const sc=scoreOf(res);
   const w=res.map(r=>r.letter.toLowerCase()).join("");
-  if(isJazz && G.jazzCharges>0) G.jazzCharges--;
+  if(isJazz){ G.canvas.forEach(c=>{ if(c.kind==="jazz" && (c.jazzLeft||0)>0) c.jazzLeft--; }); }
   // highlights
   G.wordsPlayed=(G.wordsPlayed||0)+1;
   G.runScore=(G.runScore||0)+sc.total;
@@ -331633,6 +331641,12 @@ function submitWord(){
   if(cash>0){ setTimeout(()=>{ floatText(cr.left+cr.width/2, cr.top+34, "+"+cash+"◉ big word", "#3C6E63"); blip(660,0.08); },180); }
   haptic([10,40,10,30]);
   returnCanvasToPile();
+  // a Free jazz card with no uses left is exhausted and leaves the deck for good
+  { const dead=G.deck.filter(c=>c.kind==="jazz" && (c.jazzLeft||0)<=0);
+    if(dead.length){ const ids=new Set(dead.map(c=>c.id));
+      G.deck=G.deck.filter(c=>!ids.has(c.id));
+      if(G.drawPile) G.drawPile=G.drawPile.filter(c=>!ids.has(c.id));
+      toast("Free jazz exhausted"); } }
   animateScore(G.score, G.score+sc.total);
   G.score+=sc.total;
   setTimeout(()=>{
@@ -331813,7 +331827,7 @@ function perkPool(rng){
     {make:()=>extraDiscardOffer(), weight:1.8},
     {make:()=>extraTurnOffer(),    weight:1.8},
     {make:()=>pressMultOffer(rng), weight:1.3},
-    {make:()=>freeJazzOffer(),     weight:1.2},
+    {make:()=>freeJazzOffer(),     weight:0.5},
   ];
   if(!G.perks.vowelPower)        e.push({make:()=>vowelPowerOffer(),  weight:2.4});
   if(!G.perks.fireSale)          e.push({make:()=>fireSaleOffer(),    weight:1.4});
@@ -331922,8 +331936,8 @@ function wildVowelOffer(){
     price:px(8), art:`<span class="mini-tile wv-mini">${wildVowelDesignHTML()}</span>`, d:{type:"wildVowel"}};
 }
 function freeJazzOffer(){
-  return {kind:"Card",rarity:"epic",name:"Free jazz",desc:"Once a round, set ANY combination of letters — real word or not.",
-    price:px(12), art:"🎷", d:{type:"freeJazz"}};
+  return {kind:"Card",rarity:"legendary",name:"Free jazz",desc:"Set ANY combination of letters — real word or not. 3 uses, then it leaves your deck.",
+    price:px(14), art:"🎷", d:{type:"freeJazz"}};
 }
 function vowelPowerOffer(){
   return {kind:"Perk",rarity:"common",name:"Vowel power",desc:"Double the points of every vowel (A E I O U).",
@@ -332110,7 +332124,7 @@ function buildStaticTile(c){
   t.className="tile "+(c.kind==="clone"?"clone ":"")+(c.kind==="jazz"?"jazz ":"")+(c.kind==="wildvowel"?"wildvowel ":"")+(gildLevel(c)>0?"upgraded ":"")+(cardMult(c)!==1?"multi ":"")+(isFirstUp(c)?"firstup ":"")+(isLastUp(c)?"lastup ":"");
   if(c.kind==="jazz"){
     const g=document.createElement("span"); g.className="glyph"; g.textContent="🎷"; t.appendChild(g);
-    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="FREE"; t.appendChild(s);
+    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent=(c.jazzLeft||0)+"/"+JAZZ_USES; t.appendChild(s);
     return t;
   }
   if(c.kind==="wildvowel"){
@@ -332342,6 +332356,14 @@ function pauseQuit(){
   hideGame(); $("shopScreen").classList.add("hidden"); $("summaryScreen").classList.add("hidden");
   $("titleScreen").classList.remove("hidden"); refreshContinue();
 }
+// Return to the title from an end screen. The run is already finalized by gameOver();
+// for a quit straight off the win screen, finalize it as a win first.
+function goToTitle(){
+  ["winScreen","overScreen","pauseScreen","shopScreen","summaryScreen"].forEach(id=>{ const e=$(id); if(e) e.classList.add("hidden"); });
+  hideGame();
+  $("titleScreen").classList.remove("hidden"); refreshContinue();
+}
+function winQuit(){ statFinish("win"); clearSave(); goToTitle(); }
 function openOptions(){ const runs=allRuns(); const n=runs.length;
   $("optExportBtn").disabled=!n;
   $("optExportBtn").textContent = n ? ("Export all run data ("+n+(n===1?" run)":" runs)")) : "No runs recorded yet";
@@ -332386,7 +332408,7 @@ function gameOver(won){
    Autosave / continue
    ============================================================ */
 const SAVE_KEY="wordsmith_save_v0";
-const SAVE_VERSION=6;
+const SAVE_VERSION=8;
 function hasSave(){ try{ const s=JSON.parse(localStorage.getItem(SAVE_KEY)); return !!(s&&s.v===SAVE_VERSION); }catch(e){ return false; } }
 function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} refreshContinue(); }
 function save(){
@@ -332509,6 +332531,8 @@ $("overNewBtn").addEventListener("click",()=>newRun(generateValidatedSeed()));
 $("overSeedBtn").addEventListener("click",()=>newRun(G.seed));
 $("winEndlessBtn").addEventListener("click",winContinueEndless);
 $("winFinishBtn").addEventListener("click",winFinish);
+$("winQuitBtn").addEventListener("click",winQuit);
+$("overQuitBtn").addEventListener("click",goToTitle);
 // pause menu
 $("pauseBtn").addEventListener("click",openPause);
 $("pauseResumeBtn").addEventListener("click",closePause);
