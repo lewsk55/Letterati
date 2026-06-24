@@ -71,6 +71,17 @@ body::before{
 .hud-center{display:flex;flex-direction:column;align-items:center;gap:3px;justify-self:center}
 .hearts{font-size:1.05rem;letter-spacing:2px;line-height:1;justify-self:end;text-align:right}
 .heart{color:var(--oxblood);transition:transform .2s ease, opacity .3s ease}
+/* ---- personal leaderboard (title screen) ---- */
+.leaderboard{margin:16px auto 4px;max-width:340px}
+.leaderboard h3{text-align:center;font-family:var(--ui);font-size:.66rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);font-weight:800;margin:0 0 9px}
+.lb-row{display:flex;align-items:baseline;gap:11px;padding:7px 12px;margin:5px 0;background:var(--paper);border:1px solid var(--tile-edge);border-radius:9px}
+.lb-row.lb-top{border-color:var(--moss);box-shadow:0 2px 10px rgba(60,110,99,.14)}
+.lb-rank{font-family:var(--ui);font-weight:800;color:var(--ink-soft);width:1.3em;text-align:center;flex:none}
+.lb-row.lb-top .lb-rank{color:var(--moss)}
+.lb-score{font-family:var(--serif);font-weight:800;font-size:1.05rem;color:var(--ink)}
+.lb-meta{margin-left:auto;font-family:var(--ui);font-size:.7rem;color:var(--ink-soft);font-weight:700;letter-spacing:.02em}
+.lb-win{color:var(--moss);letter-spacing:.06em}
+.lb-empty{text-align:center;font-size:.78rem;color:var(--ink-soft);font-style:italic;padding:6px 4px}
 .heart.spent{opacity:.18;color:var(--ink)}
 .heart.pulse{animation:heartPulse .5s ease}
 .heart.breaking{animation:heartBreak .55s cubic-bezier(.36,.07,.19,.97) both;color:var(--oxblood)}
@@ -258,6 +269,23 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
 .wv-design{position:relative;z-index:2;display:inline-block;width:1.25em;height:1.25em}
 .wv-stack{position:absolute;inset:0}
 .wv-stack i{position:absolute;left:50%;top:50%;font-style:normal;font-family:var(--serif);font-weight:700;font-size:.6em;opacity:.5;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5);transform:translate(-50%,-52%) rotate(var(--r))}
+/* wild consonant — cool indigo/teal gradient to contrast the warm wild vowel */
+.tile.wildcons{border-color:#5B8DC0;color:#fff;background:conic-gradient(from 0deg,#2638C4,#48D3CD,#3C6E63,#5B8DC0,#2638C4)}
+.tile.wildcons .glyph{position:relative;z-index:2;text-shadow:0 1px 3px rgba(0,0,0,.5)}
+.tile.wildcons .val{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6);z-index:2}
+.tile.wildcons .clone-mark{position:absolute;right:2px;top:1px;font-size:.5em;color:#fff;z-index:3;text-shadow:0 1px 2px rgba(0,0,0,.5)}
+.tile.wildcons .glyph-sub{position:absolute;bottom:4px;left:0;right:0;text-align:center;font-family:var(--ui);font-size:.5rem;font-weight:900;letter-spacing:.1em;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.55);z-index:2}
+.offer .o-art .mini-tile.wc-mini{background:conic-gradient(from 0deg,#2638C4,#48D3CD,#3C6E63,#5B8DC0,#2638C4);border-color:#5B8DC0;color:#fff;overflow:hidden}
+.offer .o-art .mini-tile.wc-mini .wv-design{width:1.25em;height:1.25em}
+/* copy cat — parchment tile with a copy glyph */
+.tile.copycat{border-color:#C9B68C;background:linear-gradient(180deg,#FBF4E6,#EFE4CC)}
+.tile.copycat .glyph-sub{font-size:.5rem;letter-spacing:.08em;position:absolute;bottom:4px;left:0;right:0;text-align:center;font-family:var(--ui);font-weight:800;color:#9A8047}
+.tile.copycat .clone-mark{position:absolute;right:2px;top:1px;font-size:.5em;color:#9A8047;z-index:3}
+/* proof sheet peek row */
+.proof-row{display:flex;align-items:center;gap:9px;margin:0 2px 8px}
+.proof-row .pr-lab{font-size:.58rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);font-weight:800}
+.pp-tile{position:relative;display:inline-flex;align-items:center;justify-content:center;min-width:30px;height:34px;padding:0 9px;border:1px solid var(--tile-edge);border-radius:7px;background:var(--paper);font-family:var(--serif);font-weight:700;font-size:1.05rem;color:var(--ink);box-shadow:0 1px 0 #fff inset}
+.pp-tile .pp-v{position:absolute;right:3px;bottom:1px;font-family:var(--ui);font-size:.5rem;font-weight:800;color:var(--ink-soft)}
 .wv-stack i:nth-child(3){opacity:1;font-size:.82em}
 .tile.dealing{animation:dealIn .42s cubic-bezier(.2,.7,.2,1) both}
 @keyframes dealIn{0%{opacity:0;transform:translateY(-24px) rotate(-6deg) scale(.8)}60%{opacity:1}100%{opacity:1;transform:none}}
@@ -541,6 +569,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
         <button class="icon-btn" id="shuffleBtn"><span class="ic">⇄</span> Shuffle</button>
         <button class="icon-btn" id="recallBtn">Clear canvas</button>
       </div>
+      <div class="proof-row hidden" id="proofRow"><span class="pr-lab">Next up</span><span class="proof-peek" id="proofPeek"></span></div>
       <div class="hand" id="hand"></div>
     </div>
   </main>
@@ -564,6 +593,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
       <p>Stuck with junk? Drop letters on the canvas and tap <b>Discard</b> to swap them (3 a round). The same word can be set as many times as you like.</p>
       <p>Clear a round to earn coins for the <b>print shop</b>: new letters, gilding, perks and more. Beat all <b>8 rounds</b> to win the press — then push your luck in <b>endless</b> if you dare.</p>
     </div>
+    <div class="leaderboard" id="leaderboard"></div>
     <div class="ver" id="verTag"></div>
     <button class="menu-btn alt" id="optionsBtn" style="max-width:300px;margin-top:6px">Options</button>
   </div>
@@ -665,6 +695,16 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
   <button class="menu-btn alt" id="vowelCancel" style="max-width:200px">Cancel</button>
 </div>
 
+<!-- ===== Consonant chooser (wild consonant) ===== -->
+<div class="overlay hidden" id="consChooser">
+  <div class="clone-sheet">
+    <div class="clone-title">Which consonant?</div>
+    <div class="clone-sub">It becomes this consonant for the word.</div>
+    <div class="clone-choices" id="consChoices"></div>
+    <button class="menu-btn alt" id="consCancel" style="max-width:200px">Cancel</button>
+  </div>
+</div>
+
 <div class="overlay hidden" id="gildConfirm">
   <div class="clone-sheet">
     <div class="clone-title">Gild this letter?</div>
@@ -733,6 +773,7 @@ if(!(typeof window!=="undefined" && window.WORD_BLOB)){ try{ window.addEventList
    ------------------------------------------------------------ */
 const EXTRA_WORDS = [
   // --- everyday slang / modern usage ---
+  "grok","groks","grokked","grokking",
   "homie","homies","homey","homeys","bestie","besties","selfie","selfies",
   "emoji","emojis","meme","memes","memed","blog","blogs","blogger","bloggers",
   "vlog","vlogs","vlogger","podcast","podcasts","hashtag","hashtags","retweet",
@@ -828,7 +869,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "1g";
+const VERSION = "2a";
 const WIN_LEVEL = 8;   // clear this round to WIN; afterwards, optional endless mode
 const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10};
 // Scrabble-bag style weights — E most common; AIOU vowels common; SNRT common
@@ -872,6 +913,9 @@ function makeJazzCard(){ return {id:++cardSeq, kind:"jazz", letter:null, base:0,
 const JAZZ_USES=3;
 function canvasUsableJazz(){ return G.canvas.some(c=>c.kind==="jazz" && (c.jazzLeft||0)>0); }
 function makeWildVowelCard(){ return {id:++cardSeq, kind:"wildvowel", letter:null, base:0, upLevel:0, mult:1, vowel:null}; }
+function makeWildConsCard(){ return {id:++cardSeq, kind:"wildcons", letter:null, base:0, upLevel:0, mult:1, cons:null}; }
+function makeCopyCatCard(){ return {id:++cardSeq, kind:"copycat", letter:null, base:0, upLevel:0, mult:1}; }
+const CONSONANTS=["B","C","D","F","G","H","J","K","L","M","N","P","Q","R","S","T","V","W","X","Y","Z"];
 function cardValue(c){ return (c.base|0) * Math.pow(2, c.upLevel||0); }   // points double per gild, no cap
 function gildLevel(c){ return c.upLevel||0; }
 function valHtml(c){ const p=cardValue(c), g=gildLevel(c); return p + (g>0?'<i class="up-sup">'+g+'</i>':''); }
@@ -881,7 +925,8 @@ const G = {
   seed:null, level:1, hearts:MAX_HEARTS, coins:0, handSize:START_HAND,
   deck:[],                 // run-long collection of cards
   perks:{ firstUp:{}, lastUp:{}, discardMoneyBoost:false, interest:false, twinsies:false,
-          vowelPower:false, fireSale:false, bigWords:false, freeRerolls:false },
+          vowelPower:false, fireSale:false, bigWords:false, freeRerolls:false,
+          proofSheet:false, twoOfAKind:false, shortKing:false },
   scoreMult:1,             // global "press multiplier" perk (compounds)
   extraDiscards:0, extraTurns:0, jazzCharges:0,
   wordsPlayed:0, runScore:0, runBestWord:"", runBestScore:0, levelStats:{bestWord:"",bestScore:0,words:0},
@@ -1176,15 +1221,30 @@ function renderHud(){
     halo.classList.toggle("show", oneHeart||oneWord);
     halo.classList.toggle("strong", oneHeart&&oneWord);
   }
+  renderProofPeek();
+}
+function renderProofPeek(){
+  const row=$("proofRow"); if(!row) return;
+  if(!G.perks.proofSheet || !G.drawPile || G.drawPile.length===0){ row.classList.add("hidden"); return; }
+  row.classList.remove("hidden");
+  const peek=$("proofPeek"); peek.innerHTML="";
+  const c=G.drawPile[0];
+  const mini=document.createElement("span"); mini.className="pp-tile";
+  if(c.kind==="letter"){ mini.innerHTML=`${c.letter}<span class="pp-v">${cardValue(c)}</span>`; }
+  else { mini.textContent = c.kind==="clone"?"❖" : c.kind==="wildvowel"?"✺" : c.kind==="wildcons"?"✦" : c.kind==="copycat"?"⧉" : c.kind==="jazz"?"🎷" : "?"; }
+  peek.appendChild(mini);
 }
 
 /* ============================================================
    Render: tiles, hand, canvas
    ============================================================ */
+function copycatResolved(c){ const e=resolvedCanvas().find(r=>r.card===c); return e&&e.letter?{letter:e.letter,value:e.value}:null; }
 function tileGlyph(c){
   if(c.kind==="clone") return c.cloneLetter ? c.cloneLetter : "❖";
   if(c.kind==="jazz") return "🎷";
   if(c.kind==="wildvowel") return c.vowel ? c.vowel : "✺";
+  if(c.kind==="wildcons") return c.cons ? c.cons : "✦";
+  if(c.kind==="copycat"){ const r=copycatResolved(c); return r?r.letter:"⧉"; }
   return c.letter;
 }
 function isFirstUp(c){ return c.kind==="letter" && (G.perks.firstUp[c.letter]||0)>0; }
@@ -1198,11 +1258,14 @@ function buildTile(c,where){
   const t=document.createElement("button");
   const assignedClone = c.kind==="clone" && c.cloneLetter;
   const wildSet = c.kind==="wildvowel" && c.vowel;
+  const assignedWildCons = c.kind==="wildcons" && c.cons;
   const jazzSpent = c.kind==="jazz" && (c.jazzLeft||0)<=0;
   t.className="tile "
     +(c.kind==="clone"?"clone ":"")
     +(c.kind==="jazz"?"jazz ":"")
     +(c.kind==="wildvowel"?"wildvowel ":"")
+    +(c.kind==="wildcons"?"wildcons ":"")
+    +(c.kind==="copycat"?"copycat ":"")
     +(jazzSpent?"spent ":"")
     +(gildLevel(c)>0?"upgraded ":"")+(cardMult(c)!==1?"multi ":"")
     +(isFirstUp(c)?"firstup ":"")+(isLastUp(c)?"lastup ":"");
@@ -1218,6 +1281,11 @@ function buildTile(c,where){
     const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="WILD"; t.appendChild(s);
     attachTileHandlers(t,c,where); return t;
   }
+  if(c.kind==="wildcons" && !assignedWildCons){
+    const d=document.createElement("span"); d.className="wv-design"; d.innerHTML=wildConsDesignHTML(); t.appendChild(d);
+    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="CONS"; t.appendChild(s);
+    attachTileHandlers(t,c,where); return t;
+  }
 
   const g=document.createElement("span"); g.className="glyph";
   g.textContent = wildSet ? c.vowel : tileGlyph(c); t.appendChild(g);
@@ -1229,6 +1297,17 @@ function buildTile(c,where){
   } else if(wildSet){
     const v=document.createElement("span"); v.className="val"; v.textContent=LETTER_VALUES[c.vowel]; t.appendChild(v);
     const cm=document.createElement("span"); cm.className="clone-mark"; cm.textContent="✺"; t.appendChild(cm);
+  } else if(assignedWildCons){
+    const v=document.createElement("span"); v.className="val"; v.textContent=LETTER_VALUES[c.cons]; t.appendChild(v);
+    const cm=document.createElement("span"); cm.className="clone-mark"; cm.textContent="✦"; t.appendChild(cm);
+  } else if(c.kind==="copycat"){
+    const r=copycatResolved(c);
+    if(r){
+      const v=document.createElement("span"); v.className="val"; v.textContent=r.value; t.appendChild(v);
+      const cm=document.createElement("span"); cm.className="clone-mark"; cm.textContent="⧉"; t.appendChild(cm);
+    } else {
+      const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="COPY"; t.appendChild(s);
+    }
   } else {
     const v=document.createElement("span"); v.className="val"; v.innerHTML=valHtml(c); t.appendChild(v);
   }
@@ -1240,6 +1319,11 @@ function wildVowelDesignHTML(){
   return '<span class="wv-stack">'
     +'<i style="--r:-30deg">A</i><i style="--r:-15deg">E</i><i style="--r:0deg">I</i>'
     +'<i style="--r:15deg">O</i><i style="--r:30deg">U</i></span>';
+}
+function wildConsDesignHTML(){
+  return '<span class="wv-stack">'
+    +'<i style="--r:-30deg">B</i><i style="--r:-15deg">K</i><i style="--r:0deg">R</i>'
+    +'<i style="--r:15deg">S</i><i style="--r:30deg">Z</i></span>';
 }
 /* size tiles so a row always fits on one line, shrinking as it grows */
 function fitRow(el,count,o){
@@ -1296,6 +1380,13 @@ function resolvedCanvas(){
     } else if(c.kind==="wildvowel"){
       const L=c.vowel;
       out.push(L?{letter:L,value:LETTER_VALUES[L]||0,mult:1,wild:true,card:c}:{letter:null,value:0,mult:1,wild:true,card:c});
+    } else if(c.kind==="wildcons"){
+      const L=c.cons;
+      out.push(L?{letter:L,value:LETTER_VALUES[L]||0,mult:1,wild:true,card:c}:{letter:null,value:0,mult:1,wild:true,card:c});
+    } else if(c.kind==="copycat"){
+      const left=out.length>0?out[out.length-1]:null;   // copies the tile immediately to its left, exactly
+      out.push(left&&left.letter?{letter:left.letter,value:left.value,mult:left.mult||1,copycat:true,card:c}
+                                 :{letter:null,value:0,mult:1,copycat:true,card:c});
     } else {
       out.push({letter:c.letter,value:cardValue(c),mult:cardMult(c),card:c});
     }
@@ -1341,8 +1432,15 @@ function scoreOf(res){
   let twinHit=false;
   if(G.perks.twinsies){ for(let i=1;i<res.length;i++){ if(res[i].letter===res[i-1].letter){ twinHit=true; break; } } }
   if(twinHit) total*=2;
+  // Two of a kind: any repeated letter (need not be adjacent) → ×1.5
+  let pairHit=false;
+  if(G.perks.twoOfAKind){ const seen={}; for(const r of res){ if(r.letter){ if(seen[r.letter]){ pairHit=true; break; } seen[r.letter]=1; } } }
+  if(pairHit) total*=1.5;
+  // Short King: short words (2–4 letters) → ×1.5
+  let shortHit=false;
+  if(G.perks.shortKing && res.length>=2 && res.length<=4){ shortHit=true; total*=1.5; }
   total*=(G.scoreMult||1);
-  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,twinHit};
+  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,twinHit,pairHit,shortHit};
 }
 function updateLive(){
   const res=resolvedCanvas();
@@ -1360,6 +1458,8 @@ function updateLive(){
   if(sc.firstHit) parts.push(`×${1+sc.fuStacks} first`);
   if(sc.lastHit) parts.push(`×${1+sc.luStacks} finale`);
   if(sc.twinHit) parts.push(`×2 twins`);
+  if(sc.pairHit) parts.push(`×1.5 pair`);
+  if(sc.shortHit) parts.push(`×1.5 short`);
   ls.innerHTML = `${sc.total} <span class="mult">${parts.join(" ")}${label?" • "+label:""}</span>`;
   updateButtons();
 }
@@ -1486,7 +1586,7 @@ function moveWithinCanvasAbs(id, idx){
 function returnToHandAt(id, idx){
   const i=G.canvas.findIndex(c=>c.id===id); if(i<0){ renderHand(); renderCanvas(); return; }
   const [c]=G.canvas.splice(i,1);
-  if(c.kind==="clone") c.cloneLetter=null; if(c.kind==="wildvowel") c.vowel=null;
+  if(c.kind==="clone") c.cloneLetter=null; if(c.kind==="wildvowel") c.vowel=null; if(c.kind==="wildcons") c.cons=null;
   idx=Math.max(0,Math.min(idx,G.hand.length)); G.hand.splice(idx,0,c);
   renderHand(); renderCanvas(); save();
 }
@@ -1501,6 +1601,7 @@ function placeFromHand(id,idx){
   const c0=G.hand.find(c=>c.id===id);
   if(c0 && c0.kind==="clone" && !c0.cloneLetter){ openCloneChooser(c0,idx); return; }
   if(c0 && c0.kind==="wildvowel" && !c0.vowel){ openVowelChooser(c0,idx); return; }
+  if(c0 && c0.kind==="wildcons" && !c0.cons){ openConsChooser(c0,idx); return; }
   const i=G.hand.findIndex(c=>c.id===id); if(i<0)return;
   const [c]=G.hand.splice(i,1);
   if(typeof idx==="number" && idx>=0 && idx<=G.canvas.length) G.canvas.splice(idx,0,c);
@@ -1516,6 +1617,7 @@ function removeFromCanvas(id){
   const [c]=G.canvas.splice(i,1);
   if(c.kind==="clone") c.cloneLetter=null;   // unassign on return
   if(c.kind==="wildvowel") c.vowel=null;
+  if(c.kind==="wildcons") c.cons=null;
   G.hand.push(c);
   renderHand(); renderCanvas(); save();
 }
@@ -1528,7 +1630,7 @@ function moveWithinCanvas(id,idx){
   renderCanvas(); save();
 }
 function recallAll(){
-  while(G.canvas.length){ const c=G.canvas.pop(); if(c.kind==="clone") c.cloneLetter=null; if(c.kind==="wildvowel") c.vowel=null; G.hand.push(c); }
+  while(G.canvas.length){ const c=G.canvas.pop(); if(c.kind==="clone") c.cloneLetter=null; if(c.kind==="wildvowel") c.vowel=null; if(c.kind==="wildcons") c.cons=null; G.hand.push(c); }
   renderHand(); renderCanvas(); save();
 }
 
@@ -1598,6 +1700,28 @@ function pickVowel(L){
 }
 function cancelVowel(){ vowelPending=null; const ov=$("vowelChooser"); ov.classList.remove("show"); ov.classList.add("hidden"); }
 
+/* ---------- Wild consonant: pick any of the 21 consonants ---------- */
+let consPending=null;
+function openConsChooser(card,idx){
+  consPending={cardId:card.id, idx};
+  const wrap=$("consChoices"); wrap.innerHTML="";
+  CONSONANTS.forEach(L=>{
+    const b=document.createElement("button"); b.className="clone-choice";
+    b.innerHTML=`${L}<span class="cc-val">${LETTER_VALUES[L]}</span>`;
+    b.addEventListener("click",()=>pickCons(L));
+    wrap.appendChild(b);
+  });
+  $("consChooser").classList.remove("hidden");
+}
+function pickCons(L){
+  if(!consPending) return;
+  const {cardId,idx}=consPending; consPending=null;
+  $("consChooser").classList.add("hidden");
+  const c=G.hand.find(x=>x.id===cardId); if(!c) return;
+  c.cons=L; placeFromHand(cardId,idx);
+}
+function cancelCons(){ consPending=null; $("consChooser").classList.add("hidden"); }
+
 function handVowelSource(){
   // a real vowel, or a wild-vowel tile that's guaranteed to become one
   return G.hand.some(c => (c.kind==="letter" && VOWELS.has(c.letter)) || c.kind==="wildvowel");
@@ -1643,7 +1767,7 @@ function startLevel(){
 // queue, not a reshuffle. The turn limit bounds a round; words may repeat freely.
 function returnCanvasToPile(){
   if(G.canvas.length){
-    G.canvas.forEach(c=>{ if(c.kind==="clone") c.cloneLetter=null; if(c.kind==="wildvowel") c.vowel=null; });
+    G.canvas.forEach(c=>{ if(c.kind==="clone") c.cloneLetter=null; if(c.kind==="wildvowel") c.vowel=null; if(c.kind==="wildcons") c.cons=null; });
     G.drawPile.push(...G.canvas); G.canvas=[];
   }
 }
@@ -1894,7 +2018,9 @@ function pickWeighted(rng,entries){
 function perkPool(rng){
   const e=[
     {make:()=>cloneOffer(),        weight:1.4},
+    {make:()=>copyCatOffer(),      weight:1.6},
     {make:()=>wildVowelOffer(),    weight:2},
+    {make:()=>wildConsOffer(),     weight:1.0},
     {make:()=>firstUpOffer(rng),   weight:2.4},
     {make:()=>lastUpOffer(rng),    weight:2.4},
     {make:()=>fullerOffer(),       weight:1.8},
@@ -1910,6 +2036,9 @@ function perkPool(rng){
   if(!G.perks.discardMoneyBoost) e.push({make:()=>discardBoostOffer(),weight:1.2});
   if(!G.perks.interest)          e.push({make:()=>interestOffer(),    weight:1.2});
   if(!G.perks.twinsies)          e.push({make:()=>twinsiesOffer(),    weight:1.3});
+  if(!G.perks.proofSheet)        e.push({make:()=>proofSheetOffer(),  weight:2.0});
+  if(!G.perks.twoOfAKind)        e.push({make:()=>twoOfAKindOffer(),  weight:1.3});
+  if(!G.perks.shortKing)         e.push({make:()=>shortKingOffer(),   weight:1.7});
   return e;
 }
 function utilPool(){
@@ -1997,17 +2126,42 @@ function applyOffer(o){
     case "eraser":       openDeck("remove"); break;
     case "heart":        G.hearts=Math.min(MAX_HEARTS,G.hearts+1); break;
     case "wildVowel":    G.deck.push(makeWildVowelCard()); break;
+    case "wildCons":     G.deck.push(makeWildConsCard()); break;
+    case "copyCat":      G.deck.push(makeCopyCatCard()); break;
     case "freeJazz":     G.deck.push(makeJazzCard()); break;
     case "vowelPower":   G.perks.vowelPower=true; break;
     case "fireSale":     G.perks.fireSale=true; break;
     case "bigWords":     G.perks.bigWords=true; break;
     case "twinsies":     G.perks.twinsies=true; break;
+    case "twoOfAKind":   G.perks.twoOfAKind=true; break;
+    case "shortKing":    G.perks.shortKing=true; break;
+    case "proofSheet":   G.perks.proofSheet=true; break;
     case "freeRerolls":  G.perks.freeRerolls=true; break;
   }
 }
 function wildVowelOffer(){
   return {kind:"Card",rarity:"rare",name:"Wild vowel",desc:"A slug that becomes any vowel you choose.",
     price:px(8), art:`<span class="mini-tile wv-mini">${wildVowelDesignHTML()}</span>`, d:{type:"wildVowel"}};
+}
+function wildConsOffer(){
+  return {kind:"Card",rarity:"epic",name:"Wild consonant",desc:"A slug that becomes any consonant you choose.",
+    price:px(10.4), art:`<span class="mini-tile wc-mini">${wildConsDesignHTML()}</span>`, d:{type:"wildCons"}};
+}
+function copyCatOffer(){
+  return {kind:"Card",rarity:"common",name:"Copy cat",desc:"Plays as an exact copy of the tile on its left — letter, value and any gilding.",
+    price:px(6), art:`<span class="mini-tile" style="background:linear-gradient(180deg,#FBF4E6,#EFE4CC);border-color:#C9B68C">⧉</span>`, d:{type:"copyCat"}};
+}
+function proofSheetOffer(){
+  return {kind:"Perk",rarity:"common",name:"Proof sheet",desc:"Always see the top tile of your draw pile, so you can plan ahead.",
+    price:px(4), art:"📋", d:{type:"proofSheet"}};
+}
+function twoOfAKindOffer(){
+  return {kind:"Perk",rarity:"rare",name:"Two of a kind",desc:"Any word with two of the same letter scores ×1.5 (they needn't be adjacent).",
+    price:px(9), art:"🃏", d:{type:"twoOfAKind"}};
+}
+function shortKingOffer(){
+  return {kind:"Perk",rarity:"rare",name:"Short King",desc:"Words of four letters or fewer score ×1.5.",
+    price:px(8), art:"👑", d:{type:"shortKing"}};
 }
 function freeJazzOffer(){
   return {kind:"Card",rarity:"legendary",name:"Free jazz",desc:"Set ANY combination of letters — real word or not. 3 uses, then it leaves your deck.",
@@ -2175,17 +2329,21 @@ function renderDeck(){
   });
   $("deckCount").textContent=G.deck.length+" cards";
   // summary
-  let pts=0, clones=0, jazz=0, wilds=0;
+  let pts=0, clones=0, jazz=0, wilds=0, wconst=0, copies=0;
   G.deck.forEach(c=>{
     if(c.kind==="clone"){clones++;return;}
     if(c.kind==="jazz"){jazz++;return;}
     if(c.kind==="wildvowel"){wilds++;return;}
+    if(c.kind==="wildcons"){wconst++;return;}
+    if(c.kind==="copycat"){copies++;return;}
     pts+=cardValue(c);
   });
   const vowels=G.deck.filter(c=>c.kind==="letter"&&VOWELS.has(c.letter)).length;
   const extras=[];
   if(clones) extras.push(`${clones} clone${clones>1?"s":""}`);
   if(wilds)  extras.push(`${wilds} wild vowel${wilds>1?"s":""}`);
+  if(wconst) extras.push(`${wconst} wild consonant${wconst>1?"s":""}`);
+  if(copies) extras.push(`${copies} copy cat${copies>1?"s":""}`);
   if(jazz)   extras.push(`${jazz} free jazz`);
   $("deckSummary").innerHTML=`${vowels} vowels · ${G.deck.filter(c=>c.kind==="letter").length-vowels} consonants${extras.length?" · "+extras.join(" · "):""}<br>total face value ${pts}`;
   { const dp=$("deckPerks"); if(dp){ const perks=ownedPerksList();
@@ -2195,7 +2353,7 @@ function renderDeck(){
 }
 function buildStaticTile(c){
   const t=document.createElement("div");
-  t.className="tile "+(c.kind==="clone"?"clone ":"")+(c.kind==="jazz"?"jazz ":"")+(c.kind==="wildvowel"?"wildvowel ":"")+(gildLevel(c)>0?"upgraded ":"")+(cardMult(c)!==1?"multi ":"")+(isFirstUp(c)?"firstup ":"")+(isLastUp(c)?"lastup ":"");
+  t.className="tile "+(c.kind==="clone"?"clone ":"")+(c.kind==="jazz"?"jazz ":"")+(c.kind==="wildvowel"?"wildvowel ":"")+(c.kind==="wildcons"?"wildcons ":"")+(c.kind==="copycat"?"copycat ":"")+(gildLevel(c)>0?"upgraded ":"")+(cardMult(c)!==1?"multi ":"")+(isFirstUp(c)?"firstup ":"")+(isLastUp(c)?"lastup ":"");
   if(c.kind==="jazz"){
     const g=document.createElement("span"); g.className="glyph"; g.textContent="🎷"; t.appendChild(g);
     const s=document.createElement("span"); s.className="glyph-sub"; s.textContent=(c.jazzLeft||0)+"/"+JAZZ_USES; t.appendChild(s);
@@ -2206,8 +2364,14 @@ function buildStaticTile(c){
     const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="WILD"; t.appendChild(s);
     return t;
   }
-  const g=document.createElement("span"); g.textContent=tileGlyph(c); t.appendChild(g);
+  if(c.kind==="wildcons"){
+    const d=document.createElement("span"); d.className="wv-design"; d.innerHTML=wildConsDesignHTML(); t.appendChild(d);
+    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="CONS"; t.appendChild(s);
+    return t;
+  }
+  const g=document.createElement("span"); g.textContent=(c.kind==="copycat"?"⧉":tileGlyph(c)); t.appendChild(g);
   if(c.kind==="clone"){ const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="CLONE"; t.appendChild(s); }
+  else if(c.kind==="copycat"){ const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="COPY"; t.appendChild(s); }
   else { const v=document.createElement("span"); v.className="val"; v.innerHTML=valHtml(c); t.appendChild(v); }
   tileBadges(t,c);
   return t;
@@ -2404,6 +2568,9 @@ function ownedPerksList(){
   if(G.perks.vowelPower) out.push("Vowel Power · ×2 vowels");
   if(G.perks.bigWords)   out.push("Big Words · ×2 length bonus");
   if(G.perks.twinsies)   out.push("Twinsies · ×2 side-by-side doubles");
+  if(G.perks.twoOfAKind) out.push("Two of a Kind · ×1.5 on a repeated letter");
+  if(G.perks.shortKing)  out.push("Short King · ×1.5 words ≤4 letters");
+  if(G.perks.proofSheet) out.push("Proof Sheet · see your next tile");
   if((G.scoreMult||1)>1) out.push("Press · ×"+Number(G.scoreMult).toFixed(2));
   if(G.handSize>START_HAND) out.push("Fuller Case · hand of "+G.handSize);
   if(G.extraTurns>0)     out.push("+"+G.extraTurns+" word"+(G.extraTurns>1?"s":"")+" / round");
@@ -2514,7 +2681,7 @@ function continueRun(){
   cardSeq=d.cardSeq||0;
   G.seed=d.seed; G.level=d.level; G.hearts=d.hearts; G.coins=d.coins; G.handSize=d.handSize;
   G.infinite=!!d.infinite; G.wonRun=!!d.wonRun;
-  G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:false,fireSale:false,bigWords:false,freeRerolls:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
+  G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:false,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
   G.scoreMult=d.scoreMult||1; G.extraDiscards=d.extraDiscards||0; G.extraTurns=d.extraTurns||0;
   G.jazzCharges=(typeof d.jazzCharges==="number")?d.jazzCharges:0;
   G.wordsPlayed=d.wordsPlayed||0; G.runScore=d.runScore||0; G.runBestWord=d.runBestWord||""; G.runBestScore=d.runBestScore||0;
@@ -2546,7 +2713,29 @@ function continueRun(){
   }
   syncTimer();
 }
+function renderLeaderboard(){
+  const box=$("leaderboard"); if(!box) return;
+  let runs=[]; try{ runs=allRuns()||[]; }catch(e){ runs=[]; }
+  const top=runs.filter(r=>(r&&r.runScore||0)>0)
+                .sort((a,b)=>(b.runScore||0)-(a.runScore||0))
+                .slice(0,5);
+  if(!top.length){
+    box.innerHTML='<h3>Your best runs</h3><div class="lb-empty">No scored runs yet — clear a word to make the board.</div>';
+    return;
+  }
+  let rows="";
+  top.forEach((r,i)=>{
+    const won=(r.result==="win")||r.wonRun;
+    rows+='<div class="lb-row'+(i===0?" lb-top":"")+'">'
+      +'<span class="lb-rank">'+(i+1)+'</span>'
+      +'<span class="lb-score">'+(r.runScore||0).toLocaleString()+'</span>'
+      +'<span class="lb-meta">'+(won?'<b class="lb-win">WON</b> · ':'')+'Round '+(r.finalRound||1)+' · '+(r.seed||"—")+'</span>'
+      +'</div>';
+  });
+  box.innerHTML='<h3>Your best runs</h3>'+rows;
+}
 function refreshContinue(){
+  renderLeaderboard();
   const b=$("continueBtn"); if(!b) return;
   b.classList.toggle("hidden", !hasSave());
 }
@@ -2559,7 +2748,7 @@ function newRun(seed){
   cardSeq=0;
   G.seed=seed;
   G.level=1; G.hearts=MAX_HEARTS; G.coins=0; G.handSize=START_HAND;
-  G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:false,fireSale:false,bigWords:false,freeRerolls:false};
+  G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:false,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false};
   G.scoreMult=1; G.extraDiscards=0; G.extraTurns=0; G.jazzCharges=0; G.lastReward=null;
   G.infinite=false; G.wonRun=false;
   G.rerollCount=0;   // reroll-price ladder resets each run
@@ -2580,6 +2769,7 @@ $("playBtn").addEventListener("click",()=>newRun(generateValidatedSeed()));
 $("continueBtn").addEventListener("click",continueRun);
 refreshContinue();
 $("cloneCancel").addEventListener("click",cancelClone);
+$("consCancel").addEventListener("click",cancelCons);
 $("vowelCancel").addEventListener("click",cancelVowel);
 $("gildYes").addEventListener("click",confirmGild);
 $("gildNo").addEventListener("click",cancelGild);
