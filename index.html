@@ -518,6 +518,32 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
 .sum-purse #sumCoins.tickpop{animation:lockPop .18s ease}
 .sum-breakdown{font-size:.78rem;color:var(--ink-soft);font-weight:700}
 
+/* ===== Challenge levels (v3a) ===== */
+.menu-btn.ghost{background:transparent;color:var(--ink-soft);border:1.5px solid var(--tile-edge);font-weight:700}
+.menu-btn:disabled{opacity:.45;cursor:default}
+.chal-eyebrow{font-size:.6rem;letter-spacing:.22em;text-transform:uppercase;color:var(--ink-soft);font-weight:800;margin-bottom:10px}
+.chal-head{display:flex;align-items:center;justify-content:center;gap:10px;flex-wrap:wrap}
+.chal-name{font-family:var(--serif);font-weight:700;font-size:1.7rem;color:var(--ink)}
+.chal-badge{font-size:.66rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:#fff;background:var(--brass-deep,#8a6418);border-radius:999px;padding:4px 10px}
+.chal-desc{font-size:.9rem;color:var(--ink-soft);margin:10px auto 4px;max-width:420px;line-height:1.45}
+.chal-target{font-size:1rem;color:var(--ink);margin:8px 0 4px}
+.chal-target .chal-was{color:var(--ink-soft);font-size:.82rem}
+.chal-pick-label{font-size:.7rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);font-weight:800;margin:16px 0 8px}
+.chal-reward-grid{display:flex;flex-direction:column;gap:9px;max-width:340px;margin:0 auto 8px}
+.chal-reward{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px;width:100%;padding:11px 13px;border-radius:12px;cursor:pointer;
+  background:var(--paper);border:1.5px solid var(--tile-edge);transition:border-color .12s,transform .08s}
+.chal-reward:active{transform:translateY(1px)}
+.chal-reward.picked{border-color:var(--moss);box-shadow:0 0 0 2px rgba(60,110,99,.18)}
+.chal-reward .cr-badge{font-size:.6rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--moss)}
+.chal-reward .cr-name{font-weight:800;font-size:.98rem;color:var(--ink)}
+.chal-reward .cr-desc{font-size:.78rem;color:var(--ink-soft);line-height:1.35}
+#chalBanner{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:7px;font-size:.7rem;font-weight:700;color:var(--ink-soft)}
+#chalBanner .cb-tag{font-size:.58rem;font-weight:900;letter-spacing:.12em;color:#fff;background:var(--brass-deep,#8a6418);border-radius:999px;padding:3px 8px}
+#chalBanner .cb-name{font-weight:800;color:var(--ink)}
+#chalBanner .cb-dot{color:var(--tile-edge)}
+#chalBanner .cb-reward{font-weight:800;color:var(--moss)}
+.tile.locked{filter:grayscale(.85);opacity:.42}
+.tile.locked::after{content:"✕";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:900;color:#9E3B2E;font-size:1.1em}
 </style>
 </head>
 <body>
@@ -540,6 +566,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
         <span class="target">need <b id="targetNum">0</b><small class="to-go" id="toGo">0 to go</small></span>
       </div>
       <div class="bar" id="bar"><i id="barFill"></i></div>
+      <div id="chalBanner" class="hidden"></div>
     </div>
   </header>
 
@@ -619,6 +646,23 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
     </div>
     <div class="sum-breakdown" id="sumBreakdown"></div>
     <button class="menu-btn" id="sumNextBtn" style="margin-top:20px">To the print shop →</button>
+  </div>
+</div>
+
+<!-- ===== Challenge fork (v3a) ===== -->
+<div class="overlay hidden" id="challengeScreen">
+  <div class="sheet sheet-center">
+    <div class="chal-eyebrow">Optional challenge · <span id="chalRound">Round 3</span></div>
+    <div class="chal-head">
+      <span class="chal-name" id="chalName">Steep Target</span>
+      <span class="chal-badge" id="chalBadge">+50% target</span>
+    </div>
+    <div class="chal-desc" id="chalDesc"></div>
+    <div class="chal-target" id="chalTarget"></div>
+    <div class="chal-pick-label">Clear it and claim one reward:</div>
+    <div class="chal-reward-grid" id="chalRewardGrid"></div>
+    <button class="menu-btn" id="chalTakeBtn" disabled>Pick a reward first</button>
+    <button class="menu-btn ghost" id="chalSkipBtn">Skip, play it standard</button>
   </div>
 </div>
 
@@ -749,6 +793,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
       <p>Stuck with junk? Drop letters on the canvas and tap <b>Discard</b> to swap them (3 a round). The same word can be set as many times as you like.</p>
       <p>Made a placement you didn't mean? Tap <b>Undo</b> to step back, one move at a time, right up until you set a word or discard.</p>
       <p>Clear a round to earn coins for the <b>print shop</b>: new letters, gilding, perks and more. Beat all <b>8 rounds</b> to win the press, then push your luck in <b>endless</b> if you dare.</p>
+      <p>At rounds <b>3, 5 and 7</b> you can take an optional <b>challenge</b>: a tougher round in exchange for a reward you pick up front. Clear it to claim the reward. Miss it and you simply drop into normal overtime.</p>
     </div>
     <button class="menu-btn" id="howtoCloseBtn" style="margin-top:18px">Got it</button>
   </div>
@@ -885,8 +930,36 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "2f";
+const VERSION = "3a";
 const WIN_LEVEL = 8;   // clear this round to WIN; afterwards, optional endless mode
+
+/* ---- Challenge levels (v3a) ----------------------------------------------
+   At rounds 3, 5 and 7 the player is offered ONE seeded challenge: a harder
+   round in exchange for a reward they pick up front. Take it or play standard.
+   Failing a challenge just drops to normal overtime; clearing grants the reward.
+   Everything here rolls off the seeded stream so the daily stays replay-valid. */
+const CHALLENGE_LEVELS = new Set([3,5,7]);
+const CHALLENGE_TARGET_MULT = 1.5;   // "steep target" challenge: +50%
+const CHALLENGE_BAN_COUNT  = 3;      // "letters locked": ban your 3 most-used deck letters
+const CHALLENGE_MIN_LEN    = 5;      // "long form": no words under 5 letters
+const CHALLENGE_TYPES = {
+  steep:  { name:"Steep Target", badge:"+50% target",
+            desc:"Clear a target that is 50 percent higher this round." },
+  locked: { name:"Letters Locked", badge:"3 letters out",
+            desc:"Your three most-used letters are off the board this round." },
+  longform:{ name:"Long Form", badge:"5+ letters only",
+            desc:"Only words of five letters or more will count this round." }
+};
+const CHALLENGE_ORDER = ["steep","locked","longform"];
+const CHALLENGE_REWARDS = {
+  double: { name:"Double payouts", badge:"2x coins",
+            desc:"Every coin you earn this round counts double." },
+  card:   { name:"Featured card", badge:"wild tile",
+            desc:"A wild tile joins your deck for the tough rounds ahead." },
+  cash:   { name:"Ten coin bonus", badge:"+$10",
+            desc:"Ten coins drop straight into the bank." }
+};
+const CHALLENGE_REWARD_ORDER = ["double","card","cash"];
 const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:2,M:3,N:1,O:1,P:3,Q:10,R:1,S:2,T:2,U:1,V:4,W:4,X:8,Y:4,Z:10};
 // L,S,T bumped 1→2 (v2d): only vowels + N,R,U remain 1-point. Targets scaled to match (see TARGET_SCALE).
 // Scrabble-bag style weights — E most common; AIOU vowels common; SNRT common
@@ -903,6 +976,7 @@ const GILD_BASE = 6;   // base price to gild a fresh letter (doubles per existin
 const HANDS_PER_LEVEL = 4;     // "turns" — words you may set
 const DISCARDS_PER_LEVEL = 3;
 const PRICE_MULTIPLIER = 1.22; // per-round shop inflation (GGW used ~1.46)
+const SHOP_PRICE_SCALE = 0.8;  // v3a: 20% cheaper across the board (stacks on the base 35% off)
 const MAX_HEARTS = 5;
 const COIN_CAP = 12;           // economy guard rail (caps base payout only)
 const INTEREST_CAP = 10;       // max compound-interest payout per round
@@ -914,6 +988,31 @@ function lenMult(n){ return n<=3?1 : n===4?1.5 : (n-3); }   // 5→2,6→3,7→4
 // is a deliberate floor-raise that helps weaker seeds. Set to 1 to disable.
 const TARGET_SCALE = 1.04;
 function targetFor(level){ return Math.round((20 + 8*(level-1)) * Math.pow(1.28, level-1) * TARGET_SCALE); }
+
+/* ---- Challenge helpers (v3a) ---- */
+// Which seeded challenge a given round offers. Pure function of seed+level so
+// every player on the daily sees the same fork.
+function challengeTypeFor(level){
+  const rng=makeRng("challenge:"+level);
+  return CHALLENGE_ORDER[Math.floor(rng()*CHALLENGE_ORDER.length)];
+}
+// The N most-used letters in the current deck (letter cards only). Ties broken
+// alphabetically so it is deterministic across machines.
+function deckTopLetters(n){
+  const counts={};
+  G.deck.forEach(c=>{ if(c.kind==="letter") counts[c.letter]=(counts[c.letter]||0)+1; });
+  return Object.keys(counts)
+    .sort((a,b)=> counts[b]-counts[a] || (a<b?-1:1))
+    .slice(0,n);
+}
+function challengeActive(){ return !!(G.challenge && G.challenge.active); }
+function bannedLetterSet(){
+  return (challengeActive() && G.challenge.type==="locked") ? new Set(G.challenge.banned||[]) : null;
+}
+function challengeMinLen(){
+  return (challengeActive() && G.challenge.type==="longform") ? CHALLENGE_MIN_LEN : 0;
+}
+function challengeDoublePay(){ return challengeActive() && G.challenge.reward==="double"; }
 
 /* ============================================================
    Seeded RNG — namespaced streams (deck / shop / level), GGW-style
@@ -952,6 +1051,7 @@ const G = {
           vowelPower:false, fireSale:false, bigWords:false, freeRerolls:false,
           proofSheet:false, twoOfAKind:false, shortKing:false },
   scoreMult:1,             // global "press multiplier" perk (compounds)
+  challenge:null,          // active challenge-level descriptor {type,reward,banned[],active} or null
   extraDiscards:0, extraTurns:0, jazzCharges:0,
   wordsPlayed:0, runScore:0, runBestWord:"", runBestScore:0, levelStats:{bestWord:"",bestScore:0,words:0},
   // per-level
@@ -1037,7 +1137,7 @@ function predRoll(seed){
   return cards;
 }
 let _predLevel=1;
-function predPx(base,fire){ const infl=Math.pow(1.1,Math.max(0,(_predLevel||1)-1)); return Math.max(1,Math.round(base*0.65*(fire?0.75:1)*infl)); }
+function predPx(base,fire){ const infl=Math.pow(1.1,Math.max(0,(_predLevel||1)-1)); return Math.max(1,Math.round(base*0.65*SHOP_PRICE_SCALE*(fire?0.75:1)*infl)); }
 function predCV(c){ return c.base*Math.pow(2,c.up||0); }
 function predScore(t,P){
   let s=0; t.forEach(x=>{let v=predCV(x)*(x.mult||1); if(P.vowelPower&&VOWELS.has(x.letter))v*=2; s+=v;});
@@ -1294,7 +1394,8 @@ function buildTile(c,where){
     +(c.kind==="copycat"?"copycat ":"")
     +(jazzSpent?"spent ":"")
     +(gildLevel(c)>0?"upgraded ":"")+(cardMult(c)!==1?"multi ":"")
-    +(isFirstUp(c)?"firstup ":"")+(isLastUp(c)?"lastup ":"");
+    +(isFirstUp(c)?"firstup ":"")+(isLastUp(c)?"lastup ":"")
+    +((()=>{ const b=bannedLetterSet(); return (b && c.kind==="letter" && b.has(c.letter)) ? "locked " : ""; })());
   t.dataset.id=c.id;
 
   if(c.kind==="jazz"){
@@ -1431,6 +1532,11 @@ function wordValid(){
   const res=resolvedCanvas();
   if(res.length<2) return false;
   if(res.some(r=>!r.letter)) return false; // unresolved clone / wild vowel
+  // challenge gates (v3a): these override even the free-jazz bypass
+  const minL=challengeMinLen();
+  if(minL && res.length<minL) return false;
+  const banned=bannedLetterSet();
+  if(banned && res.some(r=>banned.has(r.letter))) return false;
   if(WORDS.has(res.map(r=>r.letter.toLowerCase()).join(""))) return true;
   if(canvasUsableJazz()) return true;   // free jazz: anything goes while uses remain
   return false;
@@ -1477,7 +1583,14 @@ function updateLive(){
   const valid=wordValid();
   lw.textContent=w;
   lw.className="live-word "+(valid?"ok":"bad");
-  let label=valid?(jazzSubmit()?"free jazz 🎷":""):(res.length<2?"":"not a word");
+  let label;
+  if(valid){ label = jazzSubmit()?"free jazz 🎷":""; }
+  else {
+    const minL=challengeMinLen(), banned=bannedLetterSet();
+    if(minL && res.length>=2 && res.length<minL && res.every(r=>r.letter)) label="need "+minL+"+ letters";
+    else if(banned && res.some(r=>r.letter&&banned.has(r.letter))) label="letter locked this round";
+    else label = res.length<2 ? "" : "not a word";
+  }
   const parts=[`${sc.sum} base`, `×${sc.mult} length`];
   if(sc.press!==1) parts.push(`×${sc.press.toFixed(2)} press`);
   if(sc.bingo) parts.push(`×1.5 full case`);
@@ -1676,6 +1789,7 @@ function undoMove(){
 /* ---- state ops for placement ---- */
 function placeFromHand(id,idx){
   const c0=G.hand.find(c=>c.id===id);
+  { const b=bannedLetterSet(); if(b && c0 && c0.kind==="letter" && b.has(c0.letter)){ toast(c0.letter+" is locked this round"); haptic(20); return; } }
   if(c0 && c0.kind==="clone" && !c0.cloneLetter){ openCloneChooser(c0,idx); return; }
   if(c0 && c0.kind==="wildvowel" && !c0.vowel){ openVowelChooser(c0,idx); return; }
   if(c0 && c0.kind==="wildcons" && !c0.cons){ openConsChooser(c0,idx); return; }
@@ -1825,8 +1939,19 @@ function dealUpToHand(animate){
   }
   save();
 }
+function renderChallengeBanner(){
+  const el=$("chalBanner"); if(!el) return;
+  if(challengeActive()){
+    const def=CHALLENGE_TYPES[G.challenge.type];
+    const rw=CHALLENGE_REWARDS[G.challenge.reward];
+    el.innerHTML=`<span class="cb-tag">CHALLENGE</span><span class="cb-name">${def.name}</span><span class="cb-dot">·</span><span class="cb-reward">${rw.badge}</span>`;
+    el.classList.remove("hidden");
+  } else { el.classList.add("hidden"); el.innerHTML=""; }
+}
 function startLevel(){
   G.target=targetFor(G.level);
+  if(challengeActive() && G.challenge.type==="steep"){ G.target=Math.round(G.target*CHALLENGE_TARGET_MULT); }
+  renderChallengeBanner();
   G.score=0;
   G.handsLeft=HANDS_PER_LEVEL+G.extraTurns;
   G.discardsLeft=DISCARDS_PER_LEVEL+G.extraDiscards;
@@ -1871,7 +1996,8 @@ function submitWord(){
   if(sc.total>(G.runBestScore||0)){ G.runBestScore=sc.total; G.runBestWord=w.toUpperCase(); }
   G.handsLeft--;
   // big-word cash bonus, paid straight into the bank
-  const cash=bigWordCash(res.length);
+  let cash=bigWordCash(res.length);
+  if(challengeDoublePay()) cash*=2;   // v3a double-payout reward
   if(cash>0){ G.coins=Math.min(999,G.coins+cash); }
   renderHud();
   // juice — scaled by the size of the score
@@ -1937,12 +2063,25 @@ function discardCanvas(){
 /* ---------- level resolution ---------- */
 function levelCleared(){
   const rw=computeReward();
+  // v3a: fold the chosen challenge reward into this cleared round
+  if(challengeActive()){
+    if(G.challenge.reward==="cash"){ rw.bonus=10; rw.total+=10; }
+    else if(G.challenge.reward==="card"){
+      const rng=makeRng("chalReward:"+G.seed+":"+G.level);
+      const giveCons = rng()<0.5;
+      G.deck.push(giveCons?makeWildConsCard():makeWildVowelCard());
+      rw.cardReward = giveCons?"wild consonant":"wild vowel";
+    }
+  }
   G.best=Math.max(G.best,G.level);
   const info={ score:G.score, target:G.target,
     bestWord:G.levelStats.bestWord, bestScore:G.levelStats.bestScore, words:G.levelStats.words,
     fromCoins:G.coins, toCoins:Math.min(999,G.coins+rw.total), round:G.level, rw };
   G.coins=info.toCoins;
   G.lastReward=rw;
+  if(rw.cardReward) toast("Challenge reward: "+rw.cardReward+" added to your deck");
+  G.challenge=null;   // challenge consumed; clear the banner for the next round
+  renderChallengeBanner();
   const justCleared=G.level;
   G.level++;
   if(justCleared===WIN_LEVEL && !G.infinite && !G.wonRun){
@@ -1963,7 +2102,10 @@ function computeReward(){
   let discardPay=G.discardsLeft*(G.perks.discardMoneyBoost?1.5:1);   // $1 per leftover discard
   discardPay=Math.ceil(discardPay);
   let interest=G.perks.interest?Math.min(INTEREST_CAP,Math.ceil(G.coins*0.10)):0;  // 10% on the bank
-  return {base,discardPay,interest,total:base+discardPay+interest};
+  let total=base+discardPay+interest;
+  let doubled=challengeDoublePay();
+  if(doubled) total*=2;   // v3a double-payout reward doubles the round purse
+  return {base,discardPay,interest,total,doubled};
 }
 function showLevelSummary(info){
   G.pendingSummary=info;
@@ -1975,6 +2117,8 @@ function showLevelSummary(info){
   const bits=["base "+rw.base];
   if(rw.discardPay) bits.push("discards "+rw.discardPay);
   if(rw.interest)   bits.push("interest "+rw.interest);
+  if(rw.bonus)      bits.push("challenge +"+rw.bonus);
+  if(rw.doubled)    bits.push("×2 challenge");
   $("sumBreakdown").textContent=bits.join("  ·  ");
   const coinEl=$("sumCoins"); coinEl.textContent=info.fromCoins;
   $("summaryScreen").classList.remove("hidden");
@@ -2071,8 +2215,8 @@ function levelFailed(){
 function priceMult(){ return 1; }   // shop inflation removed
 function px(base){
   const infl=Math.pow(1.1, Math.max(0,(G.level||1)-1));   // +10% per round, compounding
-  return Math.max(1,Math.round(base*0.65*(G.perks.fireSale?0.75:1)*infl));
-}   // 35% off, Fire sale = 25% more off
+  return Math.max(1,Math.round(base*0.65*SHOP_PRICE_SCALE*(G.perks.fireSale?0.75:1)*infl));
+}   // 35% off base, then 20% off (v3a); Fire sale = 25% more off
 
 function buildShopPool(){
   const rng=makeRng("shop:"+G.level+":"+G.rerollCount);
@@ -2382,7 +2526,83 @@ function nextRound(){
   statShopClose();
   $("shopScreen").classList.add("hidden");
   G.attempt=0;
+  enterNextLevel();
+}
+// Decide whether the upcoming round offers a challenge fork or starts straight away.
+function enterNextLevel(){
+  G.challenge=null;   // clear any spent challenge before the new round
+  const lvl=G.level;
+  const offerable = CHALLENGE_LEVELS.has(lvl) && (!G.infinite || lvl<=WIN_LEVEL);
+  if(offerable){ openChallenge(lvl); }
+  else { startLevel(); }
+}
+
+/* ---- Challenge fork (v3a) ---- */
+function openChallenge(lvl){
+  const type=challengeTypeFor(lvl);
+  const banned = type==="locked" ? deckTopLetters(CHALLENGE_BAN_COUNT) : [];
+  G.challengePending={ type, banned, reward:null };
+  renderChallenge(lvl);
+  hideGame();
+  $("challengeScreen").classList.remove("hidden");
+  haptic(12);
+}
+function renderChallenge(lvl){
+  const p=G.challengePending; const def=CHALLENGE_TYPES[p.type];
+  $("chalRound").textContent="Round "+lvl;
+  $("chalName").textContent=def.name;
+  $("chalBadge").textContent=def.badge;
+  let desc=def.desc;
+  if(p.type==="locked" && p.banned.length){ desc+=" ("+p.banned.join(", ")+")"; }
+  $("chalDesc").textContent=desc;
+  const base=targetFor(lvl);
+  const tgt = p.type==="steep" ? Math.round(base*CHALLENGE_TARGET_MULT) : base;
+  $("chalTarget").innerHTML = p.type==="steep"
+    ? `Target <b>${tgt}</b> <span class="chal-was">(was ${base})</span>`
+    : `Target <b>${tgt}</b>`;
+  const grid=$("chalRewardGrid"); grid.innerHTML="";
+  CHALLENGE_REWARD_ORDER.forEach(key=>{
+    const r=CHALLENGE_REWARDS[key];
+    const b=document.createElement("button");
+    b.className="chal-reward"+(p.reward===key?" picked":"");
+    b.innerHTML=`<span class="cr-badge">${r.badge}</span><span class="cr-name">${r.name}</span><span class="cr-desc">${r.desc}</span>`;
+    b.addEventListener("click",()=>selectChallengeReward(key,lvl));
+    grid.appendChild(b);
+  });
+  const take=$("chalTakeBtn");
+  take.disabled = !p.reward;
+  take.textContent = p.reward ? "Take the challenge" : "Pick a reward first";
+}
+function selectChallengeReward(key,lvl){ G.challengePending.reward=key; haptic(8); renderChallenge(lvl); }
+function takeChallenge(){
+  const p=G.challengePending; if(!p || !p.reward) return;
+  G.challenge={ type:p.type, reward:p.reward, banned:p.banned||[], active:true };
+  G.challengePending=null;
+  $("challengeScreen").classList.add("hidden");
+  haptic([10,30,10]);
   startLevel();
+}
+function skipChallenge(){
+  G.challenge=null; G.challengePending=null;
+  $("challengeScreen").classList.add("hidden");
+  startLevel();
+}
+// Granted only when a challenge round is actually cleared. "double" already
+// applied live during the round, so nothing to hand out here for that one.
+function grantChallengeReward(){
+  if(!challengeActive()) return;
+  const rw=G.challenge.reward;
+  if(rw==="cash"){
+    G.coins=Math.min(999,G.coins+10);
+    toast("Challenge reward: +$10");
+  } else if(rw==="card"){
+    const rng=makeRng("chalReward:"+G.seed+":"+G.level);
+    const giveCons = rng()<0.5;
+    G.deck.push(giveCons?makeWildConsCard():makeWildVowelCard());
+    toast("Challenge reward: wild "+(giveCons?"consonant":"vowel")+" added");
+  } else if(rw==="double"){
+    toast("Challenge cleared: payouts doubled");
+  }
 }
 
 /* ============================================================
@@ -2752,7 +2972,7 @@ function save(){
     const data={
       v:SAVE_VERSION, phase, seed:G.seed, level:G.level, hearts:G.hearts, coins:G.coins, handSize:G.handSize,
       infinite:G.infinite, wonRun:G.wonRun,
-      perks:G.perks, scoreMult:G.scoreMult, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, jazzCharges:G.jazzCharges, runMs:G.runMs, stats:G.stats,
+      perks:G.perks, scoreMult:G.scoreMult, challenge:G.challenge, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, jazzCharges:G.jazzCharges, runMs:G.runMs, stats:G.stats,
       wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
       attempt:G.attempt, target:G.target, score:G.score, handsLeft:G.handsLeft, discardsLeft:G.discardsLeft,
       drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas),
@@ -2771,6 +2991,7 @@ function continueRun(){
   G.infinite=!!d.infinite; G.wonRun=!!d.wonRun;
   G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:false,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
   G.scoreMult=d.scoreMult||1; G.extraDiscards=d.extraDiscards||0; G.extraTurns=d.extraTurns||0;
+  G.challenge=d.challenge||null;
   G.jazzCharges=(typeof d.jazzCharges==="number")?d.jazzCharges:0;
   G.wordsPlayed=d.wordsPlayed||0; G.runScore=d.runScore||0; G.runBestWord=d.runBestWord||""; G.runBestScore=d.runBestScore||0;
   G.levelStats=d.levelStats||{bestWord:"",bestScore:0,words:0};
@@ -2798,7 +3019,7 @@ function continueRun(){
     hideGame(); $("shopScreen").classList.remove("hidden");
     renderShop();
   } else {
-    showGame(); renderCanvas(); renderHand(); renderHud(); updateLive();
+    showGame(); renderChallengeBanner(); renderCanvas(); renderHand(); renderHud(); updateLive();
   }
   syncTimer();
 }
@@ -2883,6 +3104,8 @@ $("deckCloseBtn").addEventListener("click",closeDeck);
 $("rerollBtn").addEventListener("click",rerollShop);
 $("shopUndoBtn").addEventListener("click",shopUndo);
 $("nextBtn").addEventListener("click",nextRound);
+$("chalTakeBtn").addEventListener("click",takeChallenge);
+$("chalSkipBtn").addEventListener("click",skipChallenge);
 $("sumNextBtn").addEventListener("click",()=>{ openShop(); closeSummary(); });
 document.addEventListener("pointerdown",()=>audio(),{passive:true});
 $("overNewBtn").addEventListener("click",()=>newRun(generateValidatedSeed()));
