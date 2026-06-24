@@ -869,9 +869,10 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "2c";
+const VERSION = "2d";
 const WIN_LEVEL = 8;   // clear this round to WIN; afterwards, optional endless mode
-const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10};
+const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:2,M:3,N:1,O:1,P:3,Q:10,R:1,S:2,T:2,U:1,V:4,W:4,X:8,Y:4,Z:10};
+// L,S,T bumped 1→2 (v2d): only vowels + N,R,U remain 1-point. Targets scaled to match (see TARGET_SCALE).
 // Scrabble-bag style weights — E most common; AIOU vowels common; SNRT common
 // consonants; JKQXZ rarest. Used to roll the starting deck and shop letters.
 const BAG_WEIGHTS = {E:12,A:9,I:9,O:8,N:6,R:6,T:6,L:4,S:4,U:4,D:4,G:3,B:2,C:2,M:2,P:2,F:2,H:2,V:2,W:2,Y:2,K:1,J:1,X:1,Q:1,Z:1};
@@ -891,7 +892,12 @@ const COIN_CAP = 12;           // economy guard rail (caps base payout only)
 const INTEREST_CAP = 10;       // max compound-interest payout per round
 
 function lenMult(n){ return n<=3?1 : n===4?1.5 : (n-3); }   // 5→2,6→3,7→4,8→5,9→6… uncapped
-function targetFor(level){ return Math.round((20 + 8*(level-1)) * Math.pow(1.28, level-1)); }
+// Win-rate-matched scale for the L,S,T→2 bump: the bump inflates scores ~7%, but it
+// compresses variance, so matching the MEAN over-hardens casual play. ×1.04 holds the
+// casual win rate at its pre-bump level (skilled ~96%, casual ~14%) — the small remainder
+// is a deliberate floor-raise that helps weaker seeds. Set to 1 to disable.
+const TARGET_SCALE = 1.04;
+function targetFor(level){ return Math.round((20 + 8*(level-1)) * Math.pow(1.28, level-1) * TARGET_SCALE); }
 
 /* ============================================================
    Seeded RNG — namespaced streams (deck / shop / level), GGW-style
@@ -2655,7 +2661,7 @@ function gameOver(won){
    Autosave / continue
    ============================================================ */
 const SAVE_KEY="wordsmith_save_v0";
-const SAVE_VERSION=8;
+const SAVE_VERSION=9;
 function hasSave(){ try{ const s=JSON.parse(localStorage.getItem(SAVE_KEY)); return !!(s&&s.v===SAVE_VERSION); }catch(e){ return false; } }
 function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} refreshContinue(); }
 function save(){
