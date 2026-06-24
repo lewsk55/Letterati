@@ -869,7 +869,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "2b";
+const VERSION = "2c";
 const WIN_LEVEL = 8;   // clear this round to WIN; afterwards, optional endless mode
 const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10};
 // Scrabble-bag style weights — E most common; AIOU vowels common; SNRT common
@@ -879,6 +879,8 @@ const VOWELS = new Set(["A","E","I","O","U"]);
 const START_DECK = 24;
 const DECK_VOWEL_MIN = Math.round(START_DECK*0.30);   // 7 at 24, 6 at 20
 const DECK_VOWEL_MAX = Math.round(START_DECK*0.55);   // 13 at 24, 11 at 20
+const DECK_HI_MIN = 4;    // every starting deck has at least 4 letters worth >1 point
+const DECK_FACE_MIN = 40; // and at least 40 total face value — kills the unfair low tail, keeps variety
 const START_HAND = 7;
 const GILD_BASE = 6;   // base price to gild a fresh letter (doubles per existing gild)
 const HANDS_PER_LEVEL = 4;     // "turns" — words you may set
@@ -976,8 +978,9 @@ function rollStartingDeck(){
     const {letters,counts}=drawCapped(rng);
     const v=letters.filter(L=>VOWELS.has(L)).length;
     const hi=letters.filter(L=>LETTER_VALUES[L]>1).length;
+    const face=letters.reduce((a,L)=>a+LETTER_VALUES[L],0);
     const maxRep=Math.max(...Object.values(counts));
-    if(v>=DECK_VOWEL_MIN && v<=DECK_VOWEL_MAX && hi>=2 && maxRep<=MAX_DUP){ cards=letters.map(makeLetterCard); break; }
+    if(v>=DECK_VOWEL_MIN && v<=DECK_VOWEL_MAX && hi>=DECK_HI_MIN && face>=DECK_FACE_MIN && maxRep<=MAX_DUP){ cards=letters.map(makeLetterCard); break; }
   }
   if(!cards){
     const rng2=makeRng("deck2");
@@ -1005,7 +1008,7 @@ function predRoll(seed){
   const rng=mulberry32(xfnv1a(String(seed)+"::deck")); const MAX=3;
   const draw=(rng)=>{const L=[],c={};for(let i=0;i<START_DECK;i++){let x,g=0;do{x=weightedLetter(rng,BAG_WEIGHTS);g++;}while((c[x]||0)>=MAX&&g<60);c[x]=(c[x]||0)+1;L.push(x);}return{L,c};};
   let ls=null;
-  for(let t=0;t<400;t++){const{L,c}=draw(rng);const v=L.filter(x=>VOWELS.has(x)).length,hi=L.filter(x=>LETTER_VALUES[x]>1).length,mx=Math.max(...Object.values(c));if(v>=DECK_VOWEL_MIN&&v<=DECK_VOWEL_MAX&&hi>=2&&mx<=MAX){ls=L;break;}}
+  for(let t=0;t<400;t++){const{L,c}=draw(rng);const v=L.filter(x=>VOWELS.has(x)).length,hi=L.filter(x=>LETTER_VALUES[x]>1).length,face=L.reduce((a,x)=>a+LETTER_VALUES[x],0),mx=Math.max(...Object.values(c));if(v>=DECK_VOWEL_MIN&&v<=DECK_VOWEL_MAX&&hi>=DECK_HI_MIN&&face>=DECK_FACE_MIN&&mx<=MAX){ls=L;break;}}
   if(!ls) ls=draw(mulberry32(xfnv1a(String(seed)+"::deck2"))).L;
   const cards=ls.map(L=>({letter:L,base:LETTER_VALUES[L],mult:1,up:0}));
   const el=shuffle(cards.filter(c=>c.base>1),rng); el.slice(0,2).forEach(c=>c.mult=1.5);
