@@ -145,6 +145,8 @@ body::before{
   padding:8px 11px;font-size:.74rem;font-weight:800;letter-spacing:.03em;cursor:pointer;white-space:nowrap;flex:0 0 auto;
   box-shadow:0 1px 3px rgba(35,32,46,.08)}
 .icon-btn:active{transform:translateY(1px)}
+.icon-btn:disabled{opacity:.38;cursor:default;box-shadow:none}
+.icon-btn:disabled:active{transform:none}
 .icon-btn .ic{color:var(--brass-deep);font-weight:900}
 
 /* progress bar: score toward target */
@@ -445,6 +447,8 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
 .toast.show{opacity:1;transform:translateX(-50%) translateY(0)}
 .floater{position:fixed;z-index:250;pointer-events:none;font-family:var(--serif);font-weight:700;animation:floatUp 1s ease-out forwards}
 @keyframes floatUp{0%{opacity:0;transform:translate(-50%,0) scale(.8)}20%{opacity:1}100%{opacity:0;transform:translate(-50%,-46px) scale(1.1)}}
+.floater.slow{animation:floatUpSlow 2.1s ease-out forwards}
+@keyframes floatUpSlow{0%{opacity:0;transform:translate(-50%,0) scale(.8)}10%{opacity:1}70%{opacity:1;transform:translate(-50%,-34px) scale(1.12)}100%{opacity:0;transform:translate(-50%,-60px) scale(1.12)}}
 .coin-fly{position:fixed;z-index:250;pointer-events:none;font-size:18px;animation:coinFly .7s ease-out forwards}
 @keyframes coinFly{0%{opacity:1;transform:translate(-50%,-50%) scale(.6)}100%{opacity:0;transform:translate(calc(-50% + var(--cx)),calc(-50% + var(--cy))) scale(1.1)}}
 
@@ -567,6 +571,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
       <div class="hand-meta">
         <button class="icon-btn" id="deckBtn">Deck · <span id="deckCountInline">20</span></button>
         <button class="icon-btn" id="shuffleBtn"><span class="ic">⇄</span> Shuffle</button>
+        <button class="icon-btn" id="undoBtn" disabled><span class="ic">↶</span> Undo</button>
         <button class="icon-btn" id="recallBtn">Clear canvas</button>
       </div>
       <div class="proof-row hidden" id="proofRow"><span class="pr-lab">Next up</span><span class="proof-peek" id="proofPeek"></span></div>
@@ -587,12 +592,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
       <input id="seedInput" placeholder="seed (optional)" autocomplete="off" autocapitalize="characters" spellcheck="false" />
       <button class="menu-btn alt" id="seedBtn" style="margin:0;width:auto;padding:11px 16px">Use seed</button>
     </div>
-    <div class="howto">
-      <p><b>Forge words</b> from the 7 letter slugs in your case. Longer words and rarer letters score more. Set a word and its letters shuffle back into your deck — you'll draw a fresh 7.</p>
-      <p>Beat each round's <b>target</b> within your <b>words</b> (turns). Run out short and you go into <b>overtime</b> — each extra word costs a heart (you have five), keeping your score and hand, until the target falls or your hearts run out.</p>
-      <p>Stuck with junk? Drop letters on the canvas and tap <b>Discard</b> to swap them (3 a round). The same word can be set as many times as you like.</p>
-      <p>Clear a round to earn coins for the <b>print shop</b>: new letters, gilding, perks and more. Beat all <b>8 rounds</b> to win the press — then push your luck in <b>endless</b> if you dare.</p>
-    </div>
+    <button class="menu-btn alt" id="howtoBtn" style="max-width:300px;margin-top:14px">How to Play</button>
     <div class="leaderboard" id="leaderboard"></div>
     <div class="ver" id="verTag"></div>
     <button class="menu-btn alt" id="optionsBtn" style="max-width:300px;margin-top:6px">Options</button>
@@ -733,8 +733,24 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
     <div class="over-result">Paused</div>
     <div id="pauseStats" style="color:var(--ink-soft);font-size:.85rem;margin:6px 0 4px"></div>
     <button class="menu-btn" id="pauseResumeBtn" style="margin-top:18px">Resume</button>
+    <button class="menu-btn alt" id="pauseHowtoBtn">How to Play</button>
     <button class="menu-btn alt" id="pauseExportBtn">Export this run's stats</button>
     <button class="menu-btn alt" id="pauseQuitBtn">Quit to title</button>
+  </div>
+</div>
+
+<!-- ===== How to Play (from title + pause) ===== -->
+<div class="overlay hidden" id="howtoScreen">
+  <div class="sheet sheet-center">
+    <div class="over-result">How to Play</div>
+    <div class="howto">
+      <p><b>Forge words</b> from the 7 letter slugs in your case. Longer words and rarer letters score more. Set a word and its letters shuffle back into your deck, then you'll draw a fresh 7.</p>
+      <p>Beat each round's <b>target</b> within your <b>words</b> (turns). Run out short and you go into <b>overtime</b>. Each extra word costs a heart (you have five), keeping your score and hand, until the target falls or your hearts run out.</p>
+      <p>Stuck with junk? Drop letters on the canvas and tap <b>Discard</b> to swap them (3 a round). The same word can be set as many times as you like.</p>
+      <p>Made a placement you didn't mean? Tap <b>Undo</b> to step back, one move at a time, right up until you set a word or discard.</p>
+      <p>Clear a round to earn coins for the <b>print shop</b>: new letters, gilding, perks and more. Beat all <b>8 rounds</b> to win the press, then push your luck in <b>endless</b> if you dare.</p>
+    </div>
+    <button class="menu-btn" id="howtoCloseBtn" style="margin-top:18px">Got it</button>
   </div>
 </div>
 
@@ -780,7 +796,7 @@ const EXTRA_WORDS = [
   "retweets","upvote","upvotes","downvote","downvotes","unfriend","unfriended",
   "screenshot","screenshots","photobomb","photobombed","staycation","staycations",
   "brunch","brunches","cosplay","cosplays","foodie","foodies","frenemy","frenemies",
-  "hangry","chillax","bromance","squad","squads","vibe","vibes","vibing","glam",
+  "hangry","chillax","bromance","squad","squads","vibe","vibes","vibing","vibed","glam",
   "legit","binge","binged","bingeing","glitch","glitches","glitchy","techie","techies",
   "geeky","nerdy","avatar","avatars","emoticon","emoticons","gamer","gamers","spam",
   "malware","wifi","internet","online","offline","app","apps","googled",
@@ -869,7 +885,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "2d";
+const VERSION = "2f";
 const WIN_LEVEL = 8;   // clear this round to WIN; afterwards, optional endless mode
 const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:2,M:3,N:1,O:1,P:3,Q:10,R:1,S:2,T:2,U:1,V:4,W:4,X:8,Y:4,Z:10};
 // L,S,T bumped 1→2 (v2d): only vowels + N,R,U remain 1-point. Targets scaled to match (see TARGET_SCALE).
@@ -1095,10 +1111,11 @@ function spawnCellJuice(cell,opts){
   }
   cell.appendChild(j); setTimeout(()=>j.remove(),720);
 }
-function floatText(x,y,text,color){
-  const f=document.createElement("div"); f.className="floater"; f.textContent=text;
-  f.style.left=x+"px"; f.style.top=y+"px"; f.style.color=color||"var(--brass-deep)"; f.style.fontSize="1.4rem";
-  document.body.appendChild(f); setTimeout(()=>f.remove(),1000);
+function floatText(x,y,text,color,opts){
+  opts=opts||{};
+  const f=document.createElement("div"); f.className="floater"+(opts.slow?" slow":""); f.textContent=text;
+  f.style.left=x+"px"; f.style.top=y+"px"; f.style.color=color||"var(--brass-deep)"; f.style.fontSize=opts.size||"1.4rem";
+  document.body.appendChild(f); setTimeout(()=>f.remove(), opts.slow?2200:1000);
 }
 function coinBurst(fromX,fromY,n){
   if(reduceMotion())return;
@@ -1589,11 +1606,13 @@ function onTileUp(e){
 // absolute-index commits (finalIdx already counts the dragged tile's slot)
 function moveWithinCanvasAbs(id, idx){
   const i=G.canvas.findIndex(c=>c.id===id); if(i<0){ renderCanvas(); return; }
+  checkpoint();
   const [c]=G.canvas.splice(i,1); idx=Math.max(0,Math.min(idx,G.canvas.length));
   G.canvas.splice(idx,0,c); renderCanvas(); save();
 }
 function returnToHandAt(id, idx){
   const i=G.canvas.findIndex(c=>c.id===id); if(i<0){ renderHand(); renderCanvas(); return; }
+  checkpoint();
   const [c]=G.canvas.splice(i,1);
   if(c.kind==="clone") c.cloneLetter=null; if(c.kind==="wildvowel") c.vowel=null; if(c.kind==="wildcons") c.cons=null;
   idx=Math.max(0,Math.min(idx,G.hand.length)); G.hand.splice(idx,0,c);
@@ -1601,8 +1620,57 @@ function returnToHandAt(id, idx){
 }
 function reorderHandAbs(id, idx){
   const i=G.hand.findIndex(c=>c.id===id); if(i<0){ renderHand(); return; }
+  checkpoint();
   const [c]=G.hand.splice(i,1); idx=Math.max(0,Math.min(idx,G.hand.length));
   G.hand.splice(idx,0,c); renderHand(); save();
+}
+
+/* ---- per-word undo: snapshot the round's loose state before each move,
+        cleared the moment a word is set (so you can't undo across a set) ---- */
+let undoStack=[];
+function snapshotState(){
+  return {
+    hand:G.hand.map(c=>c.id),
+    canvas:G.canvas.map(c=>c.id),
+    pile:G.drawPile.map(c=>c.id),
+    discardsLeft:G.discardsLeft,
+    rf:G.canvas.reduce((m,c)=>{
+      if(c.kind==="clone") m[c.id]=["clone",c.cloneLetter];
+      else if(c.kind==="wildvowel") m[c.id]=["vowel",c.vowel];
+      else if(c.kind==="wildcons") m[c.id]=["cons",c.cons];
+      return m;
+    },{})
+  };
+}
+function undoSig(s){ return s.hand.join(",")+"|"+s.canvas.join(",")+"|"+s.pile.join(",")+"|"+s.discardsLeft+"|"+Object.keys(s.rf).sort().map(k=>k+s.rf[k][0]+s.rf[k][1]).join(","); }
+function updateUndoBtn(){ const b=$("undoBtn"); if(b) b.disabled = undoStack.length===0; }
+function checkpoint(){
+  const s=snapshotState();
+  if(undoStack.length && undoSig(undoStack[undoStack.length-1])===undoSig(s)) return; // skip identical
+  undoStack.push(s); if(undoStack.length>250) undoStack.shift(); updateUndoBtn();
+}
+function clearUndo(){ undoStack=[]; updateUndoBtn(); }
+function restoreState(s){
+  const all={}; [...G.hand,...G.canvas,...G.drawPile].forEach(c=>all[c.id]=c);
+  const pick=ids=>ids.map(id=>all[id]).filter(Boolean);
+  G.hand=pick(s.hand); G.canvas=pick(s.canvas); G.drawPile=pick(s.pile);
+  G.discardsLeft=s.discardsLeft;
+  // canvas tiles get their resolved letter back; loose tiles in hand carry none
+  G.canvas.forEach(c=>{ const r=s.rf[c.id];
+    if(c.kind==="clone")     c.cloneLetter=(r&&r[0]==="clone")?r[1]:null;
+    if(c.kind==="wildvowel") c.vowel=     (r&&r[0]==="vowel")?r[1]:null;
+    if(c.kind==="wildcons")  c.cons=      (r&&r[0]==="cons") ?r[1]:null;
+  });
+  G.hand.forEach(c=>{ if(c.kind==="clone")c.cloneLetter=null; if(c.kind==="wildvowel")c.vowel=null; if(c.kind==="wildcons")c.cons=null; });
+  renderHand(); renderCanvas(); renderHud();
+}
+function undoMove(){
+  if(!undoStack.length) return;
+  const cur=undoSig(snapshotState());
+  let s=null;
+  while(undoStack.length){ const t=undoStack.pop(); if(undoSig(t)!==cur){ s=t; break; } }
+  if(!s){ updateUndoBtn(); return; }
+  restoreState(s); updateUndoBtn(); haptic(12); save();
 }
 
 /* ---- state ops for placement ---- */
@@ -1612,6 +1680,7 @@ function placeFromHand(id,idx){
   if(c0 && c0.kind==="wildvowel" && !c0.vowel){ openVowelChooser(c0,idx); return; }
   if(c0 && c0.kind==="wildcons" && !c0.cons){ openConsChooser(c0,idx); return; }
   const i=G.hand.findIndex(c=>c.id===id); if(i<0)return;
+  checkpoint();
   const [c]=G.hand.splice(i,1);
   if(typeof idx==="number" && idx>=0 && idx<=G.canvas.length) G.canvas.splice(idx,0,c);
   else G.canvas.push(c);
@@ -1623,6 +1692,7 @@ function placeFromHand(id,idx){
 }
 function removeFromCanvas(id){
   const i=G.canvas.findIndex(c=>c.id===id); if(i<0)return;
+  checkpoint();
   const [c]=G.canvas.splice(i,1);
   if(c.kind==="clone") c.cloneLetter=null;   // unassign on return
   if(c.kind==="wildvowel") c.vowel=null;
@@ -1632,6 +1702,7 @@ function removeFromCanvas(id){
 }
 function moveWithinCanvas(id,idx){
   const i=G.canvas.findIndex(c=>c.id===id); if(i<0)return;
+  checkpoint();
   const [c]=G.canvas.splice(i,1);
   if(idx>i) idx--;
   if(typeof idx==="number"&&idx>=0&&idx<=G.canvas.length) G.canvas.splice(idx,0,c);
@@ -1639,6 +1710,7 @@ function moveWithinCanvas(id,idx){
   renderCanvas(); save();
 }
 function recallAll(){
+  if(G.canvas.length) checkpoint();
   while(G.canvas.length){ const c=G.canvas.pop(); if(c.kind==="clone") c.cloneLetter=null; if(c.kind==="wildvowel") c.vowel=null; if(c.kind==="wildcons") c.cons=null; G.hand.push(c); }
   renderHand(); renderCanvas(); save();
 }
@@ -1764,6 +1836,7 @@ function startLevel(){
   const rng=makeRng("lvl:"+G.level+":"+G.attempt);
   G.drawPile=shuffle(G.deck,rng).map(c=>c); // same card objects, fresh order
   G.hand=[]; G.canvas=[]; G.played=[];
+  clearUndo();
   showGame();
   renderCanvas();
   dealUpToHand(true);
@@ -1810,9 +1883,10 @@ function submitWord(){
   screenShake(3+power*17);
   submitSound(power);
   floatText(cr.left+cr.width/2, cr.top+6, "+"+sc.total, "#B98A2E");
-  if(cash>0){ setTimeout(()=>{ floatText(cr.left+cr.width/2, cr.top+34, "+"+cash+"◉ big word", "#3C6E63"); blip(660,0.08); },180); }
+  if(cash>0){ setTimeout(()=>{ floatText(cr.left+cr.width/2, cr.top+34, "+$"+cash, "#3C6E63", {slow:true, size:"1.7rem"}); blip(660,0.08); },180); }
   haptic([10,40,10,30]);
   returnCanvasToPile();
+  clearUndo();   // a set word is a hard boundary: no undo across it
   // a Free jazz card with no uses left is exhausted and leaves the deck for good
   { const dead=G.deck.filter(c=>c.kind==="jazz" && (c.jazzLeft||0)<=0);
     if(dead.length){ const ids=new Set(dead.map(c=>c.id));
@@ -1850,6 +1924,7 @@ function animateScore(from,to){
 }
 function discardCanvas(){
   if(G.canvas.length===0||G.discardsLeft<=0) return;
+  clearUndo();   // a discard is a hard boundary like setting a word: no undo across it
   G.discardsLeft--;
   const tiles=[...$("canvas").querySelectorAll(".tile")];
   tiles.forEach((t,i)=>{ setTimeout(()=>t.classList.add("fly-out"),i*40); });
@@ -2690,6 +2765,7 @@ function save(){
 function continueRun(){
   let d; try{ d=JSON.parse(localStorage.getItem(SAVE_KEY)); }catch(e){ return; }
   if(!d || d.v!==SAVE_VERSION) return;
+  clearUndo();
   cardSeq=d.cardSeq||0;
   G.seed=d.seed; G.level=d.level; G.hearts=d.hearts; G.coins=d.coins; G.handSize=d.handSize;
   G.infinite=!!d.infinite; G.wonRun=!!d.wonRun;
@@ -2793,6 +2869,7 @@ $("seedBtn").addEventListener("click",()=>{
 $("submitBtn").addEventListener("click",submitWord);
 $("discardBtn").addEventListener("click",discardCanvas);
 $("recallBtn").addEventListener("click",recallAll);
+$("undoBtn").addEventListener("click",undoMove);
 $("shuffleBtn").addEventListener("click",shuffleHand);
 window.addEventListener("resize",()=>{ if(!$("play").classList.contains("hidden")){ fitHand(); fitCanvas(); } });
 hasFocus = (typeof document.hasFocus==="function") ? document.hasFocus() : true;
@@ -2823,6 +2900,10 @@ $("pauseQuitBtn").addEventListener("click",pauseQuit);
 $("optionsBtn").addEventListener("click",openOptions);
 $("optBackBtn").addEventListener("click",closeOptions);
 $("optExportBtn").addEventListener("click",exportAllRuns);
+// how to play (from title + pause)
+$("howtoBtn").addEventListener("click",()=>$("howtoScreen").classList.remove("hidden"));
+$("pauseHowtoBtn").addEventListener("click",()=>$("howtoScreen").classList.remove("hidden"));
+$("howtoCloseBtn").addEventListener("click",()=>$("howtoScreen").classList.add("hidden"));
 // first/last-up letter chooser
 $("bonusCancel").addEventListener("click",cancelBonus);
 
