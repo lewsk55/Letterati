@@ -933,7 +933,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "3c";
+const VERSION = "3d";
 const WIN_LEVEL = 8;   // clear this round to WIN; afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -942,12 +942,12 @@ const WIN_LEVEL = 8;   // clear this round to WIN; afterwards, optional endless 
    Failing a challenge just drops to normal overtime; clearing grants the reward.
    Everything here rolls off the seeded stream so the daily stays replay-valid. */
 const CHALLENGE_LEVELS = new Set([3,5,7]);
-const CHALLENGE_TARGET_MULT = 1.5;   // "steep target" challenge: +50%
+const CHALLENGE_TARGET_MULT = 1.75;  // "steep target" challenge: +75% over the round's base goal
 const CHALLENGE_BAN_COUNT  = 3;      // "letters locked": ban your 3 most-used deck letters
 const CHALLENGE_MIN_LEN    = 5;      // "long form": no words under 5 letters
 const CHALLENGE_TYPES = {
-  steep:  { name:"Steep Target", badge:"+50% target",
-            desc:"Clear a target that is 50 percent higher this round." },
+  steep:  { name:"Steep Target", badge:"+75% target",
+            desc:"Clear a target that is 75 percent higher this round." },
   locked: { name:"Letters Locked", badge:"3 letters out",
             desc:"Your three most-used letters are off the board this round." },
   longform:{ name:"Long Form", badge:"5+ letters only",
@@ -1006,7 +1006,8 @@ function lenMult(n){ return n<=3?1 : n===4?1.5 : (n-3); }   // 5→2,6→3,7→4
 // casual win rate at its pre-bump level (skilled ~96%, casual ~14%) — the small remainder
 // is a deliberate floor-raise that helps weaker seeds. Set to 1 to disable.
 const TARGET_SCALE = 1.04;
-function targetFor(level){ return Math.round((20 + 8*(level-1)) * Math.pow(1.28, level-1) * TARGET_SCALE); }
+const GOAL_SCALE = 1.15;   // v3d: +15% point goal across every level, a deliberate difficulty raise
+function targetFor(level){ return Math.round((20 + 8*(level-1)) * Math.pow(1.28, level-1) * TARGET_SCALE * GOAL_SCALE); }
 
 /* ---- Challenge helpers (v3a) ---- */
 // Which seeded challenge a given round offers. Pure function of seed+level so
