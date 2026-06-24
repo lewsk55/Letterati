@@ -869,7 +869,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "2a";
+const VERSION = "2b";
 const WIN_LEVEL = 8;   // clear this round to WIN; afterwards, optional endless mode
 const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:1,M:3,N:1,O:1,P:3,Q:10,R:1,S:1,T:1,U:1,V:4,W:4,X:8,Y:4,Z:10};
 // Scrabble-bag style weights — E most common; AIOU vowels common; SNRT common
@@ -938,7 +938,7 @@ const G = {
   // ui transient
   paused:false, bonusKind:null, bonusOfferIdx:null, stats:null, _curShop:null,
   // shop
-  shopOffers:[], rerollCount:0, shopUndo:[],
+  shopOffers:[], rerollCount:0, freeRerollUsed:false, shopUndo:[],
   // deck overlay select mode
   selectMode:null,         // null | "remove" | "gild"
   best:1, runMs:0
@@ -2184,7 +2184,7 @@ function twinsiesOffer(){
     price:px(10), art:"👯", d:{type:"twinsies"}};
 }
 function freeRerollOffer(){
-  return {kind:"Perk",rarity:"epic",name:"Free re-rolls",desc:"Every shop reroll is free, for the rest of the run.",
+  return {kind:"Perk",rarity:"epic",name:"Free re-roll",desc:"Your first re-roll in each shop is free, for the rest of the run.",
     price:px(11), art:"♻️", d:{type:"freeRerolls"}};
 }
 
@@ -2198,6 +2198,7 @@ function openShop(){
   G.shopOffers=buildShopPool();   // reroll count persists for the whole run
   statShopOpen(G.shopOffers);
   G.shopUndo=[];                  // fresh undo history per shop visit
+  G.freeRerollUsed=false;         // the free reroll (perk) refreshes each shop
   setShopHeader();
   hideGame();
   $("shopScreen").classList.remove("hidden");
@@ -2208,7 +2209,7 @@ function openShop(){
 function shopSnapshot(){
   return {
     coins:G.coins, handSize:G.handSize, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns,
-    scoreMult:G.scoreMult, jazzCharges:G.jazzCharges, hearts:G.hearts, rerollCount:G.rerollCount,
+    scoreMult:G.scoreMult, jazzCharges:G.jazzCharges, hearts:G.hearts, rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed,
     gildOfferIdx:G.gildOfferIdx,
     perks:JSON.parse(JSON.stringify(G.perks)),
     deck:G.deck.map(c=>({...c})),
@@ -2220,7 +2221,7 @@ function shopUndo(){
   if(!G.shopUndo.length) return;
   const s=G.shopUndo.pop();
   G.coins=s.coins; G.handSize=s.handSize; G.extraDiscards=s.extraDiscards; G.extraTurns=s.extraTurns;
-  G.scoreMult=s.scoreMult; G.jazzCharges=s.jazzCharges; G.hearts=s.hearts; G.rerollCount=s.rerollCount;
+  G.scoreMult=s.scoreMult; G.jazzCharges=s.jazzCharges; G.hearts=s.hearts; G.rerollCount=s.rerollCount; G.freeRerollUsed=s.freeRerollUsed;
   G.gildOfferIdx=s.gildOfferIdx; G.perks=s.perks; G.deck=s.deck; G.shopOffers=s.offers;
   haptic(12); toast("Undone");
   renderShop(); save();
@@ -2251,7 +2252,7 @@ function renderShop(){
     grid.appendChild(card);
   });
 }
-function rerollCost(){ if(G.perks.freeRerolls) return 0; return G.rerollCount + 1; }   // 1,2,3… and the count persists all run
+function rerollCost(){ if(G.perks.freeRerolls && !G.freeRerollUsed) return 0; return G.rerollCount + 1; }   // first reroll each shop is free with the perk; otherwise 1,2,3… (count persists all run)
 function buyOffer(i){
   const o=G.shopOffers[i];
   if(o.sold) return;
@@ -2281,10 +2282,12 @@ function buyOffer(i){
   save();
 }
 function rerollShop(){
-  if(G.coins<rerollCost()) return;
+  const cost=rerollCost();
+  if(G.coins<cost) return;
   pushShopUndo();
-  G.coins-=rerollCost();
-  G.rerollCount++;
+  G.coins-=cost;
+  if(cost===0) G.freeRerollUsed=true;   // spent the per-shop free reroll; the paid ladder doesn't advance
+  else G.rerollCount++;
   statShopReroll();
   G.shopOffers=buildShopPool();
   haptic(12);
@@ -2578,7 +2581,7 @@ function ownedPerksList(){
   if(G.perks.interest)   out.push("Compound Interest");
   if(G.perks.discardMoneyBoost) out.push("Frugal Press · +50% discard coins");
   if(G.perks.fireSale)   out.push("Fire Sale · cheaper shop");
-  if(G.perks.freeRerolls) out.push("Free Re-rolls");
+  if(G.perks.freeRerolls) out.push("Free Re-roll · first reroll each shop");
   Object.keys(G.perks.firstUp||{}).forEach(L=>{ const s=G.perks.firstUp[L]; if(s>0) out.push("First-up "+L+" · ×"+(1+s)); });
   Object.keys(G.perks.lastUp||{}).forEach(L=>{ const s=G.perks.lastUp[L]; if(s>0) out.push("Finale "+L+" · ×"+(1+s)); });
   return out;
@@ -2669,7 +2672,7 @@ function save(){
       wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
       attempt:G.attempt, target:G.target, score:G.score, handsLeft:G.handsLeft, discardsLeft:G.discardsLeft,
       drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas),
-      rerollCount:G.rerollCount, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
+      rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
     };
     localStorage.setItem(SAVE_KEY,JSON.stringify(data));
   }catch(e){}
@@ -2704,6 +2707,7 @@ function continueRun(){
     showLevelSummary(d.summaryInfo);
   } else if(d.phase==="shop"){
     G.rerollCount=d.rerollCount||0;
+    G.freeRerollUsed=!!d.freeRerollUsed;
     G.shopOffers=d.offers||[];
     setShopHeader();
     hideGame(); $("shopScreen").classList.remove("hidden");
@@ -2751,7 +2755,7 @@ function newRun(seed){
   G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:false,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false};
   G.scoreMult=1; G.extraDiscards=0; G.extraTurns=0; G.jazzCharges=0; G.lastReward=null;
   G.infinite=false; G.wonRun=false;
-  G.rerollCount=0;   // reroll-price ladder resets each run
+  G.rerollCount=0; G.freeRerollUsed=false;   // reroll-price ladder resets each run
   G.wordsPlayed=0; G.runScore=0; G.runBestWord=""; G.runBestScore=0; G.levelStats={bestWord:"",bestScore:0,words:0};
   G.attempt=0; G.best=1; G.shopOffers=[]; G.runMs=0;
   G.deck=rollStartingDeck();
