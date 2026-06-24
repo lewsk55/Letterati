@@ -534,6 +534,9 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
   background:var(--paper);border:1.5px solid var(--tile-edge);transition:border-color .12s,transform .08s}
 .chal-reward:active{transform:translateY(1px)}
 .chal-reward.picked{border-color:var(--moss);box-shadow:0 0 0 2px rgba(60,110,99,.18)}
+.chal-reward.is-epic{background:linear-gradient(180deg,#F3EEFA,#E7DEF4);border-color:#B9A6DC}
+.chal-reward.is-epic .cr-badge{color:#7A4FB0}
+.chal-reward.is-epic.picked{border-color:#7A4FB0;box-shadow:0 0 0 2px rgba(122,79,176,.22)}
 .chal-reward .cr-badge{font-size:.6rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--moss)}
 .chal-reward .cr-name{font-weight:800;font-size:.98rem;color:var(--ink)}
 .chal-reward .cr-desc{font-size:.78rem;color:var(--ink-soft);line-height:1.35}
@@ -930,7 +933,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "3a";
+const VERSION = "3c";
 const WIN_LEVEL = 8;   // clear this round to WIN; afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -954,12 +957,28 @@ const CHALLENGE_ORDER = ["steep","locked","longform"];
 const CHALLENGE_REWARDS = {
   double: { name:"Double payouts", badge:"2x coins",
             desc:"Every coin you earn this round counts double." },
-  card:   { name:"Featured card", badge:"wild tile",
-            desc:"A wild tile joins your deck for the tough rounds ahead." },
+  epic:   { name:"Featured epic", badge:"EPIC",
+            desc:"A standout card or perk, revealed before you choose." },
   cash:   { name:"Ten coin bonus", badge:"+$10",
             desc:"Ten coins drop straight into the bank." }
 };
-const CHALLENGE_REWARD_ORDER = ["double","card","cash"];
+const CHALLENGE_REWARD_ORDER = ["double","epic","cash"];
+// Pool the "featured epic" reward draws from. All grant cleanly with no extra
+// chooser popup, and stay on-brand (no free jazz). Rolled and shown up front.
+const CHALLENGE_EPIC_POOL = [
+  {name:"Wild consonant",   art:"✦",  desc:"A slug that becomes any consonant you choose.", d:{type:"wildCons"}},
+  {name:"Wild vowel",       art:"✺",  desc:"A slug that becomes any vowel you choose.", d:{type:"wildVowel"}},
+  {name:"Clone",            art:"❖",  desc:"Play it as a copy of any letter you are holding.", d:{type:"clone"}},
+  {name:"Big words",        art:"📏", desc:"Longer words give double the length multiplier.", d:{type:"bigWords"}},
+  {name:"Free re-roll",     art:"♻️", desc:"Your first re-roll in each shop is free, for the rest of the run.", d:{type:"freeRerolls"}},
+  {name:"Twinsies",         art:"👯", desc:"Double the whole word when two of the same letter sit side by side.", d:{type:"twinsies"}},
+  {name:"Two of a kind",    art:"🃏", desc:"Any word with a repeated letter scores 1.5 times.", d:{type:"twoOfAKind"}},
+  {name:"Vowel power",      art:"🅰️", desc:"Double the points of every vowel.", d:{type:"vowelPower"}},
+  {name:"Press multiplier", art:"🗜️", desc:"Raise your global score multiplier.", d:{type:"pressMult", f:1.4}},
+  {name:"Fuller case",      art:"🗄️", desc:"Hold one more tile in every hand.", d:{type:"fuller"}},
+  {name:"Extra word",       art:"⏳", desc:"One more word to set each round.", d:{type:"extraTurn"}},
+  {name:"Compound interest",art:"🏦", desc:"Earn 10 percent on your coins each round.", d:{type:"interest"}}
+];
 const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:2,M:3,N:1,O:1,P:3,Q:10,R:1,S:2,T:2,U:1,V:4,W:4,X:8,Y:4,Z:10};
 // L,S,T bumped 1→2 (v2d): only vowels + N,R,U remain 1-point. Targets scaled to match (see TARGET_SCALE).
 // Scrabble-bag style weights — E most common; AIOU vowels common; SNRT common
@@ -1013,6 +1032,25 @@ function challengeMinLen(){
   return (challengeActive() && G.challenge.type==="longform") ? CHALLENGE_MIN_LEN : 0;
 }
 function challengeDoublePay(){ return challengeActive() && G.challenge.reward==="double"; }
+// True if a pool entry is an already-owned one-shot perk (cards/stackables stay offerable).
+function epicOwned(e){
+  const t=e.d.type;
+  if(t==="bigWords")    return !!G.perks.bigWords;
+  if(t==="freeRerolls") return !!G.perks.freeRerolls;
+  if(t==="twinsies")    return !!G.perks.twinsies;
+  if(t==="twoOfAKind")  return !!G.perks.twoOfAKind;
+  if(t==="vowelPower")  return !!G.perks.vowelPower;
+  if(t==="interest")    return !!G.perks.interest;
+  return false;
+}
+// The featured epic offered at a given challenge level. Seeded by level (and the run
+// seed via makeRng), so it is the same on a reload and reconstructable for daily replay.
+function challengeEpicFor(level){
+  const pool=CHALLENGE_EPIC_POOL.filter(e=>!epicOwned(e));
+  const src=pool.length?pool:CHALLENGE_EPIC_POOL;
+  const rng=makeRng("chalEpic:"+level);
+  return src[Math.floor(rng()*src.length)];
+}
 
 /* ============================================================
    Seeded RNG — namespaced streams (deck / shop / level), GGW-style
@@ -1144,22 +1182,47 @@ function predScore(t,P){
   let m=lenMult(t.length); if(P.bigWords)m=1+(m-1)*2;
   let tot=s*m; if(t.length>=P.handSize)tot*=1.5; tot*=P.scoreMult||1; return Math.round(tot);
 }
-function predBest(hand,P){
-  const A=anaSet(),n=hand.length,lim=1<<n; let b=0,bt=null;
-  for(let mask=1;mask<lim;mask++){let c=0;for(let i=0;i<n;i++)if(mask&(1<<i))c++;if(c<2)continue;const sub=[];for(let i=0;i<n;i++)if(mask&(1<<i))sub.push(hand[i]);const k=sub.map(x=>x.letter.toLowerCase()).sort().join("");if(!A.has(k))continue;const sc=predScore(sub,P);if(sc>b){b=sc;bt=sub;}}
+function predBest(hand,P,opts){
+  opts=opts||{}; const banned=opts.banned||null, minLen=opts.minLen||0;
+  const cand = banned ? hand.filter(t=>!banned.has(t.letter)) : hand;   // locked: drop banned letters from play
+  const A=anaSet(),n=cand.length,lim=1<<n; let b=0,bt=null;
+  for(let mask=1;mask<lim;mask++){let c=0;for(let i=0;i<n;i++)if(mask&(1<<i))c++;if(c<2||c<minLen)continue;const sub=[];for(let i=0;i<n;i++)if(mask&(1<<i))sub.push(cand[i]);const k=sub.map(x=>x.letter.toLowerCase()).sort().join("");if(!A.has(k))continue;const sc=predScore(sub,P);if(sc>b){b=sc;bt=sub;}}
   return {score:b,tiles:bt};
 }
-function predLevel(P,seed){
+function predLevel(P,seed,opts){
+  opts=opts||{};
+  const target = opts.target || targetFor(P.level);
+  const banned = opts.banned || null;
+  const minLen = opts.minLen || 0;
   const rng=mulberry32(xfnv1a(String(seed)+"::lvl:"+P.level+":0"));
-  let pile=shuffle(P.deck,rng).slice(); let hand=[]; const draw=()=>{while(hand.length<P.handSize&&pile.length)hand.push(pile.shift());}; draw();
+  const src = banned ? P.deck.filter(c=>!banned.has(c.letter)) : P.deck;   // locked: banned letters not in the pile
+  let pile=shuffle(src,rng).slice(); let hand=[]; const draw=()=>{while(hand.length<P.handSize&&pile.length)hand.push(pile.shift());}; draw();
   let score=0,hl=4+(P.extraTurns||0);
   while(true){
-    if(score>=targetFor(P.level)) return {res:"clear",hl,score};
-    if(hl<=0){ P.hearts--; if(P.hearts<=0) return {res:"fail"}; hl=1; }
-    const {score:s,tiles}=predBest(hand,P);
+    if(score>=target) return {res:"clear",hl,score};
+    if(hl<=0){ P.hearts--; if(P.hearts<=0) return {res:"fail",score}; hl=1; }
+    const {score:s,tiles}=predBest(hand,P,{banned,minLen});
     if(!tiles){ hl--; if(hand.length){pile.push(hand.shift());draw();} continue; }
     score+=s; const used=new Set(tiles); hand=hand.filter(t=>!used.has(t)); pile.push(...tiles); draw(); hl--;
   }
+}
+/* ---- challenge-aware bot helpers (v3b) ---- */
+// Same seeded pick the live game uses (challengeTypeFor), but with an explicit seed.
+function predChallengeType(seed,level){
+  const rng=mulberry32(xfnv1a(String(seed)+"::challenge:"+level));
+  return CHALLENGE_ORDER[Math.floor(rng()*CHALLENGE_ORDER.length)];
+}
+// Most-used letters in the bot's deck (mirrors deckTopLetters; predictor tiles are all letters).
+function predDeckTop(deck,n){
+  const counts={}; deck.forEach(c=>{ if(c.letter) counts[c.letter]=(counts[c.letter]||0)+1; });
+  return Object.keys(counts).sort((a,b)=>counts[b]-counts[a]||(a<b?-1:1)).slice(0,n);
+}
+// Mirrors grantChallengeReward's seeded vowel/consonant flip. Modeled conservatively
+// as a single strong fixed letter (a wild is actually more flexible than this).
+function predWildLetter(seed,level){
+  const label="chalReward:"+seed+":"+level;
+  const rng=mulberry32(xfnv1a(String(seed)+"::"+label));
+  return (rng()<0.5) ? "S" : "E";   // wild consonant -> S, wild vowel -> E
 }
 function predShop(P){
   _predLevel=P.level;
@@ -1174,16 +1237,47 @@ function predShop(P){
   buy(predPx(10,fire),()=>P.extraTurns++);
   { const L="SRTEN"[Math.floor(((P.level*2654435761)>>>0)%5)]; buy(predPx(2+Math.ceil(LETTER_VALUES[L]/2),fire),()=>P.deck.push({letter:L,base:LETTER_VALUES[L],mult:1,up:0})); }
 }
-function predictSeed(seed){
+function predictSeed(seed,opts){
+  opts=opts||{};
+  const useCh = opts.challenges===true;   // default OFF: seed-gen keeps its safe standard-path guarantee
+  const stats={taken:[]};
   const P={level:1,hearts:MAX_HEARTS,coins:0,handSize:START_HAND,extraTurns:0,scoreMult:1,vowelPower:false,bigWords:false,deck:predRoll(seed)};
   for(P.level=1;P.level<=WIN_LEVEL;P.level++){
-    const r=predLevel(P,seed);
-    if(r.res==="fail") return {winnable:false,round:P.level};
-    let b=4; const o=r.score-targetFor(P.level); b+=Math.min(5,Math.floor(o/Math.max(8,targetFor(P.level)*0.4))); b+=Math.max(0,r.hl); b=Math.max(2,Math.min(COIN_CAP,b));
-    P.coins+=b+DISCARDS_PER_LEVEL;
+    let target=targetFor(P.level), result, took=false, chType=null, reward=null;
+    if(useCh && CHALLENGE_LEVELS.has(P.level)){
+      chType=predChallengeType(seed,P.level);
+      const banned = chType==="locked" ? new Set(predDeckTop(P.deck,CHALLENGE_BAN_COUNT)) : null;
+      const chTarget = chType==="steep" ? Math.round(target*CHALLENGE_TARGET_MULT) : target;
+      const chOpts={ target:chTarget, banned, minLen: chType==="longform"?CHALLENGE_MIN_LEN:0 };
+      // probe both branches on copies (predLevel only mutates .hearts on the copy)
+      const probeStd={...P}; const stdR=predLevel(probeStd,seed,{});
+      const probeCh ={...P}; const chR =predLevel(probeCh ,seed,chOpts);
+      const stdCost=P.hearts-probeStd.hearts, chCost=P.hearts-probeCh.hearts;
+      // skilled rule: only take a challenge you can ace, i.e. it clears AND costs no
+      // more hearts than the standard round would. Keeps the reward pure upside.
+      took = (chR.res==="clear") && (chCost<=stdCost);
+      if(took){ P.hearts=probeCh.hearts; result=chR; target=chTarget; }
+      else { P.hearts=probeStd.hearts; result=stdR; }
+    } else {
+      result=predLevel(P,seed,{});   // commits hearts directly to P
+    }
+    if(result.res==="fail") return {winnable:false,round:P.level,stats};
+    let b=4; const o=result.score-target; b+=Math.min(5,Math.floor(o/Math.max(8,target*0.4))); b+=Math.max(0,result.hl); b=Math.max(2,Math.min(COIN_CAP,b));
+    let payout=b+DISCARDS_PER_LEVEL;
+    if(took){
+      // pick the reward a skilled player would: invest in the deck on a comfy clear,
+      // otherwise grab the bigger coin boost (double the purse vs a flat +10).
+      const comfy = result.hl>=1 && P.hearts>=3;
+      reward = comfy ? "epic" : ((b+DISCARDS_PER_LEVEL)>10 ? "double" : "cash");
+      if(reward==="double") payout*=2;
+      else if(reward==="cash") payout+=10;
+      else if(reward==="epic"){ const w=predWildLetter(seed,P.level); P.deck.push({letter:w,base:LETTER_VALUES[w],mult:1,up:0}); }   // epic modeled conservatively as a strong added letter
+      stats.taken.push({level:P.level,type:chType,reward});
+    }
+    P.coins+=payout;
     if(P.level<WIN_LEVEL) predShop(P);
   }
-  return {winnable:true,round:WIN_LEVEL,heartsLeft:P.hearts};
+  return {winnable:true,round:WIN_LEVEL,heartsLeft:P.hearts,stats};
 }
 function generateValidatedSeed(){
   for(let i=0;i<40;i++){ const s=randomSeed(); try{ if(predictSeed(s).winnable) return s; }catch(e){ return s; } }
@@ -1260,7 +1354,8 @@ function submitSound(power){
 /* ---------- screen shake ---------- */
 function screenShake(amp){
   const el=$("app"); if(!el||reduceMotion()) return;
-  el.style.setProperty("--shakeAmp", Math.round(amp)+"px");
+  const a=(typeof amp==="number" && isFinite(amp)) ? amp : 8;
+  el.style.setProperty("--shakeAmp", Math.round(a)+"px");
   el.classList.remove("shake"); void el.offsetWidth; el.classList.add("shake");
   setTimeout(()=>el.classList.remove("shake"), 560);
 }
@@ -1268,12 +1363,12 @@ function screenShake(amp){
 /* ---------- big celebratory burst, scaled by score ---------- */
 function bigBurst(x,y,power){
   if(reduceMotion()) return;
-  const t=Math.max(0,Math.min(1,power));
+  const t=Math.max(0,Math.min(1.5,power));
   const cont=document.createElement("div"); cont.className="burst";
   cont.style.left=x+"px"; cont.style.top=y+"px";
-  const life=620+Math.round(t*1000);          // 0.62s … 1.62s
-  const maxR=72+Math.round(t*240);            // radius 72 … 312
-  const rings=2+Math.round(t*6);              // 2 … 8 rings
+  const life=620+Math.round(t*1100);          // 0.62s … ~2.3s
+  const maxR=80+Math.round(t*280);            // radius 80 … ~500
+  const rings=2+Math.round(t*7);              // 2 … ~12 rings
   for(let i=0;i<rings;i++){
     const r=document.createElement("span"); r.className="b-ring";
     r.style.setProperty("--r",(maxR*(0.45+0.55*(i+1)/rings)).toFixed(0)+"px");
@@ -1285,7 +1380,7 @@ function bigBurst(x,y,power){
   flash.style.setProperty("--fr",(maxR*0.95).toFixed(0)+"px");
   cont.appendChild(flash);
   const cols=["#FFD23F","#FFE98A","#F6B41E","#FFF6CC","#FFC400"];
-  const sparks=16+Math.round(t*48);           // 16 … 64
+  const sparks=18+Math.round(t*62);           // 18 … ~110
   for(let i=0;i<sparks;i++){
     const s=document.createElement("span"); s.className="b-spark";
     const ang=Math.random()*Math.PI*2, dist=maxR*(0.35+Math.random()*0.85);
@@ -1394,8 +1489,7 @@ function buildTile(c,where){
     +(c.kind==="copycat"?"copycat ":"")
     +(jazzSpent?"spent ":"")
     +(gildLevel(c)>0?"upgraded ":"")+(cardMult(c)!==1?"multi ":"")
-    +(isFirstUp(c)?"firstup ":"")+(isLastUp(c)?"lastup ":"")
-    +((()=>{ const b=bannedLetterSet(); return (b && c.kind==="letter" && b.has(c.letter)) ? "locked " : ""; })());
+    +(isFirstUp(c)?"firstup ":"")+(isLastUp(c)?"lastup ":"");
   t.dataset.id=c.id;
 
   if(c.kind==="jazz"){
@@ -1789,7 +1883,6 @@ function undoMove(){
 /* ---- state ops for placement ---- */
 function placeFromHand(id,idx){
   const c0=G.hand.find(c=>c.id===id);
-  { const b=bannedLetterSet(); if(b && c0 && c0.kind==="letter" && b.has(c0.letter)){ toast(c0.letter+" is locked this round"); haptic(20); return; } }
   if(c0 && c0.kind==="clone" && !c0.cloneLetter){ openCloneChooser(c0,idx); return; }
   if(c0 && c0.kind==="wildvowel" && !c0.vowel){ openVowelChooser(c0,idx); return; }
   if(c0 && c0.kind==="wildcons" && !c0.cons){ openConsChooser(c0,idx); return; }
@@ -1943,8 +2036,8 @@ function renderChallengeBanner(){
   const el=$("chalBanner"); if(!el) return;
   if(challengeActive()){
     const def=CHALLENGE_TYPES[G.challenge.type];
-    const rw=CHALLENGE_REWARDS[G.challenge.reward];
-    el.innerHTML=`<span class="cb-tag">CHALLENGE</span><span class="cb-name">${def.name}</span><span class="cb-dot">·</span><span class="cb-reward">${rw.badge}</span>`;
+    const rwBadge = (G.challenge.reward==="epic" && G.challenge.epic) ? G.challenge.epic.name : CHALLENGE_REWARDS[G.challenge.reward].badge;
+    el.innerHTML=`<span class="cb-tag">CHALLENGE</span><span class="cb-name">${def.name}</span><span class="cb-dot">·</span><span class="cb-reward">${rwBadge}</span>`;
     el.classList.remove("hidden");
   } else { el.classList.add("hidden"); el.innerHTML=""; }
 }
@@ -1959,7 +2052,15 @@ function startLevel(){
   G.reshuffleCount=0;
   G.levelStats={bestWord:"",bestScore:0,words:0};
   const rng=makeRng("lvl:"+G.level+":"+G.attempt);
-  G.drawPile=shuffle(G.deck,rng).map(c=>c); // same card objects, fresh order
+  // Locked challenge: pull the banned letters out of the deck for this level only,
+  // so they are never dealt (you can neither play nor be stuck holding them).
+  // They stay in G.deck and return automatically next round.
+  let deckForLevel=G.deck;
+  if(challengeActive() && G.challenge.type==="locked"){
+    const ban=new Set(G.challenge.banned||[]);
+    deckForLevel=G.deck.filter(c=>!(c.kind==="letter" && ban.has(c.letter)));
+  }
+  G.drawPile=shuffle(deckForLevel,rng).map(c=>c); // same card objects, fresh order
   G.hand=[]; G.canvas=[]; G.played=[];
   clearUndo();
   showGame();
@@ -2000,15 +2101,16 @@ function submitWord(){
   if(challengeDoublePay()) cash*=2;   // v3a double-payout reward
   if(cash>0){ G.coins=Math.min(999,G.coins+cash); }
   renderHud();
-  // juice — scaled by the size of the score
-  const power=Math.max(0,Math.min(1, sc.total/140));
+  // juice — scaled by BOTH word length and score, ramping harder for big plays
+  const lenBoost = Math.max(0, res.length-4) * 0.11;        // +0.11 per letter past 4
+  const power=Math.max(0,Math.min(1.5, sc.total/130 + lenBoost));
   const cr=$("canvas").getBoundingClientRect();
   const tiles=[...$("canvas").querySelectorAll(".tile")];
-  tiles.forEach((t,i)=>{ setTimeout(()=>{ popEl(t); t.classList.add("glow"); spawnCellJuice(t,{n:8,color:"var(--brass)"}); },i*45); });
+  tiles.forEach((t,i)=>{ setTimeout(()=>{ popEl(t); t.classList.add("glow"); spawnCellJuice(t,{n:8+Math.round(power*12),color:"var(--brass)"}); },i*45); });
   bigBurst(cr.left+cr.width/2, cr.top+cr.height/2, power);
-  screenShake(3+power*17);
+  screenShake(Math.min(42, 5+power*26));
   submitSound(power);
-  floatText(cr.left+cr.width/2, cr.top+6, "+"+sc.total, "#B98A2E");
+  floatText(cr.left+cr.width/2, cr.top+6, "+"+sc.total, "#B98A2E", {size:(1.5+power*1.0).toFixed(2)+"rem"});
   if(cash>0){ setTimeout(()=>{ floatText(cr.left+cr.width/2, cr.top+34, "+$"+cash, "#3C6E63", {slow:true, size:"1.7rem"}); blip(660,0.08); },180); }
   haptic([10,40,10,30]);
   returnCanvasToPile();
@@ -2066,11 +2168,9 @@ function levelCleared(){
   // v3a: fold the chosen challenge reward into this cleared round
   if(challengeActive()){
     if(G.challenge.reward==="cash"){ rw.bonus=10; rw.total+=10; }
-    else if(G.challenge.reward==="card"){
-      const rng=makeRng("chalReward:"+G.seed+":"+G.level);
-      const giveCons = rng()<0.5;
-      G.deck.push(giveCons?makeWildConsCard():makeWildVowelCard());
-      rw.cardReward = giveCons?"wild consonant":"wild vowel";
+    else if(G.challenge.reward==="epic" && G.challenge.epic){
+      applyOffer({d:G.challenge.epic.d});
+      rw.epicReward = G.challenge.epic.name;
     }
   }
   G.best=Math.max(G.best,G.level);
@@ -2079,7 +2179,7 @@ function levelCleared(){
     fromCoins:G.coins, toCoins:Math.min(999,G.coins+rw.total), round:G.level, rw };
   G.coins=info.toCoins;
   G.lastReward=rw;
-  if(rw.cardReward) toast("Challenge reward: "+rw.cardReward+" added to your deck");
+  if(rw.epicReward) toast("Challenge reward: "+rw.epicReward);
   G.challenge=null;   // challenge consumed; clear the banner for the next round
   renderChallengeBanner();
   const justCleared=G.level;
@@ -2183,12 +2283,6 @@ function heartBreakBurst(el){
   document.body.appendChild(burst);
   setTimeout(()=>burst.remove(),900);
 }
-function screenShake(){
-  if(reduceMotion()) return;
-  const a=$("app"); if(!a) return;
-  a.classList.remove("shake"); void a.offsetWidth; a.classList.add("shake");
-  setTimeout(()=>a.classList.remove("shake"),560);
-}
 function levelFailed(){
   G.hearts--;
   const hs=[...$("hearts").querySelectorAll(".heart")];
@@ -2224,17 +2318,18 @@ function buildShopPool(){
   const seen=new Set();
   const commonPool={E:12,A:9,I:9,O:8,N:6,R:6,T:6,L:4,S:4,U:4,D:4,G:3};
   const rarePool={B:2,C:2,M:2,P:2,F:2,H:2,V:2,W:2,Y:2,K:1,J:1,X:1,Q:1,Z:1};
-  const pushUnique=(make)=>{ // avoid duplicate perk/card offers within one shop
-    for(let tries=0;tries<6;tries++){ const o=make(); if(!seen.has(o.name)){ seen.add(o.name); offers.push(o); return; } }
-    offers.push(make());
+  // every offer (letters AND perks/cards) passes through here so no name appears twice
+  const add=(make)=>{
+    for(let tries=0;tries<12;tries++){ const o=make(); if(!seen.has(o.name)){ seen.add(o.name); offers.push(o); return; } }
+    const o=make(); offers.push(o);   // give up after 12 tries (rare); keep the shop full
   };
-  offers.push(letterOffer(weightedLetter(rng,commonPool)));
-  offers.push(letterOffer(weightedLetter(rng,rarePool)));
-  pushUnique(()=>pickWeighted(rng,perkPool(rng)));
-  pushUnique(()=>pickWeighted(rng,utilPool()));
+  add(()=>letterOffer(weightedLetter(rng,commonPool)));
+  add(()=>letterOffer(weightedLetter(rng,rarePool)));
+  add(()=>pickWeighted(rng,perkPool(rng)));
+  add(()=>pickWeighted(rng,utilPool()));
   // round out to 6: a mix of letters and perks/cards
-  pushUnique(()=> rng()<0.5 ? letterOffer(weightedLetter(rng,Object.assign({},commonPool,rarePool))) : pickWeighted(rng,perkPool(rng)) );
-  pushUnique(()=> rng()<0.45 ? letterOffer(weightedLetter(rng,Object.assign({},commonPool,rarePool))) : pickWeighted(rng,perkPool(rng)) );
+  add(()=> rng()<0.5 ? letterOffer(weightedLetter(rng,Object.assign({},commonPool,rarePool))) : pickWeighted(rng,perkPool(rng)) );
+  add(()=> rng()<0.45 ? letterOffer(weightedLetter(rng,Object.assign({},commonPool,rarePool))) : pickWeighted(rng,perkPool(rng)) );
   return offers.slice(0,6).map(o=>({...o,sold:false}));
 }
 function pickWeighted(rng,entries){
@@ -2541,7 +2636,7 @@ function enterNextLevel(){
 function openChallenge(lvl){
   const type=challengeTypeFor(lvl);
   const banned = type==="locked" ? deckTopLetters(CHALLENGE_BAN_COUNT) : [];
-  G.challengePending={ type, banned, reward:null };
+  G.challengePending={ type, banned, epic:challengeEpicFor(lvl), reward:null };
   renderChallenge(lvl);
   hideGame();
   $("challengeScreen").classList.remove("hidden");
@@ -2562,10 +2657,11 @@ function renderChallenge(lvl){
     : `Target <b>${tgt}</b>`;
   const grid=$("chalRewardGrid"); grid.innerHTML="";
   CHALLENGE_REWARD_ORDER.forEach(key=>{
-    const r=CHALLENGE_REWARDS[key];
+    let r=CHALLENGE_REWARDS[key];
+    if(key==="epic" && p.epic){ r={badge:"EPIC", name:p.epic.name, desc:p.epic.desc, art:p.epic.art}; }
     const b=document.createElement("button");
-    b.className="chal-reward"+(p.reward===key?" picked":"");
-    b.innerHTML=`<span class="cr-badge">${r.badge}</span><span class="cr-name">${r.name}</span><span class="cr-desc">${r.desc}</span>`;
+    b.className="chal-reward"+(key==="epic"?" is-epic":"")+(p.reward===key?" picked":"");
+    b.innerHTML=`<span class="cr-badge">${r.badge}</span><span class="cr-name">${r.art?r.art+" ":""}${r.name}</span><span class="cr-desc">${r.desc}</span>`;
     b.addEventListener("click",()=>selectChallengeReward(key,lvl));
     grid.appendChild(b);
   });
@@ -2576,7 +2672,7 @@ function renderChallenge(lvl){
 function selectChallengeReward(key,lvl){ G.challengePending.reward=key; haptic(8); renderChallenge(lvl); }
 function takeChallenge(){
   const p=G.challengePending; if(!p || !p.reward) return;
-  G.challenge={ type:p.type, reward:p.reward, banned:p.banned||[], active:true };
+  G.challenge={ type:p.type, reward:p.reward, banned:p.banned||[], epic:p.epic||null, active:true };
   G.challengePending=null;
   $("challengeScreen").classList.add("hidden");
   haptic([10,30,10]);
@@ -2586,23 +2682,6 @@ function skipChallenge(){
   G.challenge=null; G.challengePending=null;
   $("challengeScreen").classList.add("hidden");
   startLevel();
-}
-// Granted only when a challenge round is actually cleared. "double" already
-// applied live during the round, so nothing to hand out here for that one.
-function grantChallengeReward(){
-  if(!challengeActive()) return;
-  const rw=G.challenge.reward;
-  if(rw==="cash"){
-    G.coins=Math.min(999,G.coins+10);
-    toast("Challenge reward: +$10");
-  } else if(rw==="card"){
-    const rng=makeRng("chalReward:"+G.seed+":"+G.level);
-    const giveCons = rng()<0.5;
-    G.deck.push(giveCons?makeWildConsCard():makeWildVowelCard());
-    toast("Challenge reward: wild "+(giveCons?"consonant":"vowel")+" added");
-  } else if(rw==="double"){
-    toast("Challenge cleared: payouts doubled");
-  }
 }
 
 /* ============================================================
