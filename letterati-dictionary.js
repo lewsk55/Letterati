@@ -1,5 +1,5 @@
-/* Letterati word list, load BEFORE the game. 381871 words. */
-/* Base: family-filtered words_alpha + an-array-of-english-words additions + curated modern supplement. CC BY-SA where sourced from Wiktionary-derived data. */
+/* Letterati word list, load BEFORE the game. 381844 words. */
+/* Family-filtered: words_alpha + an-array-of-english-words + curated modern supplement, minus LDNOOBW + manual + curated vulgar slang. Definitions also filtered at runtime in-game. */
 window.WORD_BLOB = `aa
 aaa
 aah
@@ -37803,9 +37803,7 @@ blowhard
 blowhards
 blowhole
 blowholes
-blowie
 blowier
-blowies
 blowiest
 blowiness
 blowinesses
@@ -42952,7 +42950,6 @@ britzskas
 briza
 brize
 brizes
-brizz
 brl
 bro
 broach
@@ -56491,7 +56488,6 @@ chauvinist
 chauvinistic
 chauvinists
 chauvins
-chav
 chavante
 chavantean
 chave
@@ -56506,11 +56502,9 @@ chavicin
 chavicine
 chavicol
 chavish
-chavs
 chavtastic
 chavvier
 chavviest
-chavvy
 chaw
 chawan
 chawbacon
@@ -58653,7 +58647,6 @@ chocos
 chocs
 choctaw
 choctaws
-chode
 choel
 choenix
 choenixes
@@ -64043,8 +64036,6 @@ cocksparrow
 cockspur
 cockspurs
 cockstone
-cocksucker
-cocksuckers
 cocksure
 cocksuredom
 cocksureism
@@ -88923,8 +88914,6 @@ dickey
 dickeybird
 dickeybirds
 dickeys
-dickhead
-dickheads
 dickie
 dickier
 dickies
@@ -116961,9 +116950,7 @@ felaheen
 felahin
 felanders
 felapton
-felched
 felches
-felching
 feldgrau
 feldgraus
 feldschar
@@ -117027,11 +117014,7 @@ fellani
 fellas
 fellata
 fellatah
-fellate
-fellated
 fellatee
-fellates
-fellating
 fellation
 fellations
 fellatios
@@ -127002,8 +126985,6 @@ fuckton
 fucktons
 fuckup
 fuckups
-fuckwit
-fuckwits
 fucoid
 fucoidal
 fucoideae
@@ -135151,8 +135132,6 @@ gobonee
 gobony
 gobos
 gobs
-gobshite
-gobshites
 gobsmacked
 gobstick
 gobstopper
@@ -173673,8 +173652,6 @@ knobbliest
 knobbling
 knobbly
 knobby
-knobhead
-knobheads
 knobkerrie
 knobkerries
 knobkerry
@@ -197634,12 +197611,10 @@ minever
 minevers
 mineworker
 ming
-minge
 minged
 mingelen
 minger
 mingers
-minges
 mingie
 mingier
 mingiest
@@ -336263,8 +336238,6 @@ toddymen
 tode
 todea
 todelike
-todger
-todgers
 todidae
 todies
 todlowrie
