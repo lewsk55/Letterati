@@ -821,6 +821,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
       <p>Clear a round to earn coins for the <b>print shop</b>: new letters, gilding, perks and more. Beat all <b>10 rounds</b> to win the press and claim the rank of <b>Letterati</b>, then push your luck in <b>endless</b> if you dare.</p>
       <p>At rounds <b>3, 5 and 7</b> you can take an optional <b>challenge</b>: a tougher round in exchange for a reward you pick up front. Clear it to claim the reward. Miss it and you simply drop into normal overtime.</p>
     </div>
+    <div style="font-size:.7rem;color:var(--ink-soft);margin-top:14px;line-height:1.45">Definitions sourced from <b>Wiktionary</b> (CC BY-SA 4.0), served by FreeDictionaryAPI.com.</div>
     <button class="menu-btn" id="howtoCloseBtn" style="margin-top:18px">Got it</button>
   </div>
 </div>
@@ -956,7 +957,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "4a";
+const VERSION = "4b";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -2991,29 +2992,49 @@ function exportAllRuns(){
   else { try{ navigator.clipboard.writeText(JSON.stringify(payload)); toast("Copied"); }catch(e){ toast("Export failed"); } }
 }
 
-/* ---------- Definition lookup (free dictionary API, cached) ---------- */
+/* ---------- Definition lookup (cached) ----------
+   Primary: freedictionaryapi.com — the FULL English Wiktionary (8.5M+ entries,
+   no key, CORS), which covers the obscure tail of our word list. Falls back to
+   the older dictionaryapi.dev (a Wiktionary subset) if the primary is down or
+   rate-limited. Both return the same shape to the caller: {pos, def} or null.
+   Data sourced from Wiktionary (CC BY-SA 4.0); see the attribution in How to Play. */
 const defCache={};
 function escHtml(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
+async function defFromFreeDict(key){
+  // {word, entries:[{partOfSpeech, senses:[{definition, examples}]}], source}
+  const r=await fetch("https://freedictionaryapi.com/api/v1/entries/en/"+encodeURIComponent(key));
+  if(!r.ok) return null;
+  const data=await r.json();
+  const entries=(data && data.entries) || [];
+  for(const e of entries){
+    const s=(e.senses||[]).find(x=>x && x.definition && x.definition.trim());
+    if(s) return {pos:(e.partOfSpeech||"").trim(), def:s.definition.trim()};
+  }
+  return null;
+}
+async function defFromDictDev(key){
+  const r=await fetch("https://api.dictionaryapi.dev/api/v2/entries/en/"+encodeURIComponent(key));
+  if(!r.ok) return null;
+  const data=await r.json();
+  const m=data && data[0] && data[0].meanings && data[0].meanings[0];
+  const def=m && m.definitions && m.definitions[0] && m.definitions[0].definition;
+  return def ? {pos:(m.partOfSpeech||""), def} : null;
+}
 async function lookupDefinition(word){
   const key=String(word||"").toLowerCase().replace(/[^a-z]/g,"");
   if(!key) return null;
   if(key in defCache) return defCache[key];
-  try{
-    const r=await fetch("https://api.dictionaryapi.dev/api/v2/entries/en/"+encodeURIComponent(key));
-    if(!r.ok){ defCache[key]=null; return null; }
-    const data=await r.json();
-    const m=data && data[0] && data[0].meanings && data[0].meanings[0];
-    const def=m && m.definitions && m.definitions[0] && m.definitions[0].definition;
-    const res=def ? {pos:m.partOfSpeech||"", def} : null;
-    defCache[key]=res; return res;
-  }catch(e){ defCache[key]=null; return null; }
+  let res=null;
+  try{ res=await defFromFreeDict(key); }catch(e){ res=null; }
+  if(!res){ try{ res=await defFromDictDev(key); }catch(e){ res=null; } }   // resilience fallback
+  defCache[key]=res; return res;
 }
 function showDefinition(word, isJazz){
   const el=$("defStrip"); if(!el) return;
   const w=escHtml(String(word||"").toUpperCase());
   if(!w){ el.classList.add("hidden"); return; }
   el.classList.remove("hidden");
-  if(isJazz){ el.innerHTML=`<span class="dw">${w}</span><span class="dd muted">free-jazz word — no dictionary entry</span>`; return; }
+  if(isJazz){ el.innerHTML=`<span class="dw">${w}</span><span class="dd muted">free-jazz word, no dictionary entry</span>`; return; }
   el.innerHTML=`<span class="dw">${w}</span><span class="dd muted">looking up…</span>`;
   const token=String(Date.now()+Math.random()); el.dataset.token=token;
   lookupDefinition(word).then(res=>{
