@@ -289,6 +289,12 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
 .tile.fused.domino .dom-letter{font-family:var(--serif);font-weight:700;font-size:var(--tfs,1.5rem);color:var(--ink);line-height:1}
 .tile.fused.domino .dom-val{font-family:var(--ui);font-size:.5rem;font-weight:800;color:var(--ink-soft);margin-top:2px}
 .tile.fused.domino .dom-div{flex:0 0 2px;align-self:stretch;margin:6px 0;background:#7FB0A2;border-radius:1px}
+/* locked letters this round: crossed out on the tile itself */
+.tile.locked-letter .glyph{opacity:.5}
+.tile.locked-letter::after,.tile.fused.domino .dom-cell.locked::after{content:"";position:absolute;left:14%;right:14%;top:48%;height:3px;background:var(--oxblood);transform:rotate(-13deg);border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,.45);pointer-events:none;z-index:4}
+.tile.fused.domino .dom-cell{position:relative}
+.tile.fused.domino .dom-cell.locked{opacity:.55}
+.tile.fused.domino .dom-cell.locked::after{left:8%;right:8%;top:46%}
 .tile.fused .clone-mark{position:absolute;right:3px;top:2px;font-size:.5em;color:#3C7E6E;z-index:3}
 .clone-choice.fused-duo{background:linear-gradient(180deg,#EAF3F0,#D3E7E0);border-color:#9FC4B8}
 .clone-choice.active{outline:2px solid #3C9E84;outline-offset:1px}
@@ -905,6 +911,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
 </div>
 
 <script src="letterati-dictionary.js"></script>
+<script src="letterati-verbs.js"></script>
 <script>
 /* ============================================================
    WORD LIST — ENABLE ∪ open word list (words_alpha), family-filtered,
@@ -914,6 +921,9 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
    ============================================================ */
 const WORD_BLOB = (typeof window!=="undefined" && window.WORD_BLOB) ? window.WORD_BLOB : "";
 const WORDS = new Set(WORD_BLOB.split("\n"));
+const VERB_BLOB = (typeof window!=="undefined" && window.VERB_BLOB) ? window.VERB_BLOB : "";
+const VERBS = new Set(VERB_BLOB ? VERB_BLOB.split("\n") : []);   // verb forms (Verbose perk); empty if the file is absent
+function isVerbWord(){ const w=resolvedCanvas().map(r=>r.letter||"").join("").toLowerCase(); return w.length>=2 && VERBS.has(w); }
 if(!(typeof window!=="undefined" && window.WORD_BLOB)){ try{ window.addEventListener("DOMContentLoaded",function(){document.body.innerHTML='<div style="font-family:system-ui;max-width:560px;margin:16vh auto;padding:24px;text-align:center;color:#3a2f2a;line-height:1.5">'+'<h2>Dictionary not loaded</h2><p>The word list <code>letterati-dictionary.js</code> could not be found. Put it in the <b>same folder</b> as this page, named exactly <code>letterati-dictionary.js</code>.</p></div>';}); }catch(e){} }
 
 /* ------------------------------------------------------------
@@ -1025,7 +1035,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "44a";
+const VERSION = "44b";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1074,6 +1084,7 @@ const CHALLENGE_EPIC_POOL = [
   {name:"Five Timer",       art:"5️⃣", desc:"Words exactly 5 letters long score 1.5 times.", d:{type:"fiveTimer"}},
   {name:"Marginalia",       art:"🪙", desc:"Earn 1 coin for every 15 points past the round target.", d:{type:"marginalia"}},
   {name:"Mirror",           art:"🪞", desc:"Palindromes score 3 times.", d:{type:"mirror"}},
+  {name:"Verbose",          art:"🅥", desc:"Verbs score 1.5 times.", d:{type:"verbose"}},
   {name:"Reprint",          art:"📋", desc:"Lose your last heart and gain one more. Once per run.", d:{type:"reprint"}}
 ];
 const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:2,M:3,N:1,O:1,P:3,Q:10,R:1,S:2,T:2,U:1,V:4,W:4,X:8,Y:4,Z:10};
@@ -1246,7 +1257,7 @@ const G = {
   perks:{ firstUp:{}, lastUp:{}, discardMoneyBoost:false, interest:false, twinsies:false,
           vowelPower:0, fireSale:false, bigWords:false, freeRerolls:false,
           proofSheet:false, twoOfAKind:false, shortKing:false,
-          kerning:false, fiveTimer:false, marginalia:false, mirror:false, reprint:false, repeater:false, powerTrio:false },
+          kerning:false, fiveTimer:false, marginalia:false, mirror:false, reprint:false, repeater:false, powerTrio:false, verbose:false },
   scoreMult:1,             // live "press multiplier", applied to every word score
   pressGrowth:0,           // v41a: each 6+ letter word raises scoreMult by this (per Press multiplier stack)
   challenge:null,          // active challenge-level descriptor {type,reward,banned[],active} or null
@@ -1753,10 +1764,10 @@ function buildTile(c,where){
   }
   if(c.kind==="fused"){
     t.classList.add("fused","domino");
-    const cells=fusedCells(c);
+    const cells=fusedCells(c), banLock=bannedLetterSet();
     cells.forEach((cell,i)=>{
       if(i>0){ const d=document.createElement("span"); d.className="dom-div"; t.appendChild(d); }
-      const cd=document.createElement("span"); cd.className="dom-cell"+(cell.active?"":" dim");
+      const cd=document.createElement("span"); cd.className="dom-cell"+(cell.active?"":" dim")+(banLock&&banLock.has(cell.letter)?" locked":"");
       const g=document.createElement("span"); g.className="dom-letter"; g.textContent=cell.letter; cd.appendChild(g);
       const v=document.createElement("span"); v.className="dom-val"; v.textContent=cell.val; cd.appendChild(v);
       t.appendChild(cd);
@@ -1794,6 +1805,12 @@ function buildTile(c,where){
     const v=document.createElement("span"); v.className="val"; v.innerHTML=valHtml(c); t.appendChild(v);
   }
   tileBadges(t,c);
+  { const banLock=bannedLetterSet();
+    if(banLock){
+      const L = wildSet ? c.vowel : assignedWildCons ? c.cons : assignedClone ? c.cloneLetter
+              : (c.kind==="copycat" ? (copycatResolved(c)||{}).letter : (c.kind==="letter" ? c.letter : null));
+      if(L && banLock.has(L)) t.classList.add("locked-letter");
+    } }
   attachTileHandlers(t,c,where);
   return t;
 }
@@ -2003,8 +2020,14 @@ function scoreOf(res){
     repeatHit=(G.wordPlays&&G.wordPlays[w])||0;
     if(repeatHit>0) total*=(1+0.5*Math.min(repeatHit,3));   // ×1.5, ×2, ×2.5 cap
   }
+  // Verbose (v44b): the word is a verb (any form) → +50%
+  let verbHit=false;
+  if(G.perks.verbose && res.length>=2 && res.every(r=>r.letter)){
+    const w=res.map(r=>r.letter.toLowerCase()).join("");
+    if(VERBS.has(w)){ verbHit=true; total*=1.5; }
+  }
   total*=(G.scoreMult||1);
-  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,twinHit,pairHit,shortHit,kernHit,fiveHit,mirrorHit,trioHit,repeatHit};
+  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,twinHit,pairHit,shortHit,kernHit,fiveHit,mirrorHit,trioHit,repeatHit,verbHit};
 }
 function updateLive(){
   const res=resolvedCanvas();
@@ -2034,6 +2057,12 @@ function updateLive(){
   if(sc.twinHit) parts.push(`×2 twins`);
   if(sc.pairHit) parts.push(`×1.5 pair`);
   if(sc.shortHit) parts.push(`×1.5 short`);
+  if(sc.kernHit) parts.push(`×1.25 kerning`);
+  if(sc.fiveHit) parts.push(`×1.5 five`);
+  if(sc.mirrorHit) parts.push(`×3 mirror`);
+  if(sc.trioHit) parts.push(`×2 trio`);
+  if(sc.verbHit) parts.push(`×1.5 verb`);
+  if(sc.repeatHit>0) parts.push(`×${(1+0.5*Math.min(sc.repeatHit,3)).toFixed(1)} replay`);
   ls.innerHTML = `${sc.total} <span class="mult">${parts.join(" ")}${label?" • "+label:""}</span>`;
   updateButtons();
 }
@@ -2819,6 +2848,7 @@ function perkPool(rng){
   if(!G.perks.fiveTimer)         e.push({make:()=>fiveTimerOffer(),   weight:1.4});
   if(!G.perks.marginalia)        e.push({make:()=>marginaliaOffer(),  weight:1.3});
   if(!G.perks.mirror)            e.push({make:()=>mirrorOffer(),      weight:0.8});
+  if(!G.perks.verbose)           e.push({make:()=>verboseOffer(),     weight:1.2});
   if(!G.perks.reprint)           e.push({make:()=>reprintOffer(),     weight:1.1});
   if(!G.perks.repeater)          e.push({make:()=>repeaterOffer(),    weight:1.4});
   if(!G.perks.powerTrio)         e.push({make:()=>powerTrioOffer(),   weight:1.3});
@@ -2923,6 +2953,7 @@ function applyOffer(o){
     case "fiveTimer":    G.perks.fiveTimer=true; break;
     case "marginalia":   G.perks.marginalia=true; break;
     case "mirror":       G.perks.mirror=true; break;
+    case "verbose":      G.perks.verbose=true; break;
     case "reprint":      G.perks.reprint=true; break;
     case "repeater":     G.perks.repeater=true; break;
     case "powerTrio":    G.perks.powerTrio=true; break;
@@ -2985,6 +3016,10 @@ function mirrorOffer(){
 function reprintOffer(){
   return {kind:"Perk",rarity:"epic",name:"Reprint",desc:"Lose your last heart and gain one more. One time.",
     price:px(12), art:"📋", d:{type:"reprint"}};
+}
+function verboseOffer(){
+  return {kind:"Perk",rarity:"epic",name:"Verbose",desc:"Verbs (in any form) score ×1.5.",
+    price:px(8), art:"🅥", d:{type:"verbose"}};
 }
 function repeaterOffer(){
   return {kind:"Perk",rarity:"rare",name:"Repeater",desc:"Replaying a word you've already played this run scores higher (up to ×2.5).",
@@ -3052,10 +3087,10 @@ function setShopHeader(){
     : "after round "+(G.level-1);
 }
 function openShop(){
+  G.freeRerollUsed=false;         // reset BEFORE building so the shop opens un-rerolled and the free reroll varies the seed
   G.shopOffers=buildShopPool();   // reroll count persists for the whole run
   statShopOpen(G.shopOffers);
   G.shopUndo=[];                  // fresh undo history per shop visit
-  G.freeRerollUsed=false;         // the free reroll (perk) refreshes each shop
   setShopHeader();
   hideGame();
   $("shopScreen").classList.remove("hidden");
@@ -3634,6 +3669,7 @@ function ownedPerksList(){
   if(G.perks.fiveTimer)  out.push("Five Timer · ×1.5 five-letter words");
   if(G.perks.marginalia) out.push("Marginalia · 1 coin per 15 over target");
   if(G.perks.mirror)     out.push("Mirror · ×3 palindromes");
+  if(G.perks.verbose)    out.push("Verbose · ×1.5 verbs");
   if(G.perks.repeater)   out.push("Repeater · replays score higher");
   if(G.perks.powerTrio)  out.push("Power Trio · ×2 for three of a letter");
   if(G.perks.reprint)    out.push("Reprint · spare the first lost heart"+(G.reprintUsed?" (used)":""));
@@ -3763,7 +3799,7 @@ function continueRun(){
   cardSeq=d.cardSeq||0;
   G.seed=d.seed; G.level=d.level; G.hearts=d.hearts; G.coins=d.coins; G.handSize=d.handSize;
   G.infinite=!!d.infinite; G.wonRun=!!d.wonRun;
-  G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
+  G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
   if(G.perks.vowelPower===true) G.perks.vowelPower=1;   // v42a: legacy boolean -> 1 stack
   G.reprintUsed=!!d.reprintUsed;
   G.foilUsed=Array.isArray(d.foilUsed)?d.foilUsed.slice():[];
@@ -3835,7 +3871,7 @@ function newRun(seed){
   cardSeq=0;
   G.seed=seed;
   G.level=1; G.hearts=MAX_HEARTS; G.coins=0; G.handSize=START_HAND;
-  G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false};
+  G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false};
   G.reprintUsed=false;
   G.scoreMult=1; G.pressGrowth=0; G.extraDiscards=0; G.extraTurns=0; G.jazzCharges=0; G.lastReward=null;
   G.infinite=false; G.wonRun=false;
