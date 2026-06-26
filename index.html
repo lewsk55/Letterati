@@ -209,6 +209,26 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
 .btn-primary:disabled{background:var(--page-deep);color:var(--ink-soft);cursor:not-allowed}
 .btn-primary.jazzing{background:linear-gradient(110deg,#7A4FB0,#B98A2E,#9E3B2E);background-size:200% 100%;animation:jazzShift 2.4s linear infinite}
 @keyframes jazzShift{to{background-position:-200% 0}}
+/* ---- Set-the-word button juice (v43b) ---- */
+.btn-primary{position:relative;overflow:hidden}
+.btn-primary.ready{animation:btnGlow 1.5s ease-in-out infinite}
+.btn-primary.ready::before{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;opacity:0;
+  background:linear-gradient(110deg,transparent 38%,rgba(180,250,210,0) 46%,rgba(200,255,222,.75) 50%,rgba(180,250,210,0) 54%,transparent 62%);
+  background-size:240% 100%;background-position:160% 0}
+.btn-primary.just-ready{animation:btnPulse .42s cubic-bezier(.34,1.56,.64,1),btnGlow 1.5s ease-in-out infinite .42s}
+.btn-primary.just-ready::before{animation:btnSweep .55s ease}
+.btn-primary.ready.charged{animation:btnJiggle var(--jspeed,.16s) linear infinite,btnGlow 1.3s ease-in-out infinite}
+@keyframes btnGlow{0%,100%{box-shadow:0 4px 10px rgba(35,32,46,.18),0 0 0 0 rgba(90,180,130,0)}50%{box-shadow:0 4px 14px rgba(35,32,46,.2),0 0 16px 3px rgba(110,210,150,.5)}}
+@keyframes btnPulse{0%{transform:scale(.9,1.12)}30%{transform:scale(1.09,.9)}55%{transform:scale(.98,1.03)}100%{transform:scale(1)}}
+@keyframes btnSweep{0%{opacity:1;background-position:160% 0}100%{opacity:0;background-position:-60% 0}}
+@keyframes btnJiggle{
+  0%{transform:translate(0,0) rotate(0)}
+  20%{transform:translate(calc(-1px*var(--amp,1)),calc(.6px*var(--amp,1))) rotate(calc(-.5deg*var(--amp,1)))}
+  40%{transform:translate(calc(1px*var(--amp,1)),calc(-.5px*var(--amp,1))) rotate(calc(.5deg*var(--amp,1)))}
+  60%{transform:translate(calc(-.8px*var(--amp,1)),calc(-.4px*var(--amp,1))) rotate(calc(-.4deg*var(--amp,1)))}
+  80%{transform:translate(calc(.8px*var(--amp,1)),calc(.5px*var(--amp,1))) rotate(calc(.4deg*var(--amp,1)))}
+  100%{transform:translate(0,0) rotate(0)}
+}
 .btn-warn{background:var(--oxblood);color:#fff;border:none;flex:0 0 auto;min-width:120px}
 .btn-warn:disabled{opacity:.35;cursor:not-allowed}
 .btn-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--tile-edge);flex:0 0 auto;min-width:96px}
@@ -1001,7 +1021,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "43a";
+const VERSION = "43b";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1425,6 +1445,62 @@ function haptic(p){ try{ if(navigator.vibrate) navigator.vibrate(p); }catch(e){}
 let toastTimer;
 function toast(msg){ const t=$("toast"); t.textContent=msg; t.classList.add("show"); clearTimeout(toastTimer); toastTimer=setTimeout(()=>t.classList.remove("show"),1700); }
 function popEl(el){ if(!el)return; el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop"); }
+
+/* ===== Juice: per-tile spring physics (translate / rotate / squash-stretch) =====
+   Tiles behave like little rigid bodies: bumped, nudged, rotated, then settle. */
+let _dragEl=null;   // tile currently under the finger (skip it in the spring loop)
+let _btnWasReady=false;
+const Spring={
+  m:new Map(), raf:0,
+  S(id){ let s=this.m.get(id); if(!s){ s={dx:0,dy:0,rot:0,sx:1,sy:1,vx:0,vy:0,vr:0,vsx:0,vsy:0}; this.m.set(id,s);} return s; },
+  offset(id,dx,dy){ const s=this.S(id); s.dx=dx; s.dy=dy; this.run(); },        // FLIP: appear at old spot, spring home
+  pop(id,rot){ const s=this.S(id); s.sx=1.2; s.sy=0.82; if(rot)s.rot=rot; this.run(); },  // squash/stretch pop
+  popIn(id){ const s=this.S(id); s.sx=0.55; s.sy=0.55; s.dy=-12; s.rot=(Math.random()*2-1)*7; this.run(); },
+  bump(id,o){ const s=this.S(id); s.vx+=o.vx||0; s.vy+=o.vy||0; s.vr+=o.vr||0; this.run(); },
+  run(){ if(!this.raf) this.raf=requestAnimationFrame(()=>this.tick()); },
+  tick(){
+    const K=0.20,D=0.74,KR=0.20,KS=0.24; let active=false;
+    this.m.forEach((s,id)=>{
+      s.vx+=-K*s.dx; s.vx*=D; s.dx+=s.vx;
+      s.vy+=-K*s.dy; s.vy*=D; s.dy+=s.vy;
+      s.vr+=-KR*s.rot; s.vr*=D; s.rot+=s.vr;
+      s.vsx+=-KS*(s.sx-1); s.vsx*=D; s.sx+=s.vsx;
+      s.vsy+=-KS*(s.sy-1); s.vsy*=D; s.sy+=s.vsy;
+      const rest=Math.abs(s.dx)<.15&&Math.abs(s.dy)<.15&&Math.abs(s.rot)<.12&&Math.abs(s.sx-1)<.004&&Math.abs(s.sy-1)<.004
+               &&Math.abs(s.vx)<.15&&Math.abs(s.vy)<.15&&Math.abs(s.vr)<.12;
+      const el=document.querySelector('.tile[data-id="'+id+'"]');
+      if(el && el!==_dragEl){
+        if(rest){ el.style.transform=""; }
+        else el.style.transform="translate("+s.dx.toFixed(2)+"px,"+s.dy.toFixed(2)+"px) rotate("+s.rot.toFixed(2)+"deg) scale("+s.sx.toFixed(3)+","+s.sy.toFixed(3)+")";
+      }
+      if(rest){ s.dx=s.dy=s.rot=0; s.sx=s.sy=1; s.vx=s.vy=s.vr=s.vsx=s.vsy=0; if(!el) this.m.delete(id); }
+      else active=true;
+    });
+    this.raf = active ? requestAnimationFrame(()=>this.tick()) : 0;
+  }
+};
+function tileRects(){ const m=new Map(); document.querySelectorAll('#hand .tile,#canvas .tile').forEach(t=>{ if(t.dataset.id) m.set(t.dataset.id,t.getBoundingClientRect()); }); return m; }
+function flipFrom(first, movedId){
+  if(reduceMotion()) return;
+  document.querySelectorAll('#hand .tile,#canvas .tile').forEach(t=>{
+    const id=t.dataset.id; if(!id) return;
+    const f=first.get(id), l=t.getBoundingClientRect();
+    if(f){ const dx=f.left-l.left, dy=f.top-l.top; if(Math.abs(dx)>.5||Math.abs(dy)>.5) Spring.offset(id,dx,dy); }
+    else Spring.popIn(id);
+  });
+  if(movedId!=null){ Spring.pop(String(movedId),(Math.random()*2-1)*7); jostleNeighbors(String(movedId)); }
+}
+function jostleNeighbors(movedId){
+  if(reduceMotion()) return;
+  const mEl=document.querySelector('.tile[data-id="'+movedId+'"]'); if(!mEl) return;
+  const mr=mEl.getBoundingClientRect(), mx=mr.left+mr.width/2, my=mr.top+mr.height/2, reach=mr.width*2.1;
+  document.querySelectorAll('#hand .tile,#canvas .tile').forEach(t=>{
+    const id=t.dataset.id; if(!id||id===movedId) return;
+    const r=t.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
+    let ddx=cx-mx, ddy=cy-my; const dist=Math.hypot(ddx,ddy)||1;
+    if(dist<reach){ const f=(1-dist/reach)*5.5; Spring.bump(id,{vx:(ddx/dist)*f, vy:(ddy/dist)*f, vr:(ddx>=0?1:-1)*f*0.5}); }
+  });
+}
 function spawnCellJuice(cell,opts){
   if(!cell||reduceMotion())return; opts=opts||{};
   const j=document.createElement("span"); j.className="cell-juice";
@@ -1937,9 +2013,26 @@ function updateLive(){
 }
 function updateButtons(){
   const jazz=jazzSubmit();
-  $("submitBtn").disabled = !wordValid() || G.handsLeft<=0;
-  $("submitBtn").textContent = jazz ? "Free jazz 🎷" : "Set the word";
-  $("submitBtn").classList.toggle("jazzing", jazz);
+  const btn=$("submitBtn");
+  const valid = wordValid() && G.handsLeft>0;
+  btn.disabled = !valid;
+  btn.textContent = jazz ? "Free jazz 🎷" : "Set the word";
+  btn.classList.toggle("jazzing", jazz);
+  // juice: shimmer + glow + squash on becoming settable; jiggle harder past 6 letters
+  const showReady = valid && !jazz;
+  const letters = showReady ? resolvedCanvas().filter(r=>r.letter).length : 0;
+  btn.classList.toggle("ready", showReady);
+  if(showReady && !_btnWasReady && !reduceMotion()){
+    btn.classList.remove("just-ready"); void btn.offsetWidth; btn.classList.add("just-ready");
+    setTimeout(()=>btn.classList.remove("just-ready"),470); haptic(8);
+  }
+  const charged = showReady && letters>=6 && !reduceMotion();
+  btn.classList.toggle("charged", charged);
+  if(charged){ const over=Math.min(letters-5,6);
+    btn.style.setProperty("--amp",(1+over*0.55).toFixed(2));
+    btn.style.setProperty("--jspeed",Math.max(0.07,0.18-over*0.018).toFixed(3)+"s"); }
+  else { btn.style.removeProperty("--amp"); btn.style.removeProperty("--jspeed"); }
+  _btnWasReady = showReady;
   $("discardBtn").disabled = G.canvas.length===0 || G.discardsLeft<=0;
 }
 
@@ -2053,8 +2146,9 @@ function onTileUp(e){
 function moveWithinCanvasAbs(id, idx){
   const i=G.canvas.findIndex(c=>c.id===id); if(i<0){ renderCanvas(); return; }
   checkpoint();
+  const first=tileRects();
   const [c]=G.canvas.splice(i,1); idx=Math.max(0,Math.min(idx,G.canvas.length));
-  G.canvas.splice(idx,0,c); renderCanvas(); save();
+  G.canvas.splice(idx,0,c); renderCanvas(); flipFrom(first,id); save();
 }
 function returnToHandAt(id, idx){
   const i=G.canvas.findIndex(c=>c.id===id); if(i<0){ renderHand(); renderCanvas(); return; }
@@ -2127,34 +2221,39 @@ function placeFromHand(id,idx){
   if(c0 && c0.kind==="wildcons" && !c0.cons){ openConsChooser(c0,idx); return; }
   const i=G.hand.findIndex(c=>c.id===id); if(i<0)return;
   checkpoint();
+  const first=tileRects();
   const [c]=G.hand.splice(i,1);
   if(c.kind==="fused" && c.mode==null){ c.mode=2; }   // default to the duo when first placed
   if(typeof idx==="number" && idx>=0 && idx<=G.canvas.length) G.canvas.splice(idx,0,c);
   else G.canvas.push(c);
   renderHand(); renderCanvas();
-  // juice on the freshly placed tile
+  flipFrom(first, id);   // the tile flies from the bank and springs into place; neighbors jostle
   const placed=[...$("canvas").querySelectorAll(".tile")].find(t=>t.dataset.id==id);
-  if(placed){ popEl(placed); spawnCellJuice(placed,{n:6}); }
+  if(placed) spawnCellJuice(placed,{n:5});
   haptic(12); save();
 }
 function removeFromCanvas(id){
   const i=G.canvas.findIndex(c=>c.id===id); if(i<0)return;
   checkpoint();
+  const first=tileRects();
   const [c]=G.canvas.splice(i,1);
   if(c.kind==="clone") c.cloneLetter=null;   // unassign on return
   if(c.kind==="wildvowel") c.vowel=null;
   if(c.kind==="wildcons") c.cons=null;
   G.hand.push(c);
-  renderHand(); renderCanvas(); save();
+  renderHand(); renderCanvas();
+  flipFrom(first, id);   // springs back into the bank; word + neighbors jostle
+  haptic(10); save();
 }
 function moveWithinCanvas(id,idx){
   const i=G.canvas.findIndex(c=>c.id===id); if(i<0)return;
   checkpoint();
+  const first=tileRects();
   const [c]=G.canvas.splice(i,1);
   if(idx>i) idx--;
   if(typeof idx==="number"&&idx>=0&&idx<=G.canvas.length) G.canvas.splice(idx,0,c);
   else G.canvas.push(c);
-  renderCanvas(); save();
+  renderCanvas(); flipFrom(first,id); save();
 }
 function recallAll(){
   if(G.canvas.length) checkpoint();
