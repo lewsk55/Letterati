@@ -179,7 +179,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
   box-shadow:0 1px 0 #fff inset, 0 8px 22px rgba(35,32,46,.08);
   padding:14px 12px 12px;position:relative;
 }
-.canvas{display:flex;flex-wrap:nowrap;gap:var(--tgap,8px);justify-content:center;align-items:center;min-height:64px;overflow:hidden}
+.canvas{display:flex;flex-wrap:nowrap;gap:var(--tgap,8px);justify-content:center;align-items:center;min-height:64px;overflow:visible;position:relative;z-index:5}
 .canvas.empty::after{
   content:"Tap or drag letters here to forge a word";
   color:var(--ink-soft);font-size:.82rem;font-style:italic;font-family:var(--serif);
@@ -240,7 +240,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
 .hand-wrap{margin-top:auto;padding:8px 0 calc(12px + env(safe-area-inset-bottom,0))}
 .hand-meta{display:flex;justify-content:space-between;align-items:center;margin:0 2px 7px}
 .hand-meta .draw-left{font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);font-weight:800}
-.hand{display:flex;gap:var(--tgap,7px);justify-content:center;flex-wrap:nowrap;min-height:78px;align-items:flex-end}
+.hand{display:flex;gap:var(--tgap,7px);justify-content:center;flex-wrap:nowrap;min-height:78px;align-items:flex-end;position:relative;z-index:5}
 .hand.tworow{flex-wrap:wrap;align-content:flex-end;row-gap:6px}
 
 /* ---------- Letter tile (type slug) ---------- */
@@ -338,9 +338,10 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
 .tile.pop{animation:lockPop .25s ease}
 .tile.fly-out{animation:flyOut .4s ease forwards}
 @keyframes flyOut{to{opacity:0;transform:translateY(-30px) scale(.6) rotate(8deg)}}
-.dragclone{position:fixed;z-index:200;pointer-events:none;transform:translate(-50%,-50%) rotate(-3deg) scale(1.06);
+.dragclone{position:fixed;z-index:1200;pointer-events:none;transform:translate(-50%,-50%) rotate(-3deg) scale(1.06);
   box-shadow:0 14px 30px rgba(35,32,46,.34)}
 .tile.drag-source{opacity:0 !important;pointer-events:none}   /* the moving gap the others slide around */
+.tile.lifted{z-index:900}   /* a tile mid-spring rides above its neighbors and the UI chrome */
 .drop-hover{outline:2px dashed var(--moss);outline-offset:3px;border-radius:10px}
 
 /* letter juice */
@@ -1021,7 +1022,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "43b";
+const VERSION = "43c";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1470,8 +1471,12 @@ const Spring={
                &&Math.abs(s.vx)<.15&&Math.abs(s.vy)<.15&&Math.abs(s.vr)<.12;
       const el=document.querySelector('.tile[data-id="'+id+'"]');
       if(el && el!==_dragEl){
-        if(rest){ el.style.transform=""; }
-        else el.style.transform="translate("+s.dx.toFixed(2)+"px,"+s.dy.toFixed(2)+"px) rotate("+s.rot.toFixed(2)+"deg) scale("+s.sx.toFixed(3)+","+s.sy.toFixed(3)+")";
+        if(rest){ el.style.transform=""; el.style.transition=""; el.classList.remove("lifted"); }
+        else {
+          el.style.transition="none";   // let the spring drive every frame, not the .12s CSS ease
+          el.classList.add("lifted");
+          el.style.transform="translate("+s.dx.toFixed(2)+"px,"+s.dy.toFixed(2)+"px) rotate("+s.rot.toFixed(2)+"deg) scale("+s.sx.toFixed(3)+","+s.sy.toFixed(3)+")";
+        }
       }
       if(rest){ s.dx=s.dy=s.rot=0; s.sx=s.sy=1; s.vx=s.vy=s.vr=s.vsx=s.vsy=0; if(!el) this.m.delete(id); }
       else active=true;
@@ -1490,15 +1495,29 @@ function flipFrom(first, movedId){
   });
   if(movedId!=null){ Spring.pop(String(movedId),(Math.random()*2-1)*7); jostleNeighbors(String(movedId)); }
 }
+let _lastDragJostle=0;
+function jostleAround(x,y){   // shove tiles aside as the held tile moves through them
+  if(reduceMotion()) return;
+  document.querySelectorAll('#hand .tile,#canvas .tile').forEach(t=>{
+    if(t.classList.contains("drag-source")) return;
+    const id=t.dataset.id; if(!id) return;
+    const r=t.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
+    let ddx=cx-x, ddy=cy-y; const dist=Math.hypot(ddx,ddy)||1, reach=r.width*1.7;
+    if(dist<reach){ const f=1-dist/reach, push=f*6; Spring.bump(id,{vx:(ddx/dist)*push, vy:(ddy/dist)*push, vr:(ddx>=0?1:-1)*f*5}); }
+  });
+}
 function jostleNeighbors(movedId){
   if(reduceMotion()) return;
   const mEl=document.querySelector('.tile[data-id="'+movedId+'"]'); if(!mEl) return;
-  const mr=mEl.getBoundingClientRect(), mx=mr.left+mr.width/2, my=mr.top+mr.height/2, reach=mr.width*2.1;
+  const mr=mEl.getBoundingClientRect(), mx=mr.left+mr.width/2, my=mr.top+mr.height/2, reach=mr.width*2.4;
   document.querySelectorAll('#hand .tile,#canvas .tile').forEach(t=>{
     const id=t.dataset.id; if(!id||id===movedId) return;
     const r=t.getBoundingClientRect(), cx=r.left+r.width/2, cy=r.top+r.height/2;
     let ddx=cx-mx, ddy=cy-my; const dist=Math.hypot(ddx,ddy)||1;
-    if(dist<reach){ const f=(1-dist/reach)*5.5; Spring.bump(id,{vx:(ddx/dist)*f, vy:(ddy/dist)*f, vr:(ddx>=0?1:-1)*f*0.5}); }
+    if(dist<reach){
+      const f=1-dist/reach, push=f*9;          // shove apart, bob up, and tilt away
+      Spring.bump(id,{ vx:(ddx/dist)*push, vy:(ddy/dist)*push - f*5, vr:(ddx>=0?1:-1)*f*7 });
+    }
   });
 }
 function spawnCellJuice(cell,opts){
@@ -2069,18 +2088,14 @@ function rowInsertIndex(zoneEl, x, exclude){
 }
 // First-Last-Invert-Play: slide each tile from its old box to its new one with easy ease
 function flipReorder(animate, mutate){
-  const first=new Map(); animate.forEach(t=>first.set(t,t.getBoundingClientRect()));
+  // FLIP via the shared spring system so reordering tiles bounce home and compose with jostle bumps
+  const first=new Map(); animate.forEach(t=>{ if(t.dataset.id) first.set(t.dataset.id,t.getBoundingClientRect()); });
   mutate();
+  if(reduceMotion()) return;
   animate.forEach(t=>{
-    const f=first.get(t), l=t.getBoundingClientRect();
-    const dx=f.left-l.left, dy=f.top-l.top;
-    if(Math.abs(dx)<0.5 && Math.abs(dy)<0.5) return;
-    t.style.transition="none";
-    t.style.transform="translate("+dx+"px,"+dy+"px)";
-    requestAnimationFrame(()=>requestAnimationFrame(()=>{
-      t.style.transition="transform .3s cubic-bezier(.22,1,.36,1)";
-      t.style.transform="";
-    }));
+    const id=t.dataset.id; if(!id) return; const f=first.get(id); if(!f) return;
+    const l=t.getBoundingClientRect(); const dx=f.left-l.left, dy=f.top-l.top;
+    if(Math.abs(dx)>0.5||Math.abs(dy)>0.5) Spring.offset(id,dx,dy);
   });
 }
 function clearFlip(zoneEl){ rowTiles(zoneEl).forEach(t=>{ t.style.transition=""; t.style.transform=""; }); }
@@ -2100,6 +2115,8 @@ function onTileMove(e){
   if(drag.moved){
     e.preventDefault();
     drag.clone.style.left=e.clientX+"px"; drag.clone.style.top=e.clientY+"px";
+    const _now=(window.performance&&performance.now)?performance.now():Date.now();
+    if(_now-_lastDragJostle>55){ _lastDragJostle=_now; jostleAround(e.clientX,e.clientY); }
     const Z=rowZones();
     const under=document.elementFromPoint(e.clientX,e.clientY);
     let zoneEl = (under&&under.closest) ? (under.closest("#canvas")||under.closest("#hand")) : null;
