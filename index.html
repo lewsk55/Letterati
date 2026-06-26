@@ -221,6 +221,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
 .hand-meta{display:flex;justify-content:space-between;align-items:center;margin:0 2px 7px}
 .hand-meta .draw-left{font-size:.62rem;letter-spacing:.12em;text-transform:uppercase;color:var(--ink-soft);font-weight:800}
 .hand{display:flex;gap:var(--tgap,7px);justify-content:center;flex-wrap:nowrap;min-height:78px;align-items:flex-end}
+.hand.tworow{flex-wrap:wrap;align-content:flex-end;row-gap:6px}
 
 /* ---------- Letter tile (type slug) ---------- */
 .tile{
@@ -988,7 +989,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "42c";
+const VERSION = "42d";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1152,7 +1153,7 @@ function weightedLetter(rng,weights){
    ============================================================ */
 let cardSeq=0;
 function makeLetterCard(letter){ return {id:++cardSeq, kind:"letter", letter, base:LETTER_VALUES[letter], upLevel:0, mult:1}; }
-function makeCloneCard(){ return {id:++cardSeq, kind:"clone", letter:null, base:0, upLevel:0, mult:1, cloneLetter:null}; }
+function makeCloneCard(){ return {id:++cardSeq, kind:"clone", letter:null, base:0, upLevel:0, mult:1, cloneLetter:null, cloneBase:null, cloneUp:0}; }
 function makeJazzCard(){ return {id:++cardSeq, kind:"jazz", letter:null, base:0, upLevel:0, mult:1, jazzLeft:3}; }
 const JAZZ_USES=3;
 function canvasUsableJazz(){ return G.canvas.some(c=>c.kind==="jazz" && (c.jazzLeft||0)>0); }
@@ -1642,7 +1643,10 @@ function buildTile(c,where){
   if(c.kind==="clone" && !c.cloneLetter){
     const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="CLONE"; t.appendChild(s);
   } else if(assignedClone){
-    const v=document.createElement("span"); v.className="val"; v.textContent=LETTER_VALUES[c.cloneLetter]; t.appendChild(v);
+    const v=document.createElement("span"); v.className="val";
+    v.innerHTML=(c.cloneBase!=null? (c.cloneBase*Math.pow(2,c.cloneUp||0)) : LETTER_VALUES[c.cloneLetter]) + ((c.cloneUp||0)>0?'<i class="up-sup">'+(c.cloneUp)+'</i>':'');
+    t.appendChild(v);
+    if((c.cloneUp||0)>0) t.classList.add("upgraded");
     const cm=document.createElement("span"); cm.className="clone-mark"; cm.textContent="❖"; t.appendChild(cm);
   } else if(wildSet){
     const v=document.createElement("span"); v.className="val"; v.textContent=LETTER_VALUES[c.vowel]; t.appendChild(v);
@@ -1693,7 +1697,13 @@ function fitRow(el,count,o){
   el.style.setProperty("--tfs",fs+"rem");
   el.style.setProperty("--tgap",gap+"px");
 }
-function fitHand(){ fitRow($("hand"),G.hand.length,{min:30,max:50,ratio:1.24,fsDiv:29,gap:6}); }
+function fitHand(){
+  const n=G.hand.length, el=$("hand");
+  const two = n>10;                       // past 10 tiles, spill into a second row below
+  el.classList.toggle("tworow", two);
+  const perRow = two ? Math.ceil(n/2) : n;
+  fitRow(el, perRow, {min:30,max:50,ratio:1.24,fsDiv:29,gap:6});
+}
 function fitCanvas(){ fitRow($("canvas"),G.canvas.length,{min:24,max:54,ratio:1.24,fsDiv:29,gap:7}); }
 function renderHand(){
   const el=$("hand"); el.innerHTML="";
@@ -1727,7 +1737,8 @@ function resolvedCanvas(){
     if(c.kind==="jazz"){ continue; }   // marker, not a scored letter
     if(c.kind==="clone"){
       const L=c.cloneLetter;
-      out.push(L?{letter:L,value:LETTER_VALUES[L]||0,mult:1,clone:true,card:c}:{letter:null,value:0,mult:1,clone:true,card:c});
+      const val = (c.cloneBase!=null) ? (c.cloneBase*Math.pow(2,c.cloneUp||0)) : (LETTER_VALUES[L]||0);
+      out.push(L?{letter:L,value:val,mult:1,clone:true,card:c}:{letter:null,value:0,mult:1,clone:true,card:c});
     } else if(c.kind==="wildvowel"){
       const L=c.vowel;
       out.push(L?{letter:L,value:LETTER_VALUES[L]||0,mult:1,wild:true,card:c}:{letter:null,value:0,mult:1,wild:true,card:c});
@@ -1985,7 +1996,7 @@ function snapshotState(){
     pile:G.drawPile.map(c=>c.id),
     discardsLeft:G.discardsLeft,
     rf:G.canvas.reduce((m,c)=>{
-      if(c.kind==="clone") m[c.id]=["clone",c.cloneLetter];
+      if(c.kind==="clone") m[c.id]=["clone",c.cloneLetter,c.cloneBase,c.cloneUp];
       else if(c.kind==="wildvowel") m[c.id]=["vowel",c.vowel];
       else if(c.kind==="wildcons") m[c.id]=["cons",c.cons];
       return m;
@@ -2007,7 +2018,7 @@ function restoreState(s){
   G.discardsLeft=s.discardsLeft;
   // canvas tiles get their resolved letter back; loose tiles in hand carry none
   G.canvas.forEach(c=>{ const r=s.rf[c.id];
-    if(c.kind==="clone")     c.cloneLetter=(r&&r[0]==="clone")?r[1]:null;
+    if(c.kind==="clone"){ c.cloneLetter=(r&&r[0]==="clone")?r[1]:null; c.cloneBase=(r&&r[0]==="clone")?r[2]:null; c.cloneUp=(r&&r[0]==="clone")?(r[3]||0):0; }
     if(c.kind==="wildvowel") c.vowel=     (r&&r[0]==="vowel")?r[1]:null;
     if(c.kind==="wildcons")  c.cons=      (r&&r[0]==="cons") ?r[1]:null;
   });
@@ -2069,14 +2080,16 @@ function recallAll(){
 /* ---------- Clone: pick any letter you currently hold ---------- */
 let clonePending=null;
 function openCloneChooser(card,idx){
-  const letters=new Set();
-  G.hand.concat(G.canvas).forEach(c=>{ if(c.kind==="letter") letters.add(c.letter); });
-  if(letters.size===0){ toast("No letters to copy yet"); return; }
+  const best={};   // letter -> source tile with the highest value (copies its gild)
+  G.hand.concat(G.canvas).forEach(c=>{ if(c.kind==="letter"){ const cur=best[c.letter]; if(!cur || cardValue(c)>cardValue(cur)) best[c.letter]=c; } });
+  const letters=Object.keys(best);
+  if(letters.length===0){ toast("No letters to copy yet"); return; }
   clonePending={cardId:card.id, idx};
   const wrap=$("cloneChoices"); wrap.innerHTML="";
-  [...letters].sort().forEach(L=>{
-    const b=document.createElement("button"); b.className="clone-choice";
-    b.innerHTML=`${L}<span class="cc-val">${LETTER_VALUES[L]}</span>`;
+  letters.sort().forEach(L=>{
+    const src=best[L], g=gildLevel(src);
+    const b=document.createElement("button"); b.className="clone-choice"+(g>0?" upgraded":"");
+    b.innerHTML=`${L}<span class="cc-val">${cardValue(src)}${g>0?'<i class="up-sup">'+g+'</i>':''}</span>`;
     b.addEventListener("click",()=>pickClone(L));
     wrap.appendChild(b);
   });
@@ -2087,7 +2100,11 @@ function pickClone(L){
   const {cardId,idx}=clonePending; clonePending=null;
   $("cloneChooser").classList.add("hidden");
   const c=G.hand.find(x=>x.id===cardId); if(!c) return;
+  let src=null;   // re-find the best source tile of this letter to copy its gild
+  G.hand.concat(G.canvas).forEach(x=>{ if(x.kind==="letter"&&x.letter===L){ if(!src||cardValue(x)>cardValue(src)) src=x; } });
   c.cloneLetter=L;
+  c.cloneBase = src ? src.base : LETTER_VALUES[L];
+  c.cloneUp   = src ? (src.upLevel||0) : 0;
   placeFromHand(cardId,idx);
 }
 function cancelClone(){ clonePending=null; $("cloneChooser").classList.add("hidden"); }
@@ -2511,7 +2528,7 @@ function px(base){
 }   // 35% off base, then 20% off (v3a); Fire sale = 25% more off
 
 function buildShopPool(){
-  const rng=makeRng("shop:"+G.level+":"+G.rerollCount);
+  const rng=makeRng("shop:"+G.level+":"+G.rerollCount+":"+(G.freeRerollUsed?1:0));
   const offers=[];
   const seen=new Set();
   const commonPool={E:12,A:9,I:9,O:8,N:6,R:6,T:6,L:4,S:4,U:4,D:4,G:3};
@@ -2549,12 +2566,16 @@ function perkPool(rng){
     {make:()=>extraTurnOffer(),    weight:1.8},
     {make:()=>pressMultOffer(rng), weight:1.3},
     {make:()=>growthMindOffer(),   weight:1.2},
-    {make:()=>encoreOffer(),       weight:1.1},
     {make:()=>foilOffer(),         weight:1.1},
-    {make:()=>watermarkOffer(),    weight:1.0},
     {make:()=>fusionOffer(),       weight:0.9},
     {make:()=>freeJazzOffer(),     weight:0.5},
   ];
+  // Encore + Watermark are strong on their own and oppressive together, so they sit at the
+  // rare end of epic, cost a bit more, and each becomes very unlikely once you own the other.
+  const hasEncore   = G.deck.some(c=>c.encore);
+  const hasWatermark= G.deck.some(c=>c.watermark);
+  e.push({make:()=>encoreOffer(),    weight: hasWatermark ? 0.12 : 0.6});
+  e.push({make:()=>watermarkOffer(), weight: hasEncore    ? 0.12 : 0.55});
   e.push({make:()=>vowelPowerOffer(),  weight:2.4});   // v42a: stackable, always available
   if(!G.perks.fireSale)          e.push({make:()=>fireSaleOffer(),    weight:1.4});
   if(!G.perks.bigWords)          e.push({make:()=>bigWordsOffer(),    weight:1.1});
@@ -2737,16 +2758,16 @@ function growthMindOffer(){
     price:px(9), art:"📈", needsTarget:"growth", d:{type:"growthMind"}};
 }
 function encoreOffer(){
-  return {kind:"Upgrade",rarity:"rare",name:"Encore",desc:"Pick a letter. After you play it, it returns to the top of your pile.",
-    price:px(8), art:"↻", needsTarget:"encore", d:{type:"encore"}};
+  return {kind:"Upgrade",rarity:"epic",name:"Encore",desc:"Pick a letter. After you play it, it returns to the top of your pile.",
+    price:px(11), art:"↻", needsTarget:"encore", d:{type:"encore"}};
 }
 function foilOffer(){
   return {kind:"Upgrade",rarity:"rare",name:"Foil Stamp",desc:"Pick a letter. Its value is doubled the first time you play it each round.",
     price:px(9), art:"✦", needsTarget:"foil", d:{type:"foil"}};
 }
 function watermarkOffer(){
-  return {kind:"Upgrade",rarity:"rare",name:"Watermark",desc:"Pick a letter. It is always in your opening hand each round.",
-    price:px(8), art:"◊", needsTarget:"watermark", d:{type:"watermark"}};
+  return {kind:"Upgrade",rarity:"epic",name:"Watermark",desc:"Pick a letter. It is always in your opening hand each round.",
+    price:px(11), art:"◊", needsTarget:"watermark", d:{type:"watermark"}};
 }
 function fusionOffer(){
   return {kind:"Upgrade",rarity:"epic",name:"Letter fusion",
