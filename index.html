@@ -342,6 +342,8 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
   box-shadow:0 14px 30px rgba(35,32,46,.34)}
 .tile.drag-source{opacity:0 !important;pointer-events:none}   /* the moving gap the others slide around */
 .tile.lifted{z-index:900}   /* a tile mid-spring rides above its neighbors and the UI chrome */
+@keyframes fusedSpin{0%{transform:rotate(0) scale(1)}45%{transform:rotate(195deg) scale(1.12)}100%{transform:rotate(360deg) scale(1)}}
+.tile.fused-spin{animation:fusedSpin .42s cubic-bezier(.3,1.25,.5,1);z-index:900}
 .drop-hover{outline:2px dashed var(--moss);outline-offset:3px;border-radius:10px}
 
 /* letter juice */
@@ -607,6 +609,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
 #chalBanner .cb-name{font-weight:800;color:var(--ink)}
 #chalBanner .cb-dot{color:var(--tile-edge)}
 #chalBanner .cb-reward{font-weight:800;color:var(--moss)}
+#chalBanner .cb-locked{font-weight:900;color:var(--oxblood);letter-spacing:.06em}
 .tile.locked{filter:grayscale(.85);opacity:.42}
 .tile.locked::after{content:"✕";position:absolute;inset:0;display:flex;align-items:center;justify-content:center;font-weight:900;color:#9E3B2E;font-size:1.1em}
 </style>
@@ -1022,7 +1025,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "43c";
+const VERSION = "44a";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1071,7 +1074,7 @@ const CHALLENGE_EPIC_POOL = [
   {name:"Five Timer",       art:"5️⃣", desc:"Words exactly 5 letters long score 1.5 times.", d:{type:"fiveTimer"}},
   {name:"Marginalia",       art:"🪙", desc:"Earn 1 coin for every 15 points past the round target.", d:{type:"marginalia"}},
   {name:"Mirror",           art:"🪞", desc:"Palindromes score 3 times.", d:{type:"mirror"}},
-  {name:"Reprint",          art:"📋", desc:"The first heart you would lose this run is spared, once.", d:{type:"reprint"}}
+  {name:"Reprint",          art:"📋", desc:"Lose your last heart and gain one more. Once per run.", d:{type:"reprint"}}
 ];
 const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:2,M:3,N:1,O:1,P:3,Q:10,R:1,S:2,T:2,U:1,V:4,W:4,X:8,Y:4,Z:10};
 // L,S,T bumped 1→2 (v2d): only vowels + N,R,U remain 1-point. Targets scaled to match (see TARGET_SCALE).
@@ -1844,23 +1847,24 @@ function renderCanvas(){
   updateLive();
 }
 function rotateFused(c){
-  // double-tap: jump to the duo, then flip its order on each rotate
-  c.mode = fusedMode(c)<2 ? 2 : (fusedMode(c)===2 ? 3 : 2);
-  renderCanvas(); haptic(10); save();
+  // double-tap: spin through the four configs (AB, BA, A, B) and jostle neighbors
+  const order=[2,3,0,1]; const cur=fusedMode(c); const i=order.indexOf(cur);
+  c.mode = order[(i<0?0:i+1)%order.length];
+  renderCanvas();
+  const el=document.querySelector('#canvas .tile[data-id="'+c.id+'"]');
+  if(el && !reduceMotion()){ el.classList.remove("fused-spin"); void el.offsetWidth; el.classList.add("fused-spin"); jostleNeighbors(String(c.id)); }
+  haptic(12); save();
 }
-let _fusedTapTimer=null, _fusedTapCard=null;
+let _fusedTapCard=null, _fusedTapTime=0;
 function attachFusedCanvasHandlers(el,c){
   el.addEventListener("pointerdown",e=>onTileDown(e,el,c,"canvas"));
   el.addEventListener("click",e=>{
     if(justDragged){ e.preventDefault(); return; }
     e.preventDefault();
-    if(_fusedTapTimer && _fusedTapCard===c){          // second tap → rotate
-      clearTimeout(_fusedTapTimer); _fusedTapTimer=null; _fusedTapCard=null; rotateFused(c);
-    } else {
-      if(_fusedTapTimer) clearTimeout(_fusedTapTimer);
-      _fusedTapCard=c;
-      _fusedTapTimer=setTimeout(()=>{ _fusedTapTimer=null; _fusedTapCard=null; openFusedSelector(c); }, 250);
-    }
+    const now=Date.now();
+    if(_fusedTapCard===c && (now-_fusedTapTime)<300){   // double tap → spin/rotate
+      _fusedTapCard=null; _fusedTapTime=0; rotateFused(c);
+    } else { _fusedTapCard=c; _fusedTapTime=now; }       // single tap does nothing (config is chosen on drop)
   });
 }
 function openFusedSelector(c){
@@ -2016,7 +2020,10 @@ function updateLive(){
   else {
     const minL=challengeMinLen(), banned=bannedLetterSet();
     if(minL && res.length>=2 && res.length<minL && res.every(r=>r.letter)) label="need "+minL+"+ letters";
-    else if(banned && res.some(r=>r.letter&&banned.has(r.letter))) label="letter locked this round";
+    else if(banned && res.some(r=>r.letter&&banned.has(r.letter))){
+      const hit=[...new Set(res.filter(r=>r.letter&&banned.has(r.letter)).map(r=>r.letter))];
+      label = hit.join(", ")+(hit.length>1?" are":" is")+" locked this round";
+    }
     else label = res.length<2 ? "" : "not a word";
   }
   const parts=[`${sc.sum} base`, `×${sc.mult} length`];
@@ -2221,13 +2228,20 @@ function restoreState(s){
   G.hand.forEach(c=>{ if(c.kind==="clone")c.cloneLetter=null; if(c.kind==="wildvowel")c.vowel=null; if(c.kind==="wildcons")c.cons=null; });
   renderHand(); renderCanvas(); renderHud();
 }
+function wiggleAll(){   // a quick rigid-body shudder so the restored word settles into place
+  if(reduceMotion()) return;
+  document.querySelectorAll('#hand .tile,#canvas .tile').forEach(t=>{
+    const id=t.dataset.id; if(!id) return;
+    Spring.bump(id,{vx:(Math.random()*2-1)*3.2, vy:-(Math.random()*3), vr:(Math.random()*2-1)*6});
+  });
+}
 function undoMove(){
   if(!undoStack.length) return;
   const cur=undoSig(snapshotState());
   let s=null;
   while(undoStack.length){ const t=undoStack.pop(); if(undoSig(t)!==cur){ s=t; break; } }
   if(!s){ updateUndoBtn(); return; }
-  restoreState(s); updateUndoBtn(); haptic(12); save();
+  restoreState(s); wiggleAll(); updateUndoBtn(); haptic(12); save();
 }
 
 /* ---- state ops for placement ---- */
@@ -2248,6 +2262,7 @@ function placeFromHand(id,idx){
   const placed=[...$("canvas").querySelectorAll(".tile")].find(t=>t.dataset.id==id);
   if(placed) spawnCellJuice(placed,{n:5});
   haptic(12); save();
+  if(c.kind==="fused"){ openFusedSelector(c); }   // choose the letter config on drop
 }
 function removeFromCanvas(id){
   const i=G.canvas.findIndex(c=>c.id===id); if(i<0)return;
@@ -2273,9 +2288,15 @@ function moveWithinCanvas(id,idx){
   renderCanvas(); flipFrom(first,id); save();
 }
 function recallAll(){
-  if(G.canvas.length) checkpoint();
-  while(G.canvas.length){ const c=G.canvas.pop(); if(c.kind==="clone") c.cloneLetter=null; if(c.kind==="wildvowel") c.vowel=null; if(c.kind==="wildcons") c.cons=null; G.hand.push(c); }
-  renderHand(); renderCanvas(); save();
+  if(!G.canvas.length) return;
+  checkpoint();
+  const first=tileRects();
+  const ids=[];
+  while(G.canvas.length){ const c=G.canvas.pop(); if(c.kind==="clone") c.cloneLetter=null; if(c.kind==="wildvowel") c.vowel=null; if(c.kind==="wildcons") c.cons=null; G.hand.push(c); ids.push(String(c.id)); }
+  renderHand(); renderCanvas();
+  flipFrom(first, null);   // every recalled tile springs from the canvas back into the bank
+  if(!reduceMotion()) ids.forEach(id=>Spring.pop(id,(Math.random()*2-1)*8));
+  haptic(12); save();
 }
 
 /* ---------- Clone: pick any letter you currently hold ---------- */
@@ -2400,7 +2421,11 @@ function renderChallengeBanner(){
   if(challengeActive()){
     const def=CHALLENGE_TYPES[G.challenge.type];
     const rwBadge = (G.challenge.reward==="epic" && G.challenge.epic) ? G.challenge.epic.name : CHALLENGE_REWARDS[G.challenge.reward].badge;
-    el.innerHTML=`<span class="cb-tag">CHALLENGE</span><span class="cb-name">${def.name}</span><span class="cb-dot">·</span><span class="cb-reward">${rwBadge}</span>`;
+    let locked="";
+    if(G.challenge.type==="locked" && (G.challenge.banned||[]).length){
+      locked=`<span class="cb-dot">·</span><span class="cb-locked">🔒 ${G.challenge.banned.join(" ")}</span>`;
+    }
+    el.innerHTML=`<span class="cb-tag">CHALLENGE</span><span class="cb-name">${def.name}</span><span class="cb-dot">·</span><span class="cb-reward">${rwBadge}</span>${locked}`;
     el.classList.remove("hidden");
   } else { el.classList.add("hidden"); el.innerHTML=""; }
 }
@@ -2694,14 +2719,6 @@ function heartBreakBurst(el){
   setTimeout(()=>burst.remove(),900);
 }
 function levelFailed(){
-  // Reprint (v42a): the first heart you would lose in a run is spared, once.
-  if(G.perks.reprint && !G.reprintUsed){
-    G.reprintUsed=true;
-    toast("Reprint: your heart is spared this once");
-    G.handsLeft=1;
-    renderHud(); dealUpToHand(true); save();
-    return;
-  }
   G.hearts--;
   const hs=[...$("hearts").querySelectorAll(".heart")];
   const lost=hs[G.hearts];
@@ -2710,7 +2727,16 @@ function levelFailed(){
   haptic([40,70,40,70,40]);
   setTimeout(()=>{
     renderHud();
-    if(G.hearts<=0){ gameOver(false); return; }
+    if(G.hearts<=0){
+      // Reprint (v44a): when you lose your last heart, get one more. Once per run.
+      if(G.perks.reprint && !G.reprintUsed){
+        G.reprintUsed=true; G.hearts=1; renderHud();
+        toast("Reprint: one more heart");
+        G.handsLeft=1; dealUpToHand(true); save();
+        return;
+      }
+      gameOver(false); return;
+    }
     // Overtime: every time you're over the turn limit under target you spend a
     // heart for ONE more word. Score, hand, deck and discards all carry over.
     G.handsLeft=1;
@@ -2957,7 +2983,7 @@ function mirrorOffer(){
     price:px(7), art:"🪞", d:{type:"mirror"}};
 }
 function reprintOffer(){
-  return {kind:"Perk",rarity:"epic",name:"Reprint",desc:"The first heart you would lose this run is spared. One time.",
+  return {kind:"Perk",rarity:"epic",name:"Reprint",desc:"Lose your last heart and gain one more. One time.",
     price:px(12), art:"📋", d:{type:"reprint"}};
 }
 function repeaterOffer(){
