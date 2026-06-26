@@ -179,7 +179,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
   box-shadow:0 1px 0 #fff inset, 0 8px 22px rgba(35,32,46,.08);
   padding:14px 12px 12px;position:relative;
 }
-.canvas{display:flex;flex-wrap:nowrap;gap:var(--tgap,8px);justify-content:center;align-items:center;min-height:88px;overflow:visible}
+.canvas{display:flex;flex-wrap:nowrap;gap:var(--tgap,8px);justify-content:center;align-items:center;min-height:64px;overflow:hidden}
 .canvas.empty::after{
   content:"Tap or drag letters here to forge a word";
   color:var(--ink-soft);font-size:.82rem;font-style:italic;font-family:var(--serif);
@@ -263,14 +263,15 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
 .tile .up-badge.wm{color:#3E78A0}
 /* v42c Letter Fusion */
 .tile.fused{background:linear-gradient(180deg,#EAF3F0,#D3E7E0);border-color:#9FC4B8}
-.tile.fused .clone-mark{position:absolute;right:2px;top:1px;font-size:.5em;color:#3C7E6E;z-index:3}
-.tile.fused .glyph-sub{font-size:.46rem;letter-spacing:.04em;position:absolute;bottom:3px;left:0;right:0;text-align:center;font-family:var(--ui);font-weight:800;color:#3C7E6E}
-.tile .fuse-opt{position:absolute;left:50%;transform:translateX(-50%);font-family:var(--ui);font-weight:900;font-size:.46rem;
-  line-height:1;padding:2px 5px;border-radius:6px;background:#EDEAF0;border:1px solid #BFC8D0;color:#5A6470;z-index:6;cursor:pointer;white-space:nowrap}
-.tile .fuse-opt.up{top:-14px}
-.tile .fuse-opt.down{bottom:-14px}
-.tile .fuse-opt.active{background:linear-gradient(180deg,#9FE0C8,#5FBFA4);border-color:#3C9E84;color:#0C3B30}
-.deck-tile .fuse-opt{display:none}
+.tile.fused.domino{width:calc(var(--tw,40px)*2 + var(--tgap,7px));padding:0;align-items:stretch}
+.tile.fused.domino .dom-cell{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+.tile.fused.domino .dom-cell.dim{opacity:.3}
+.tile.fused.domino .dom-letter{font-family:var(--serif);font-weight:700;font-size:var(--tfs,1.5rem);color:var(--ink);line-height:1}
+.tile.fused.domino .dom-val{font-family:var(--ui);font-size:.5rem;font-weight:800;color:var(--ink-soft);margin-top:2px}
+.tile.fused.domino .dom-div{flex:0 0 2px;align-self:stretch;margin:6px 0;background:#7FB0A2;border-radius:1px}
+.tile.fused .clone-mark{position:absolute;right:3px;top:2px;font-size:.5em;color:#3C7E6E;z-index:3}
+.clone-choice.fused-duo{background:linear-gradient(180deg,#EAF3F0,#D3E7E0);border-color:#9FC4B8}
+.clone-choice.active{outline:2px solid #3C9E84;outline-offset:1px}
 .deck-tile.fuse-pending{outline:3px solid #3C9E84;outline-offset:2px;border-radius:10px}
 .tile.clone .clone-mark{position:absolute;right:2px;top:1px;font-size:.5em;line-height:1;color:#7A6CA8;z-index:3}
 
@@ -806,6 +807,16 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
   </div>
 </div>
 
+<!-- ===== Fused letter selector (v42f) ===== -->
+<div class="overlay hidden" id="fusedPick">
+  <div class="clone-sheet">
+    <div class="clone-title">Use the fused letters</div>
+    <div class="clone-sub">Pick one letter, or the pair in either order. (Double-tap a placed fused tile to flip the pair.)</div>
+    <div class="clone-choices" id="fusedChoices"></div>
+    <button class="menu-btn alt" id="fusedPickCancel" style="max-width:160px">Cancel</button>
+  </div>
+</div>
+
 <!-- ===== Letter fusion confirm (v42c) ===== -->
 <div class="overlay hidden" id="fuseConfirm">
   <div class="clone-sheet">
@@ -990,7 +1001,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "42e";
+const VERSION = "43a";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1165,13 +1176,33 @@ function makeCopyCatCard(){ return {id:++cardSeq, kind:"copycat", letter:null, b
    A fused tile holds two letter "sides", each keeping its own gild. When played
    it resolves to its picked side (auto-picks the higher value, switchable). */
 function fusedSideValue(s){ return (s.base|0)*Math.pow(2, s.upLevel||0); }
+// mode: 0 = solo side0, 1 = solo side1, 2 = duo [0,1], 3 = duo [1,0]
 function makeFusedCard(a,b){
   const side=c=>({letter:c.letter, base:c.base, upLevel:c.upLevel||0});
   const sides=[side(a),side(b)];
-  const pick = fusedSideValue(sides[1])>fusedSideValue(sides[0]) ? 1 : 0;   // auto-pick the higher
-  return {id:++cardSeq, kind:"fused", letter:null, base:0, upLevel:0, mult:1, sides, pick};
+  return {id:++cardSeq, kind:"fused", letter:null, base:0, upLevel:0, mult:1, sides, mode:2};   // defaults to the duo
 }
-function fusedActive(c){ return c.sides[c.pick||0]; }
+function fusedMode(c){ return (c.mode!=null) ? c.mode : (c.pick?1:0); }   // migrate legacy pick→mode
+function fusedIsDuo(c){ return fusedMode(c)>=2; }
+function fusedEntries(c){   // resolved letter(s): one for a solo, two for a duo
+  const m=fusedMode(c), s0=c.sides[0], s1=c.sides[1];
+  const e=s=>({letter:s.letter, value:fusedSideValue(s)});
+  if(m===0) return [e(s0)];
+  if(m===1) return [e(s1)];
+  if(m===3) return [e(s1),e(s0)];
+  return [e(s0),e(s1)];   // mode 2
+}
+function fusedLabel(c){ return fusedEntries(c).map(x=>x.letter).join(""); }
+function fusedValue(c){ return fusedEntries(c).reduce((s,x)=>s+x.value,0); }
+function fusedActive(c){ return c.sides[fusedMode(c)===1?1:0]; }   // legacy helper, kept for any stray refs
+function fusedCells(c){   // two domino cells with active/dim state, ordered per mode
+  const s0=c.sides[0], s1=c.sides[1], m=fusedMode(c);
+  const cell=(s,active)=>({letter:s.letter, val:fusedSideValue(s), active});
+  if(m===0) return [cell(s0,true),  cell(s1,false)];
+  if(m===1) return [cell(s0,false), cell(s1,true)];
+  if(m===3) return [cell(s1,true),  cell(s0,true)];
+  return     [cell(s0,true),  cell(s1,true)];   // mode 2
+}
 // Shop-equivalent cost to acquire a letter at a given gild level (base letter + each gild).
 function letterAcquireCost(L, gild){
   const v=LETTER_VALUES[L]; let p=px(2+Math.ceil(v/2));
@@ -1191,12 +1222,12 @@ const G = {
   perks:{ firstUp:{}, lastUp:{}, discardMoneyBoost:false, interest:false, twinsies:false,
           vowelPower:0, fireSale:false, bigWords:false, freeRerolls:false,
           proofSheet:false, twoOfAKind:false, shortKing:false,
-          kerning:false, fiveTimer:false, marginalia:false, mirror:false, reprint:false },
+          kerning:false, fiveTimer:false, marginalia:false, mirror:false, reprint:false, repeater:false, powerTrio:false },
   scoreMult:1,             // live "press multiplier", applied to every word score
   pressGrowth:0,           // v41a: each 6+ letter word raises scoreMult by this (per Press multiplier stack)
   challenge:null,          // active challenge-level descriptor {type,reward,banned[],active} or null
   extraDiscards:0, extraTurns:0, jazzCharges:0, reprintUsed:false, foilUsed:[],
-  wordsPlayed:0, runScore:0, runBestWord:"", runBestScore:0, levelStats:{bestWord:"",bestScore:0,words:0},
+  wordsPlayed:0, runScore:0, runBestWord:"", runBestScore:0, wordPlays:{}, levelStats:{bestWord:"",bestScore:0,words:0},
   // per-level
   attempt:0, target:0, score:0, handsLeft:0, discardsLeft:0,
   drawPile:[], hand:[], canvas:[], played:[],
@@ -1623,23 +1654,17 @@ function buildTile(c,where){
     attachTileHandlers(t,c,where); return t;
   }
   if(c.kind==="fused"){
-    t.classList.add("fused");
-    const act=fusedActive(c);
-    const g=document.createElement("span"); g.className="glyph"; g.textContent=act?act.letter:"⛓"; t.appendChild(g);
-    if(act){ const v=document.createElement("span"); v.className="val"; v.textContent=fusedSideValue(act); t.appendChild(v); }
+    t.classList.add("fused","domino");
+    const cells=fusedCells(c);
+    cells.forEach((cell,i)=>{
+      if(i>0){ const d=document.createElement("span"); d.className="dom-div"; t.appendChild(d); }
+      const cd=document.createElement("span"); cd.className="dom-cell"+(cell.active?"":" dim");
+      const g=document.createElement("span"); g.className="dom-letter"; g.textContent=cell.letter; cd.appendChild(g);
+      const v=document.createElement("span"); v.className="dom-val"; v.textContent=cell.val; cd.appendChild(v);
+      t.appendChild(cd);
+    });
     const fm=document.createElement("span"); fm.className="clone-mark"; fm.textContent="⛓"; t.appendChild(fm);
-    if(where==="canvas"){
-      c.sides.forEach((s,idx)=>{
-        const chip=document.createElement("span");
-        chip.className="fuse-opt "+(idx===0?"up":"down")+(idx===(c.pick||0)?" active":"");
-        chip.textContent=s.letter;
-        chip.addEventListener("pointerdown",ev=>ev.stopPropagation());
-        chip.addEventListener("click",ev=>{ ev.stopPropagation(); ev.preventDefault(); setFusePick(c,idx); });
-        t.appendChild(chip);
-      });
-    } else {
-      const sub=document.createElement("span"); sub.className="glyph-sub"; sub.textContent=c.sides.map(s=>s.letter).join("/"); t.appendChild(sub);
-    }
+    if(where==="canvas"){ attachFusedCanvasHandlers(t,c); return t; }
     attachTileHandlers(t,c,where); return t;
   }
 
@@ -1702,14 +1727,15 @@ function fitRow(el,count,o){
   el.style.setProperty("--tfs",fs+"rem");
   el.style.setProperty("--tgap",gap+"px");
 }
+function slotCount(arr){ return arr.reduce((n,c)=>n+(c.kind==="fused"?2:1),0); }   // fused dominoes are double-width
 function fitHand(){
-  const n=G.hand.length, el=$("hand");
-  const two = n>10;                       // past 10 tiles, spill into a second row below
+  const eff=slotCount(G.hand), el=$("hand");
+  const two = eff>10;                     // past 10 slots, spill into a second row below
   el.classList.toggle("tworow", two);
-  const perRow = two ? Math.ceil(n/2) : n;
+  const perRow = two ? Math.ceil(eff/2) : eff;
   fitRow(el, perRow, {min:30,max:50,ratio:1.24,fsDiv:29,gap:6});
 }
-function fitCanvas(){ fitRow($("canvas"),G.canvas.length,{min:24,max:54,ratio:1.24,fsDiv:29,gap:7}); }
+function fitCanvas(){ fitRow($("canvas"),slotCount(G.canvas),{min:24,max:54,ratio:1.24,fsDiv:29,gap:7}); }
 function renderHand(){
   const el=$("hand"); el.innerHTML="";
   G.hand.forEach(c=>{ el.appendChild(buildTile(c,"hand")); });
@@ -1722,7 +1748,51 @@ function renderCanvas(){
   fitCanvas();
   updateLive();
 }
-function setFusePick(c,idx){ if(!c||c.kind!=="fused") return; c.pick=idx; renderCanvas(); haptic(8); save(); }
+function rotateFused(c){
+  // double-tap: jump to the duo, then flip its order on each rotate
+  c.mode = fusedMode(c)<2 ? 2 : (fusedMode(c)===2 ? 3 : 2);
+  renderCanvas(); haptic(10); save();
+}
+let _fusedTapTimer=null, _fusedTapCard=null;
+function attachFusedCanvasHandlers(el,c){
+  el.addEventListener("pointerdown",e=>onTileDown(e,el,c,"canvas"));
+  el.addEventListener("click",e=>{
+    if(justDragged){ e.preventDefault(); return; }
+    e.preventDefault();
+    if(_fusedTapTimer && _fusedTapCard===c){          // second tap → rotate
+      clearTimeout(_fusedTapTimer); _fusedTapTimer=null; _fusedTapCard=null; rotateFused(c);
+    } else {
+      if(_fusedTapTimer) clearTimeout(_fusedTapTimer);
+      _fusedTapCard=c;
+      _fusedTapTimer=setTimeout(()=>{ _fusedTapTimer=null; _fusedTapCard=null; openFusedSelector(c); }, 250);
+    }
+  });
+}
+function openFusedSelector(c){
+  fusedSelCard=c;
+  const wrap=$("fusedChoices"); wrap.innerHTML="";
+  const s0=c.sides[0], s1=c.sides[1];
+  const opts=[
+    {mode:0, label:s0.letter,            val:fusedSideValue(s0)},
+    {mode:1, label:s1.letter,            val:fusedSideValue(s1)},
+    {mode:2, label:s0.letter+s1.letter,  val:fusedSideValue(s0)+fusedSideValue(s1), duo:true},
+    {mode:3, label:s1.letter+s0.letter,  val:fusedSideValue(s1)+fusedSideValue(s0), duo:true},
+  ];
+  const cur=fusedMode(c);
+  opts.forEach(o=>{
+    const b=document.createElement("button"); b.className="clone-choice"+(o.duo?" fused-duo":"")+(o.mode===cur?" active":"");
+    b.innerHTML=`${o.label}<span class="cc-val">${o.val}</span>`;
+    b.addEventListener("click",()=>pickFusedMode(o.mode));
+    wrap.appendChild(b);
+  });
+  $("fusedPick").classList.remove("hidden");
+}
+function pickFusedMode(m){
+  if(fusedSelCard){ fusedSelCard.mode=m; }
+  fusedSelCard=null; $("fusedPick").classList.add("hidden");
+  renderCanvas(); haptic(8); save();
+}
+function closeFusedSelector(){ fusedSelCard=null; $("fusedPick").classList.add("hidden"); }
 function shuffleHand(){
   if(!G.hand.length) return;
   const rng=makeRng("handshuf:"+G.level+":"+G.attempt+":"+(G.reshuffleCount++)+":"+Date.now());
@@ -1755,8 +1825,7 @@ function resolvedCanvas(){
       out.push(left&&left.letter?{letter:left.letter,value:left.value,mult:left.mult||1,copycat:true,card:c}
                                  :{letter:null,value:0,mult:1,copycat:true,card:c});
     } else if(c.kind==="fused"){
-      const s=fusedActive(c);
-      out.push(s?{letter:s.letter,value:fusedSideValue(s),mult:1,fused:true,card:c}:{letter:null,value:0,mult:1,fused:true,card:c});
+      fusedEntries(c).forEach((e,i)=>out.push({letter:e.letter,value:e.value,mult:1,fused:true,fusedPart:i,card:c}));
     } else {
       out.push({letter:c.letter,value:effValue(c),mult:cardMult(c),card:c});
     }
@@ -1824,8 +1893,19 @@ function scoreOf(res){
   // Mirror (v42a): palindromes → ×3
   let mirrorHit=false;
   if(G.perks.mirror && res.length>=2){ const w=res.map(r=>r.letter).join(""); if(w===w.split("").reverse().join("")){ mirrorHit=true; total*=3; } }
+  // Power Trio (v42f): any letter appearing 3+ times → ×2 (stacks with Twinsies and Two of a kind)
+  let trioHit=false;
+  if(G.perks.powerTrio){ const cnt={}; for(const r of res){ if(r.letter){ cnt[r.letter]=(cnt[r.letter]||0)+1; if(cnt[r.letter]>=3){ trioHit=true; break; } } } }
+  if(trioHit) total*=2;
+  // Repeater (v42f): replaying a word you've already played this run scores higher
+  let repeatHit=0;
+  if(G.perks.repeater && res.length>=2 && res.every(r=>r.letter)){
+    const w=res.map(r=>r.letter.toLowerCase()).join("");
+    repeatHit=(G.wordPlays&&G.wordPlays[w])||0;
+    if(repeatHit>0) total*=(1+0.5*Math.min(repeatHit,3));   // ×1.5, ×2, ×2.5 cap
+  }
   total*=(G.scoreMult||1);
-  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,twinHit,pairHit,shortHit,kernHit,fiveHit,mirrorHit};
+  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,twinHit,pairHit,shortHit,kernHit,fiveHit,mirrorHit,trioHit,repeatHit};
 }
 function updateLive(){
   const res=resolvedCanvas();
@@ -2048,7 +2128,7 @@ function placeFromHand(id,idx){
   const i=G.hand.findIndex(c=>c.id===id); if(i<0)return;
   checkpoint();
   const [c]=G.hand.splice(i,1);
-  if(c.kind==="fused"){ c.pick = fusedSideValue(c.sides[1])>fusedSideValue(c.sides[0]) ? 1 : 0; }   // auto-pick the higher on placement
+  if(c.kind==="fused" && c.mode==null){ c.mode=2; }   // default to the duo when first placed
   if(typeof idx==="number" && idx>=0 && idx<=G.canvas.length) G.canvas.splice(idx,0,c);
   else G.canvas.push(c);
   renderHand(); renderCanvas();
@@ -2084,6 +2164,7 @@ function recallAll(){
 
 /* ---------- Clone: pick any letter you currently hold ---------- */
 let clonePending=null;
+let fusedSelCard=null;
 function openCloneChooser(card,idx){
   const best={};   // letter -> source tile with the highest value (copies its gild)
   G.hand.concat(G.canvas).forEach(c=>{ if(c.kind==="letter"){ const cur=best[c.letter]; if(!cur || cardValue(c)>cardValue(cur)) best[c.letter]=c; } });
@@ -2260,6 +2341,7 @@ function submitWord(){
   const res=resolvedCanvas();
   const sc=scoreOf(res);
   const w=res.map(r=>r.letter.toLowerCase()).join("");
+  if(!isJazz){ if(!G.wordPlays) G.wordPlays={}; G.wordPlays[w]=(G.wordPlays[w]||0)+1; }   // v43a: Repeater history (after scoreOf read the prior count)
   if(isJazz){ G.canvas.forEach(c=>{ if(c.kind==="jazz" && (c.jazzLeft||0)>0) c.jazzLeft--; }); }
   // highlights
   G.wordsPlayed=(G.wordsPlayed||0)+1;
@@ -2572,7 +2654,7 @@ function perkPool(rng){
     {make:()=>pressMultOffer(rng), weight:1.3},
     {make:()=>growthMindOffer(),   weight:1.2},
     {make:()=>foilOffer(),         weight:1.1},
-    {make:()=>fusionOffer(),       weight:0.9},
+    {make:()=>fusionOffer(),       weight:1.8},
     {make:()=>freeJazzOffer(),     weight:0.5},
   ];
   // Encore + Watermark are strong on their own and oppressive together, so they sit at the
@@ -2596,6 +2678,8 @@ function perkPool(rng){
   if(!G.perks.marginalia)        e.push({make:()=>marginaliaOffer(),  weight:1.3});
   if(!G.perks.mirror)            e.push({make:()=>mirrorOffer(),      weight:0.8});
   if(!G.perks.reprint)           e.push({make:()=>reprintOffer(),     weight:1.1});
+  if(!G.perks.repeater)          e.push({make:()=>repeaterOffer(),    weight:1.4});
+  if(!G.perks.powerTrio)         e.push({make:()=>powerTrioOffer(),   weight:1.3});
   return e;
 }
 function utilPool(){
@@ -2698,6 +2782,8 @@ function applyOffer(o){
     case "marginalia":   G.perks.marginalia=true; break;
     case "mirror":       G.perks.mirror=true; break;
     case "reprint":      G.perks.reprint=true; break;
+    case "repeater":     G.perks.repeater=true; break;
+    case "powerTrio":    G.perks.powerTrio=true; break;
     case "growthMind":   openDeck("growth"); break;
     case "encore":       openDeck("encore"); break;
     case "foil":         openDeck("foil"); break;
@@ -2758,6 +2844,14 @@ function reprintOffer(){
   return {kind:"Perk",rarity:"epic",name:"Reprint",desc:"The first heart you would lose this run is spared. One time.",
     price:px(12), art:"📋", d:{type:"reprint"}};
 }
+function repeaterOffer(){
+  return {kind:"Perk",rarity:"rare",name:"Repeater",desc:"Replaying a word you've already played this run scores higher (up to ×2.5).",
+    price:px(8), art:"🔁", d:{type:"repeater"}};
+}
+function powerTrioOffer(){
+  return {kind:"Perk",rarity:"rare",name:"Power Trio",desc:"Three of the same letter in a word gives a ×2 word bonus. Stacks with Twinsies and Two of a kind.",
+    price:px(9), art:"🎯", d:{type:"powerTrio"}};
+}
 function growthMindOffer(){
   return {kind:"Upgrade",rarity:"rare",name:"Growth Mindset",desc:"Pick a letter. It gains +1 point every time you play it.",
     price:px(9), art:"📈", needsTarget:"growth", d:{type:"growthMind"}};
@@ -2775,8 +2869,8 @@ function watermarkOffer(){
     price:px(11), art:"◊", needsTarget:"watermark", d:{type:"watermark"}};
 }
 function fusionOffer(){
-  return {kind:"Upgrade",rarity:"epic",name:"Letter fusion",
-    desc:"Fuse two of your letters into one tile you can play as either. Cost is the two letters combined.",
+  return {kind:"Upgrade",rarity:"common",name:"Letter fusion",
+    desc:"Fuse two letters into one tile. Play it as either single letter, or as the pair in either order. Cost is the two letters combined.",
     price:px(4), art:"⛓", needsTarget:"fuse", d:{type:"fuse"}};
 }
 function pregildedLetterOffer(rng){
@@ -3074,12 +3168,15 @@ function buildStaticTile(c){
     return t;
   }
   if(c.kind==="fused"){
-    t.classList.add("fused");
-    const act=fusedActive(c);
-    const g=document.createElement("span"); g.className="glyph"; g.textContent=act?act.letter:"⛓"; t.appendChild(g);
-    if(act){ const v=document.createElement("span"); v.className="val"; v.textContent=fusedSideValue(act); t.appendChild(v); }
+    t.classList.add("fused","domino");
+    fusedCells(c).forEach((cell,i)=>{
+      if(i>0){ const d=document.createElement("span"); d.className="dom-div"; t.appendChild(d); }
+      const cd=document.createElement("span"); cd.className="dom-cell"+(cell.active?"":" dim");
+      const g=document.createElement("span"); g.className="dom-letter"; g.textContent=cell.letter; cd.appendChild(g);
+      const v=document.createElement("span"); v.className="dom-val"; v.textContent=cell.val; cd.appendChild(v);
+      t.appendChild(cd);
+    });
     const fm=document.createElement("span"); fm.className="clone-mark"; fm.textContent="⛓"; t.appendChild(fm);
-    const sub=document.createElement("span"); sub.className="glyph-sub"; sub.textContent=c.sides.map(s=>s.letter).join("/"); t.appendChild(sub);
     return t;
   }
   const g=document.createElement("span"); g.textContent=(c.kind==="copycat"?"⧉":tileGlyph(c)); t.appendChild(g);
@@ -3395,6 +3492,8 @@ function ownedPerksList(){
   if(G.perks.fiveTimer)  out.push("Five Timer · ×1.5 five-letter words");
   if(G.perks.marginalia) out.push("Marginalia · 1 coin per 15 over target");
   if(G.perks.mirror)     out.push("Mirror · ×3 palindromes");
+  if(G.perks.repeater)   out.push("Repeater · replays score higher");
+  if(G.perks.powerTrio)  out.push("Power Trio · ×2 for three of a letter");
   if(G.perks.reprint)    out.push("Reprint · spare the first lost heart"+(G.reprintUsed?" (used)":""));
   if(G.perks.proofSheet) out.push("Proof Sheet · see your next tile");
   if((G.scoreMult||1)>1) out.push("Press · ×"+Number(G.scoreMult).toFixed(3));
@@ -3506,7 +3605,7 @@ function save(){
       v:SAVE_VERSION, phase, seed:G.seed, level:G.level, hearts:G.hearts, coins:G.coins, handSize:G.handSize,
       infinite:G.infinite, wonRun:G.wonRun,
       perks:G.perks, scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, reprintUsed:G.reprintUsed, foilUsed:G.foilUsed, challenge:G.challenge, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, jazzCharges:G.jazzCharges, runMs:G.runMs, stats:G.stats,
-      wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
+      wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, wordPlays:G.wordPlays, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
       attempt:G.attempt, target:G.target, score:G.score, handsLeft:G.handsLeft, discardsLeft:G.discardsLeft,
       drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas),
       rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
@@ -3522,14 +3621,14 @@ function continueRun(){
   cardSeq=d.cardSeq||0;
   G.seed=d.seed; G.level=d.level; G.hearts=d.hearts; G.coins=d.coins; G.handSize=d.handSize;
   G.infinite=!!d.infinite; G.wonRun=!!d.wonRun;
-  G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
+  G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
   if(G.perks.vowelPower===true) G.perks.vowelPower=1;   // v42a: legacy boolean -> 1 stack
   G.reprintUsed=!!d.reprintUsed;
   G.foilUsed=Array.isArray(d.foilUsed)?d.foilUsed.slice():[];
   G.scoreMult=d.scoreMult||1; G.pressGrowth=d.pressGrowth||0; G.extraDiscards=d.extraDiscards||0; G.extraTurns=d.extraTurns||0;
   G.challenge=d.challenge||null;
   G.jazzCharges=(typeof d.jazzCharges==="number")?d.jazzCharges:0;
-  G.wordsPlayed=d.wordsPlayed||0; G.runScore=d.runScore||0; G.runBestWord=d.runBestWord||""; G.runBestScore=d.runBestScore||0;
+  G.wordsPlayed=d.wordsPlayed||0; G.runScore=d.runScore||0; G.runBestWord=d.runBestWord||""; G.runBestScore=d.runBestScore||0; G.wordPlays=d.wordPlays||{};
   G.levelStats=d.levelStats||{bestWord:"",bestScore:0,words:0};
   G.best=d.best||1; G.lastReward=d.lastReward||null;
   G.runMs=d.runMs||0;
@@ -3594,12 +3693,12 @@ function newRun(seed){
   cardSeq=0;
   G.seed=seed;
   G.level=1; G.hearts=MAX_HEARTS; G.coins=0; G.handSize=START_HAND;
-  G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false};
+  G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false};
   G.reprintUsed=false;
   G.scoreMult=1; G.pressGrowth=0; G.extraDiscards=0; G.extraTurns=0; G.jazzCharges=0; G.lastReward=null;
   G.infinite=false; G.wonRun=false;
   G.rerollCount=0; G.freeRerollUsed=false;   // reroll-price ladder resets each run
-  G.wordsPlayed=0; G.runScore=0; G.runBestWord=""; G.runBestScore=0; G.levelStats={bestWord:"",bestScore:0,words:0};
+  G.wordsPlayed=0; G.runScore=0; G.runBestWord=""; G.runBestScore=0; G.wordPlays={}; G.levelStats={bestWord:"",bestScore:0,words:0};
   G.attempt=0; G.best=1; G.shopOffers=[]; G.runMs=0;
   G.deck=rollStartingDeck();
   statInit(G.seed);
@@ -3622,6 +3721,7 @@ $("gildYes").addEventListener("click",confirmGild);
 $("gildNo").addEventListener("click",cancelGild);
 $("fuseYes").addEventListener("click",confirmFuse);
 $("fuseNo").addEventListener("click",()=>{ fusePendingPair=null; closeFuseConfirm(); });
+$("fusedPickCancel").addEventListener("click",closeFusedSelector);
 $("seedBtn").addEventListener("click",()=>{
   const s=($("seedInput").value||"").trim().toUpperCase();
   newRun(s||generateValidatedSeed());
