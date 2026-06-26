@@ -254,12 +254,13 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
 .tile .fu-star{position:absolute;right:1px;top:0;font-size:.62em;line-height:1;z-index:3;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25))}
 .tile .lu-end{position:absolute;left:1px;bottom:0;font-size:.55em;line-height:1;z-index:3;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25))}
 /* v42b tile-upgrade badges */
-.tile .up-badge{position:absolute;right:2px;bottom:1px;font-size:.5em;line-height:1;z-index:3;font-weight:900;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25))}
+.tile .up-rail{position:absolute;top:1px;left:50%;transform:translateX(-50%);display:flex;gap:2px;justify-content:center;flex-wrap:wrap;max-width:calc(100% - 14px);z-index:4;pointer-events:none}
+.tile .up-badge{font-size:.5em;line-height:1;font-weight:900;filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
 .tile .up-badge.grow{color:#2F7D4F}
-.tile .up-badge.encore{color:#2D6E8E;right:auto;left:2px;top:1px;bottom:auto}
+.tile .up-badge.encore{color:#2D6E8E}
 .tile .up-badge.foil{color:#9A6BC0}
 .tile .up-badge.foil.spent{opacity:.35}
-.tile .up-badge.wm{color:#3E78A0;right:auto;left:2px;bottom:1px}
+.tile .up-badge.wm{color:#3E78A0}
 /* v42c Letter Fusion */
 .tile.fused{background:linear-gradient(180deg,#EAF3F0,#D3E7E0);border-color:#9FC4B8}
 .tile.fused .clone-mark{position:absolute;right:2px;top:1px;font-size:.5em;color:#3C7E6E;z-index:3}
@@ -989,7 +990,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "42d";
+const VERSION = "42e";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1580,10 +1581,14 @@ function tileBadges(t,c){
   if(isFirstUp(c)){ const s=document.createElement("span"); s.className="fu-star"; s.textContent="⭐"; t.appendChild(s); }
   if(isLastUp(c)){ const e=document.createElement("span"); e.className="lu-end"; e.textContent="🔚"; t.appendChild(e); }
   if(cardMult(c)!==1){ const m=document.createElement("span"); m.className="mult-badge"; m.textContent=cardMult(c)+"×"; t.appendChild(m); }
-  if(typeof c.growth==="number"){ const s=document.createElement("span"); s.className="up-badge grow"; s.textContent="↑"+(c.growth>0?c.growth:""); t.appendChild(s); }
-  if(c.encore){ const s=document.createElement("span"); s.className="up-badge encore"; s.textContent="↻"; t.appendChild(s); }
-  if(c.foil){ const used=(G.foilUsed||[]).includes(c.id); const s=document.createElement("span"); s.className="up-badge foil"+(used?" spent":""); s.textContent="✦"; t.appendChild(s); }
-  if(c.watermark){ const s=document.createElement("span"); s.className="up-badge wm"; s.textContent="◊"; t.appendChild(s); }
+  // Upgrade symbols share one top rail so they never overlap each other or the value.
+  const rail=document.createElement("span"); rail.className="up-rail";
+  const add=(cls,txt)=>{ const s=document.createElement("span"); s.className="up-badge "+cls; s.textContent=txt; rail.appendChild(s); };
+  if(typeof c.growth==="number") add("grow","↑"+(c.growth>0?c.growth:""));
+  if(c.encore) add("encore","↻");
+  if(c.foil) add("foil"+((G.foilUsed||[]).includes(c.id)?" spent":""),"✦");
+  if(c.watermark) add("wm","◊");
+  if(rail.childNodes.length) t.appendChild(rail);
 }
 function buildTile(c,where){
   const t=document.createElement("button");
