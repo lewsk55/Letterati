@@ -3538,6 +3538,7 @@ function buildStaticTile(c){
     tileBadges(t,c);
     return t;
   }
+  const g=document.createElement("span"); g.textContent=(c.kind==="copycat"?"⧉":tileGlyph(c)); t.appendChild(g);
   if(c.kind==="clone"){ const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="CLONE"; t.appendChild(s); }
   else if(c.kind==="copycat"){ const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="COPY"; t.appendChild(s); }
   else { const v=document.createElement("span"); v.className="val"; v.innerHTML=valHtml(c); t.appendChild(v); }
