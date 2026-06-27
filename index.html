@@ -296,6 +296,11 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
 .tile.fused.domino .dom-cell.locked{opacity:.55}
 .tile.fused.domino .dom-cell.locked::after{left:8%;right:8%;top:46%}
 .tile.fused .clone-mark{position:absolute;right:3px;top:2px;font-size:.5em;color:#3C7E6E;z-index:3}
+/* combo tiles (-ING / -ER) */
+.tile.combo{background:linear-gradient(180deg,#F3EEFB,#E4DAF4);border-color:#C3B2E0}
+.tile.combo .combo-label{font-family:var(--serif);font-weight:700;font-size:.92rem;letter-spacing:-.01em;color:var(--ink);line-height:1}
+.tile.combo .val{color:var(--ink-soft)}
+.tile.combo .clone-mark{position:absolute;right:3px;top:2px;font-size:.5em;color:#7A5CA6;z-index:3}
 .clone-choice.fused-duo{background:linear-gradient(180deg,#EAF3F0,#D3E7E0);border-color:#9FC4B8}
 .clone-choice.active{outline:2px solid #3C9E84;outline-offset:1px}
 .deck-tile.fuse-pending{outline:3px solid #3C9E84;outline-offset:2px;border-radius:10px}
@@ -382,10 +387,31 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
   box-shadow:0 3px 10px rgba(10,20,90,.16);-webkit-tap-highlight-color:transparent;touch-action:manipulation;display:flex;align-items:center;justify-content:center}
 .pause-fab:active{transform:scale(.92)}
 .clone-choice .cc-cost{display:block;font-size:.7rem;font-weight:800;color:var(--brass-deep);margin-top:2px}
-.deck-perks{margin:6px 2px 2px;display:flex;flex-wrap:wrap;gap:6px;align-items:center}
-.deck-perks .dp-title{width:100%;font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);font-weight:800;margin-bottom:2px}
-.deck-perks .dp-chip{font-size:.74rem;font-weight:700;color:var(--ink);background:var(--paper);border:1px solid var(--tile-edge);border-radius:999px;padding:5px 10px}
+.deck-perks{margin:14px 2px 2px;display:block}
+.deck-perks .dp-title,.deck-words .dw-title{font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);font-weight:800;margin:0 0 6px}
 .deck-perks .dp-none{font-size:.78rem;font-style:italic;color:var(--ink-soft)}
+.dp-grid{display:grid;grid-template-columns:repeat(2,1fr);gap:8px}
+@media(max-width:380px){.dp-grid{grid-template-columns:1fr}}
+.perk-card{display:flex;gap:9px;align-items:flex-start;background:var(--paper);border:1px solid var(--tile-edge);border-radius:12px;padding:8px 10px}
+.perk-card .pc-art{font-size:1.25rem;line-height:1;flex:0 0 auto;width:30px;height:30px;display:flex;align-items:center;justify-content:center;background:linear-gradient(180deg,#FBF6EA,#EFE4CC);border:1px solid var(--tile-edge);border-radius:8px}
+.perk-card .pc-body{min-width:0}
+.perk-card .pc-name{font-weight:800;font-size:.82rem;color:var(--ink);line-height:1.15}
+.perk-card .pc-desc{font-size:.71rem;color:var(--ink-soft);line-height:1.3;margin-top:2px}
+/* used-words list */
+.deck-words{margin:16px 2px 4px}
+.dw-cols{column-gap:14px}
+.dw-item{break-inside:avoid;-webkit-column-break-inside:avoid;font-size:.8rem;color:var(--ink);padding:2px 0;display:flex;align-items:baseline;justify-content:space-between;gap:6px}
+.dw-item .dw-w{font-family:var(--serif);font-weight:600;white-space:nowrap;overflow:hidden;text-overflow:ellipsis}
+.dw-item .dw-x{color:var(--brass-deep);font-weight:800;font-size:.72rem;flex:0 0 auto}
+.deck-words .dw-none{font-size:.78rem;font-style:italic;color:var(--ink-soft)}
+/* deck-view pile groups */
+.deck-group{margin:6px 0 2px}
+.deck-group .dg-head{display:flex;align-items:baseline;gap:8px;font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);font-weight:800;margin:0 2px 7px;justify-content:center}
+.deck-group .dg-count{font-family:var(--serif);font-size:.88rem;letter-spacing:0;text-transform:none;color:var(--ink)}
+.deck-group .dg-row{display:flex;flex-wrap:wrap;gap:8px;justify-content:center;align-content:flex-start}
+.deck-group .dg-empty{font-size:.76rem;font-style:italic;color:var(--ink-soft);text-align:center;width:100%}
+.deck-group.muted .dg-row{opacity:.62}
+.deck-group + .deck-group{margin-top:14px;padding-top:12px;border-top:1px dashed var(--tile-edge)}
 .menu-btn:active{transform:translateY(1px)}
 .menu-btn.alt{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
 .menu-btn.alt.danger{color:var(--oxblood);border-color:var(--oxblood)}
@@ -502,6 +528,14 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
 @keyframes floatUpSlow{0%{opacity:0;transform:translate(-50%,0) scale(.8)}10%{opacity:1}70%{opacity:1;transform:translate(-50%,-34px) scale(1.12)}100%{opacity:0;transform:translate(-50%,-60px) scale(1.12)}}
 .coin-fly{position:fixed;z-index:250;pointer-events:none;font-size:18px;animation:coinFly .7s ease-out forwards}
 @keyframes coinFly{0%{opacity:1;transform:translate(-50%,-50%) scale(.6)}100%{opacity:0;transform:translate(calc(-50% + var(--cx)),calc(-50% + var(--cy))) scale(1.1)}}
+/* discard → draw reshuffle: little cards fly up into the deck button */
+.reshuf-card{position:fixed;z-index:250;pointer-events:none;width:26px;height:34px;border-radius:5px;
+  background:linear-gradient(180deg,#FBF6EA,#ECE0C6);border:1.5px solid #C9B68C;box-shadow:0 4px 10px rgba(60,45,30,.25);
+  transform:translate(-50%,-50%) rotate(var(--rot,0deg));animation:reshufFly .58s cubic-bezier(.4,.85,.45,1) forwards}
+@keyframes reshufFly{
+  0%{opacity:0;transform:translate(-50%,-50%) rotate(var(--rot,0deg)) scale(1)}
+  15%{opacity:1}
+  100%{opacity:0;transform:translate(calc(-50% + var(--dx)),calc(-50% + var(--dy))) rotate(0deg) scale(.35)}}
 
 @media (prefers-reduced-motion:reduce){*{animation:none !important;transition:none !important}}
 @media (max-width:380px){
@@ -770,8 +804,9 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
     </div>
     <div class="select-hint hidden" id="selectHint"></div>
     <div class="deck-list" id="deckList"></div>
-    <div class="deck-perks" id="deckPerks"></div>
     <div class="deck-summary" id="deckSummary"></div>
+    <div class="deck-perks" id="deckPerks"></div>
+    <div class="deck-words" id="deckWords"></div>
   </div>
 </div>
 
@@ -1035,7 +1070,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "44b";
+const VERSION = "45a";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1238,6 +1273,19 @@ function fusedCells(c){   // two domino cells with active/dim state, ordered per
   if(m===3) return [cell(s1,true),  cell(s0,true)];
   return     [cell(s0,true),  cell(s1,true)];   // mode 2
 }
+/* ---- Combo tiles (v45a) -----------------------------------------------------
+   One tile that plays as a fixed run of letters (e.g. -ING, -ER). Each letter
+   is worth 1 point but they ride together in a single hand slot and still count
+   as their full length toward the word. */
+const COMBO_DEFS = {
+  ing: { seq:["I","N","G"], label:"-ING", rarity:"epic", price:10 },
+  er:  { seq:["E","R"],     label:"-ER",  rarity:"rare", price:7  }
+};
+function makeComboCard(key){ const d=COMBO_DEFS[key]; return {id:++cardSeq, kind:"combo", combo:key, letter:null, base:d.seq.length, upLevel:0, mult:1}; }
+function comboSeq(c){ return COMBO_DEFS[c.combo].seq; }
+function comboLabel(c){ return COMBO_DEFS[c.combo].label; }
+function comboEntries(c){ const u=c.upLevel||0; return comboSeq(c).map(L=>({letter:L, value:1*Math.pow(2,u)})); }
+function comboValue(c){ return comboEntries(c).reduce((s,e)=>s+e.value,0); }
 // Shop-equivalent cost to acquire a letter at a given gild level (base letter + each gild).
 function letterAcquireCost(L, gild){
   const v=LETTER_VALUES[L]; let p=px(2+Math.ceil(v/2));
@@ -1556,6 +1604,30 @@ function floatText(x,y,text,color,opts){
   f.style.left=x+"px"; f.style.top=y+"px"; f.style.color=color||"var(--brass-deep)"; f.style.fontSize=opts.size||"1.4rem";
   document.body.appendChild(f); setTimeout(()=>f.remove(), opts.slow?2200:1000);
 }
+/* ---------- discard → draw reshuffle flourish ---------- */
+function playReshuffleAnim(){
+  toast("Reshuffling the discard pile");
+  haptic([12,30,12]);
+  const btn=$("deckBtn"); if(!btn || reduceMotion()) return;
+  const r=btn.getBoundingClientRect();
+  const tx=r.left+r.width/2, ty=r.top+r.height/2;
+  const N=7;
+  for(let i=0;i<N;i++){
+    const card=document.createElement("div");
+    card.className="reshuf-card";
+    // start offscreen, fanned around the bottom edge, then fly into the deck icon
+    const fromX = (window.innerWidth*0.5) + (i-(N-1)/2)*42;
+    const fromY = window.innerHeight + 60;
+    card.style.left=fromX+"px"; card.style.top=fromY+"px";
+    card.style.setProperty("--dx",(tx-fromX).toFixed(0)+"px");
+    card.style.setProperty("--dy",(ty-fromY).toFixed(0)+"px");
+    card.style.setProperty("--rot",((i-(N-1)/2)*7).toFixed(0)+"deg");
+    card.style.animationDelay=(i*42)+"ms";
+    document.body.appendChild(card);
+    setTimeout(()=>card.remove(), 620+i*42);
+  }
+  setTimeout(()=>popEl($("deckBtn")), 360);
+}
 function coinBurst(fromX,fromY,n){
   if(reduceMotion())return;
   const tgt=$("coins").getBoundingClientRect();
@@ -1672,7 +1744,10 @@ function renderHud(){
   const pct=Math.min(100,Math.round(G.score/G.target*100));
   $("barFill").style.width=pct+"%";
   $("bar").classList.toggle("met",G.score>=G.target);
-  { const dc=$("deckCountInline"); if(dc) dc.textContent=G.deck.length; }
+  { const dc=$("deckCountInline"); if(dc){
+      const inRound = !$("play").classList.contains("hidden") && (G.drawPile&&G.drawPile.length>=0) && (G.hand.length||G.canvas.length||G.played&&G.played.length||G.drawPile.length);
+      dc.textContent = inRound ? (G.drawPile.length+"/"+G.deck.length) : G.deck.length;
+  } }
   $("discardLab").innerHTML=`<b>${G.discardsLeft}</b> left`;
   $("discardBtn").classList.toggle("low",G.discardsLeft===0);
   let dots="";
@@ -1699,6 +1774,8 @@ function renderProofPeek(){
   const c=G.drawPile[0];
   const mini=document.createElement("span"); mini.className="pp-tile";
   if(c.kind==="letter"){ mini.innerHTML=`${c.letter}<span class="pp-v">${cardValue(c)}</span>`; }
+  else if(c.kind==="combo"){ mini.innerHTML=`${comboLabel(c)}<span class="pp-v">${comboValue(c)}</span>`; }
+  else if(c.kind==="fused"){ mini.innerHTML=`${fusedLabel(c)}<span class="pp-v">${fusedValue(c)}</span>`; }
   else { mini.textContent = c.kind==="clone"?"❖" : c.kind==="wildvowel"?"✺" : c.kind==="wildcons"?"✦" : c.kind==="copycat"?"⧉" : c.kind==="jazz"?"🎷" : "?"; }
   peek.appendChild(mini);
 }
@@ -1776,7 +1853,16 @@ function buildTile(c,where){
     if(where==="canvas"){ attachFusedCanvasHandlers(t,c); return t; }
     attachTileHandlers(t,c,where); return t;
   }
-
+  if(c.kind==="combo"){
+    t.classList.add("combo");
+    const banLock=bannedLetterSet();
+    if(banLock && comboSeq(c).some(L=>banLock.has(L))) t.classList.add("locked-letter");
+    const g=document.createElement("span"); g.className="combo-label"; g.textContent=comboLabel(c); t.appendChild(g);
+    const v=document.createElement("span"); v.className="val"; v.textContent=comboValue(c); t.appendChild(v);
+    const cm=document.createElement("span"); cm.className="clone-mark"; cm.textContent="✚"; t.appendChild(cm);
+    tileBadges(t,c);
+    attachTileHandlers(t,c,where); return t;
+  }
   const g=document.createElement("span"); g.className="glyph";
   g.textContent = wildSet ? c.vowel : tileGlyph(c); t.appendChild(g);
   if(c.kind==="clone" && !c.cloneLetter){
@@ -1941,7 +2027,11 @@ function resolvedCanvas(){
       out.push(left&&left.letter?{letter:left.letter,value:left.value,mult:left.mult||1,copycat:true,card:c}
                                  :{letter:null,value:0,mult:1,copycat:true,card:c});
     } else if(c.kind==="fused"){
-      fusedEntries(c).forEach((e,i)=>out.push({letter:e.letter,value:e.value,mult:1,fused:true,fusedPart:i,card:c}));
+      const g=(typeof c.growth==="number")?c.growth:0;   // v45a: growth rides on the first letter
+      fusedEntries(c).forEach((e,i)=>out.push({letter:e.letter,value:e.value+(i===0?g:0),mult:1,fused:true,fusedPart:i,card:c}));
+    } else if(c.kind==="combo"){
+      const g=(typeof c.growth==="number")?c.growth:0;
+      comboEntries(c).forEach((e,i)=>out.push({letter:e.letter,value:e.value+(i===0?g:0),mult:1,combo:true,comboPart:i,card:c}));
     } else {
       out.push({letter:c.letter,value:effValue(c),mult:cardMult(c),card:c});
     }
@@ -2428,15 +2518,22 @@ function handVowelSource(){
   return G.hand.some(c => (c.kind==="letter" && VOWELS.has(c.letter)) || c.kind==="wildvowel");
 }
 function dealUpToHand(animate){
-  let dealt=0;
-  while(G.hand.length<G.handSize && G.drawPile.length>0){
+  let dealt=0, didReshuffle=false;
+  while(G.hand.length<G.handSize){
+    if(G.drawPile.length===0){ if(!reshuffleDiscardIntoDraw()) break; didReshuffle=true; }
     G.hand.push(G.drawPile.shift()); dealt++;
   }
   // mercy rule: never strand the player with a vowel-less hand
-  if(!handVowelSource() && G.drawPile.length>0){
-    toast("No vowels — bonus draw!");            // announce BEFORE the extra tiles land
-    while(!handVowelSource() && G.drawPile.length>0){ G.hand.push(G.drawPile.shift()); dealt++; }
+  if(!handVowelSource()){
+    let guard=0;
+    while(!handVowelSource() && guard++<40){
+      if(G.drawPile.length===0){ if(!reshuffleDiscardIntoDraw()) break; didReshuffle=true; }
+      if(G.drawPile.length===0) break;
+      if(guard===1) toast("No vowels — bonus draw!");   // announce BEFORE the extra tiles land
+      G.hand.push(G.drawPile.shift()); dealt++;
+    }
   }
+  if(didReshuffle) playReshuffleAnim();
   renderHand(); renderHud();
   if(animate && dealt>0){
     const tiles=[...$("hand").querySelectorAll(".tile")];
@@ -2467,6 +2564,7 @@ function startLevel(){
   G.discardsLeft=DISCARDS_PER_LEVEL+G.extraDiscards;
   { const ds=$("defStrip"); if(ds){ ds.classList.add("hidden"); ds.innerHTML=""; } }  // clear last word's definition
   G.reshuffleCount=0;
+  G.pileReshuffles=0;
   G.levelStats={bestWord:"",bestScore:0,words:0};
   const rng=makeRng("lvl:"+G.level+":"+G.attempt);
   // Locked challenge: pull the banned letters out of the deck for this level only,
@@ -2491,18 +2589,30 @@ function startLevel(){
   syncTimer();
   save();
 }
-// Letters are never burned: a played (or discarded) word's slugs go to the
-// BOTTOM of the deck, and you draw fresh ones off the top — a predictable
-// queue, not a reshuffle. The turn limit bounds a round; words may repeat freely.
+// Letters are never burned. A played (or discarded) word's slugs go to the
+// DISCARD pile; you draw off the top of the draw pile. When the draw pile runs
+// dry, the discard reshuffles (seeded, so dailies stay fair) into a fresh draw
+// pile. Encore tiles skip the discard and return straight to the top of the draw.
 function returnCanvasToPile(){
   if(G.canvas.length){
     G.canvas.forEach(c=>{ if(c.kind==="clone") c.cloneLetter=null; if(c.kind==="wildvowel") c.vowel=null; if(c.kind==="wildcons") c.cons=null; });
-    // v42b: Encore tiles cycle back to the TOP of the pile; everything else to the bottom.
     const encore=G.canvas.filter(c=>c.encore), rest=G.canvas.filter(c=>!c.encore);
-    G.drawPile.push(...rest);
+    if(!G.played) G.played=[];
+    G.played.push(...rest);                       // v45a: played slugs go to the discard pile
     if(encore.length) G.drawPile.unshift(...encore);
     G.canvas=[];
   }
+}
+// Reshuffle the discard pile back into the draw pile when the draw runs out.
+// Seeded by (level, attempt, reshuffle index) so the order is identical for
+// everyone on a shared daily seed. Returns true if a reshuffle happened.
+function reshuffleDiscardIntoDraw(){
+  if(!G.played || G.played.length===0) return false;
+  G.pileReshuffles=(G.pileReshuffles||0)+1;
+  const rng=makeRng("reshuf:"+G.level+":"+G.attempt+":"+G.pileReshuffles);
+  G.drawPile.push(...shuffle(G.played,rng));
+  G.played=[];
+  return true;
 }
 function bigWordCash(n){ return n>=7?5 : n===6?2 : n===5?1 : 0; }
 function submitWord(){
@@ -2826,6 +2936,8 @@ function perkPool(rng){
     {make:()=>growthMindOffer(),   weight:1.2},
     {make:()=>foilOffer(),         weight:1.1},
     {make:()=>fusionOffer(),       weight:1.8},
+    {make:()=>comboOffer("ing"),   weight:0.9},
+    {make:()=>comboOffer("er"),    weight:1.2},
     {make:()=>freeJazzOffer(),     weight:0.5},
   ];
   // Encore + Watermark are strong on their own and oppressive together, so they sit at the
@@ -2940,6 +3052,7 @@ function applyOffer(o){
     case "wildVowel":    G.deck.push(makeWildVowelCard()); break;
     case "wildCons":     G.deck.push(makeWildConsCard()); break;
     case "copyCat":      G.deck.push(makeCopyCatCard()); break;
+    case "combo":        G.deck.push(makeComboCard(d.key)); break;
     case "freeJazz":     G.deck.push(makeJazzCard()); break;
     case "vowelPower":   G.perks.vowelPower=(+G.perks.vowelPower||0)+1; break;
     case "fireSale":     G.perks.fireSale=true; break;
@@ -3049,6 +3162,14 @@ function fusionOffer(){
   return {kind:"Upgrade",rarity:"common",name:"Letter fusion",
     desc:"Fuse two letters into one tile. Play it as either single letter, or as the pair in either order. Cost is the two letters combined.",
     price:px(4), art:"⛓", needsTarget:"fuse", d:{type:"fuse"}};
+}
+function comboOffer(key){
+  const d=COMBO_DEFS[key]; const val=d.seq.length;   // 1 pt per letter
+  return {kind:"Tile",rarity:d.rarity,name:"Add "+d.label,
+    desc:"One tile that plays as "+d.label+". Worth "+val+" points and counts as "+d.seq.length+" letters in your word.",
+    price:px(d.price),
+    art:`<span class="mini-tile" style="background:linear-gradient(180deg,#F3EEFB,#E4DAF4);border-color:#C3B2E0;font-size:.78rem;font-family:var(--serif)">${d.label}<span class="mv">${val}</span></span>`,
+    d:{type:"combo",key}};
 }
 function pregildedLetterOffer(rng){
   // a rare letter that arrives already gilded; price = the letter plus its gilding
@@ -3279,52 +3400,104 @@ function openDeck(mode){
   if(mode){ hint.classList.remove("hidden"); }
   renderDeck();
 }
-function renderDeck(){
-  const list=$("deckList"); list.innerHTML="";
-  const rank=c=>({letter:0,clone:1,wildvowel:2,jazz:3}[c.kind]??4);
-  const sorted=G.deck.slice().sort((a,b)=>{
+function deckTileEl(c){
+  const wrap=document.createElement("div");
+  wrap.className="deck-tile";
+  wrap.appendChild(buildStaticTile(c));
+  const upgradable = c.kind==="letter" || c.kind==="fused";
+  if(G.selectMode==="remove"){ wrap.classList.add("selectable","danger"); wrap.addEventListener("click",()=>doRemove(c.id)); }
+  if(G.selectMode==="gild" && upgradable && (c.upLevel||0)<GILD_CAP){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doGild(c.id)); }
+  if(G.selectMode==="growth"    && upgradable && typeof c.growth!=="number"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"growth")); }
+  if(G.selectMode==="encore"    && upgradable && !c.encore){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"encore")); }
+  if(G.selectMode==="foil"      && upgradable && !c.foil){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"foil")); }
+  if(G.selectMode==="watermark" && upgradable && !c.watermark){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"watermark")); }
+  if(G.selectMode==="fuse" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); if(G.fusePending===c.id) wrap.classList.add("fuse-pending"); wrap.addEventListener("click",()=>tapFuse(c.id)); }
+  return wrap;
+}
+function deckSortKey(){
+  const rank=c=>({letter:0,combo:1,fused:2,clone:3,wildvowel:4,wildcons:5,copycat:6,jazz:7}[c.kind]??8);
+  return (a,b)=>{
     if(rank(a)!==rank(b)) return rank(a)-rank(b);
     if(a.kind==="letter") return a.letter.localeCompare(b.letter) || (cardValue(b)-cardValue(a));
     return 0;
-  });
-  sorted.forEach(c=>{
-    const wrap=document.createElement("div");
-    wrap.className="deck-tile";
-    wrap.appendChild(buildStaticTile(c));
-    if(G.selectMode==="remove"){ wrap.classList.add("selectable","danger"); wrap.addEventListener("click",()=>doRemove(c.id)); }
-    if(G.selectMode==="gild" && c.kind==="letter" && (c.upLevel||0)<GILD_CAP){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doGild(c.id)); }
-    if(G.selectMode==="growth"    && c.kind==="letter" && typeof c.growth!=="number"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"growth")); }
-    if(G.selectMode==="encore"    && c.kind==="letter" && !c.encore){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"encore")); }
-    if(G.selectMode==="foil"      && c.kind==="letter" && !c.foil){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"foil")); }
-    if(G.selectMode==="watermark" && c.kind==="letter" && !c.watermark){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"watermark")); }
-    if(G.selectMode==="fuse" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); if(G.fusePending===c.id) wrap.classList.add("fuse-pending"); wrap.addEventListener("click",()=>tapFuse(c.id)); }
-    list.appendChild(wrap);
-  });
-  $("deckCount").textContent=G.deck.length+" cards";
+  };
+}
+function renderDeck(){
+  const list=$("deckList"); list.innerHTML="";
+  const sortFn=deckSortKey();
+  const inPlay = !$("play").classList.contains("hidden");
+  const grouped = inPlay && !G.selectMode;   // pile split only mid-round, never while picking a target
+  if(grouped){
+    list.classList.remove("deck-list");
+    const inHand=[...G.hand,...G.canvas];
+    const groups=[
+      {key:"hand", label:"In hand", cards:inHand, count:null, muted:false, empty:"All tiles are in your piles."},
+      {key:"draw", label:"Draw pile", cards:G.drawPile.slice(), count:G.drawPile.length+" / "+G.deck.length, muted:false, empty:"Empty — plays will reshuffle here."},
+      {key:"disc", label:"Discard", cards:(G.played||[]).slice(), count:(G.played||[]).length||null, muted:true, empty:"Nothing played yet this round."}
+    ];
+    groups.forEach(g=>{
+      const sec=document.createElement("div"); sec.className="deck-group"+(g.muted?" muted":"");
+      const head=document.createElement("div"); head.className="dg-head";
+      head.innerHTML=`<span>${g.label}</span>`+(g.count!=null?`<span class="dg-count">${g.count}</span>`:"");
+      sec.appendChild(head);
+      const row=document.createElement("div"); row.className="dg-row";
+      if(g.cards.length){ g.cards.sort(sortFn).forEach(c=>row.appendChild(deckTileEl(c))); }
+      else { const e=document.createElement("div"); e.className="dg-empty"; e.textContent=g.empty; row.appendChild(e); }
+      sec.appendChild(row);
+      list.appendChild(sec);
+    });
+  } else {
+    list.className="deck-list";
+    G.deck.slice().sort(sortFn).forEach(c=>list.appendChild(deckTileEl(c)));
+  }
+  // header count
+  $("deckCount").textContent = grouped ? (G.drawPile.length+" / "+G.deck.length+" in draw") : (G.deck.length+" cards");
   // summary
-  let pts=0, clones=0, jazz=0, wilds=0, wconst=0, copies=0, fused=0;
+  let pts=0, clones=0, jazz=0, wilds=0, wconst=0, copies=0, fused=0, combos=0;
   G.deck.forEach(c=>{
     if(c.kind==="clone"){clones++;return;}
     if(c.kind==="jazz"){jazz++;return;}
     if(c.kind==="wildvowel"){wilds++;return;}
     if(c.kind==="wildcons"){wconst++;return;}
     if(c.kind==="copycat"){copies++;return;}
-    if(c.kind==="fused"){fused++;return;}
+    if(c.kind==="fused"){fused++; pts+=fusedValue(c); return;}
+    if(c.kind==="combo"){combos++; pts+=comboValue(c); return;}
     pts+=cardValue(c);
   });
   const vowels=G.deck.filter(c=>c.kind==="letter"&&VOWELS.has(c.letter)).length;
   const extras=[];
+  if(combos) extras.push(`${combos} combo${combos>1?"s":""}`);
+  if(fused)  extras.push(`${fused} fused`);
   if(clones) extras.push(`${clones} clone${clones>1?"s":""}`);
   if(wilds)  extras.push(`${wilds} wild vowel${wilds>1?"s":""}`);
   if(wconst) extras.push(`${wconst} wild consonant${wconst>1?"s":""}`);
   if(copies) extras.push(`${copies} copy cat${copies>1?"s":""}`);
-  if(fused)  extras.push(`${fused} fused`);
   if(jazz)   extras.push(`${jazz} free jazz`);
   $("deckSummary").innerHTML=`${vowels} vowels · ${G.deck.filter(c=>c.kind==="letter").length-vowels} consonants${extras.length?" · "+extras.join(" · "):""}<br>total face value ${pts}`;
-  { const dp=$("deckPerks"); if(dp){ const perks=ownedPerksList();
-      dp.innerHTML='<div class="dp-title">Perks owned</div>'+(perks.length
-        ? perks.map(p=>`<span class="dp-chip">${escHtml(p)}</span>`).join("")
-        : '<span class="dp-none">None yet — buy some in the print shop.</span>'); } }
+  renderDeckPerks();
+  renderDeckWords();
+}
+function renderDeckPerks(){
+  const dp=$("deckPerks"); if(!dp) return;
+  const cards=ownedPerkCards();
+  if(!cards.length){ dp.innerHTML='<div class="dp-title">Perks owned</div><span class="dp-none">None yet — buy some in the print shop.</span>'; return; }
+  dp.innerHTML='<div class="dp-title">Perks owned</div><div class="dp-grid">'+cards.map(p=>
+    `<div class="perk-card"><span class="pc-art">${p.art}</span><span class="pc-body"><span class="pc-name">${escHtml(p.name)}</span><span class="pc-desc">${escHtml(p.desc)}</span></span></div>`
+  ).join("")+'</div>';
+}
+function renderDeckWords(){
+  const dw=$("deckWords"); if(!dw) return;
+  const plays=G.wordPlays||{};
+  const words=Object.keys(plays).filter(w=>plays[w]>0);
+  if(!words.length){ dw.innerHTML='<div class="dw-title">Words used this run</div><span class="dw-none">No words set yet — go forge some.</span>'; return; }
+  words.sort((a,b)=> (plays[b]-plays[a]) || a.localeCompare(b));
+  const cols = words.length<=8 ? 2 : 3;
+  const cap=w=>w.charAt(0).toUpperCase()+w.slice(1);
+  const items=words.map(w=>{
+    const n=plays[w];
+    return `<div class="dw-item"><span class="dw-w">${escHtml(cap(w))}</span>${n>1?`<span class="dw-x">${n}×</span>`:""}</div>`;
+  }).join("");
+  dw.innerHTML=`<div class="dw-title">Words used this run · ${words.length}</div><div class="dw-cols" style="column-count:${cols}">${items}</div>`;
 }
 function buildStaticTile(c){
   const t=document.createElement("div");
@@ -3354,9 +3527,17 @@ function buildStaticTile(c){
       t.appendChild(cd);
     });
     const fm=document.createElement("span"); fm.className="clone-mark"; fm.textContent="⛓"; t.appendChild(fm);
+    tileBadges(t,c);
     return t;
   }
-  const g=document.createElement("span"); g.textContent=(c.kind==="copycat"?"⧉":tileGlyph(c)); t.appendChild(g);
+  if(c.kind==="combo"){
+    t.classList.add("combo");
+    const g=document.createElement("span"); g.className="combo-label"; g.textContent=comboLabel(c); t.appendChild(g);
+    const v=document.createElement("span"); v.className="val"; v.textContent=comboValue(c); t.appendChild(v);
+    const cm=document.createElement("span"); cm.className="clone-mark"; cm.textContent="✚"; t.appendChild(cm);
+    tileBadges(t,c);
+    return t;
+  }
   if(c.kind==="clone"){ const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="CLONE"; t.appendChild(s); }
   else if(c.kind==="copycat"){ const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="COPY"; t.appendChild(s); }
   else { const v=document.createElement("span"); v.className="val"; v.innerHTML=valHtml(c); t.appendChild(v); }
@@ -3364,14 +3545,14 @@ function buildStaticTile(c){
   return t;
 }
 function doTileUpgrade(id,kind){
-  const c=G.deck.find(x=>x.id===id); if(!c||c.kind!=="letter") return;
+  const c=G.deck.find(x=>x.id===id); if(!c||(c.kind!=="letter"&&c.kind!=="fused")) return;
   if(kind==="growth"){ if(typeof c.growth!=="number") c.growth=0; }
   else if(kind==="encore"){ c.encore=true; }
   else if(kind==="foil"){ c.foil=true; }
   else if(kind==="watermark"){ c.watermark=true; }
   G.selectMode=null;
   const label={growth:"Growth Mindset",encore:"Encore",foil:"Foil Stamp",watermark:"Watermark"}[kind];
-  toast(label+" applied to "+c.letter);
+  toast(label+" applied to "+(c.kind==="fused"?fusedLabel(c):c.letter));
   haptic(20);
   closeDeck(); save();
 }
@@ -3433,18 +3614,24 @@ let gildPending=null;
 const GILD_CAP = 3;   // a letter can be gilded at most 3 times
 function gildCostFor(c){
   const u=c.upLevel||0;
+  if(c.kind==="fused"){ return px((GILD_BASE/2 + fusedValue(c)) * Math.pow(2, u)); }   // v45a: gild both sides at once
   // value-scaled: gilding a high-value letter (X/Z/Q) costs far more than an E,
   // and each successive gild on the same letter doubles.
   return px((GILD_BASE/2 + cardValue(c)) * Math.pow(2, u));
 }
 function doGild(id){
-  const c=G.deck.find(x=>x.id===id); if(!c||c.kind!=="letter")return;
+  const c=G.deck.find(x=>x.id===id); if(!c||(c.kind!=="letter"&&c.kind!=="fused"))return;
   const u=c.upLevel||0;
-  if(u>=GILD_CAP){ toast(c.letter+" is already gilded ×"+GILD_CAP+" (max)"); return; }
+  if(u>=GILD_CAP){ toast((c.kind==="fused"?fusedLabel(c):c.letter)+" is already gilded ×"+GILD_CAP+" (max)"); return; }
   const cost=gildCostFor(c);
   gildPending={cardId:id, cost};
-  const now=cardValue(c), next=now*2;
-  $("gildMsg").innerHTML=`<b>${c.letter}</b> &nbsp;${now} → ${next} pts`+(u>0?`<br><span class="gild-note">already gilded ×${u} · ${GILD_CAP-u} left</span>`:"");
+  if(c.kind==="fused"){
+    const now=fusedValue(c), next=now*2;
+    $("gildMsg").innerHTML=`<b>${fusedLabel(c)}</b> &nbsp;${now} → ${next} pts<br><span class="gild-note">both sides gild together${u>0?` · already ×${u} · ${GILD_CAP-u} left`:""}</span>`;
+  } else {
+    const now=cardValue(c), next=now*2;
+    $("gildMsg").innerHTML=`<b>${c.letter}</b> &nbsp;${now} → ${next} pts`+(u>0?`<br><span class="gild-note">already gilded ×${u} · ${GILD_CAP-u} left</span>`:"");
+  }
   $("gildPrice").innerHTML=`<span class="c-ico">◉</span>${cost}`;
   const yes=$("gildYes"); yes.disabled=G.coins<cost;
   yes.textContent = G.coins<cost ? "Not enough ◉" : "Gild for ◉"+cost;
@@ -3457,11 +3644,12 @@ function confirmGild(){
   if(G.coins<cost){ toast("Not enough coins"); return; }
   G.coins-=cost;
   c.upLevel=(c.upLevel||0)+1;
+  if(c.kind==="fused"){ c.sides.forEach(s=>s.upLevel=(s.upLevel||0)+1); }   // v45a: both sides double
   if(typeof G.gildOfferIdx==="number" && G.shopOffers[G.gildOfferIdx]) G.shopOffers[G.gildOfferIdx].sold=true;
   G.gildOfferIdx=null; gildPending=null; G.selectMode=null;
-  statShopBuy("Gild "+c.letter, cost, "gild");
+  statShopBuy("Gild "+(c.kind==="fused"?fusedLabel(c):c.letter), cost, "gild");
   haptic(24);
-  toast(c.letter+" now "+cardValue(c)+" pts");
+  toast((c.kind==="fused"?fusedLabel(c):c.letter)+" now "+(c.kind==="fused"?fusedValue(c):cardValue(c))+" pts");
   closeGildConfirm(); closeDeck(); save();
 }
 function cancelGild(){ gildPending=null; closeGildConfirm(); }   // back to the picker
@@ -3687,6 +3875,36 @@ function ownedPerksList(){
   Object.keys(G.perks.lastUp||{}).forEach(L=>{ const s=G.perks.lastUp[L]; if(s>0) out.push("Finale "+L+" · ×"+(1+0.5*s)); });
   return out;
 }
+// Richer descriptors for the deck-view perk cards (art + name + short blurb).
+function ownedPerkCards(){
+  const out=[]; const P=G.perks; const push=(art,name,desc)=>out.push({art,name,desc});
+  if(+P.vowelPower>0) push("🅰️","Vowel Power","+"+(+P.vowelPower)+" to the value of every vowel.");
+  if(P.bigWords)   push("📏","Big Words","Longer words give double the length multiplier.");
+  if(P.twinsies)   push("👯","Twinsies","×2 when two of the same letter sit side by side.");
+  if(P.twoOfAKind) push("🃏","Two of a Kind","×1.5 on any word with a repeated letter.");
+  if(P.shortKing)  push("👑","Short King","×1.5 on words of four letters or fewer.");
+  if(P.kerning)    push("📐","Kerning","+25% on words with no repeated letter.");
+  if(P.fiveTimer)  push("5️⃣","Five Timer","×1.5 on exactly five-letter words.");
+  if(P.marginalia) push("🪙","Marginalia","1 coin for every 15 points past the target.");
+  if(P.mirror)     push("🪞","Mirror","×3 on palindromes.");
+  if(P.verbose)    push("🅥","Verbose","×1.5 on verbs, in any form.");
+  if(P.repeater)   push("🔁","Repeater","Replaying a word you've used scores higher.");
+  if(P.powerTrio)  push("🎯","Power Trio","×2 when a letter appears three or more times.");
+  if(P.reprint)    push("📋","Reprint","Spare the first heart you would lose."+(G.reprintUsed?" Used.":""));
+  if(P.proofSheet) push("🔍","Proof Sheet","See the top tile of your draw pile.");
+  if((G.pressGrowth||0)>0) push("🗜️","Press Multiplier","Each 6+ letter word lifts your score multiplier (now ×"+Number(G.scoreMult||1).toFixed(3)+").");
+  else if((G.scoreMult||1)>1) push("🗜️","Press","Score multiplier at ×"+Number(G.scoreMult).toFixed(3)+".");
+  if(G.handSize>START_HAND) push("🗄️","Fuller Case","Hold "+G.handSize+" tiles in every hand.");
+  if(G.extraTurns>0)    push("⏳","Extra Word","+"+G.extraTurns+" word"+(G.extraTurns>1?"s":"")+" to set each round.");
+  if(G.extraDiscards>0) push("♻️","Extra Discard","+"+G.extraDiscards+" discard"+(G.extraDiscards>1?"s":"")+" each round.");
+  if(P.interest)   push("🏦","Compound Interest","Earn 10% of your coins each round.");
+  if(P.discardMoneyBoost) push("💸","Frugal Press","+50% coins from leftover discards.");
+  if(P.fireSale)   push("🔥","Fire Sale","All shop prices 25% cheaper.");
+  if(P.freeRerolls) push("♻️","Free Re-roll","Your first re-roll each shop is free.");
+  Object.keys(P.firstUp||{}).forEach(L=>{ const s=P.firstUp[L]; if(s>0) push("⭐","First-up "+L,"Words starting with "+L+" score ×"+(1+0.5*s)+"."); });
+  Object.keys(P.lastUp||{}).forEach(L=>{ const s=P.lastUp[L]; if(s>0) push("🔚","Finale "+L,"Words ending with "+L+" score ×"+(1+0.5*s)+"."); });
+  return out;
+}
 
 /* ============================================================
    Pause menu (in-run) + Options menu (title)
@@ -3766,7 +3984,7 @@ function gameOver(won){
    Autosave / continue
    ============================================================ */
 const SAVE_KEY="wordsmith_save_v0";
-const SAVE_VERSION=9;
+const SAVE_VERSION=10;
 function hasSave(){ try{ const s=JSON.parse(localStorage.getItem(SAVE_KEY)); return !!(s&&s.v===SAVE_VERSION); }catch(e){ return false; } }
 function clearSave(){ try{ localStorage.removeItem(SAVE_KEY); }catch(e){} refreshContinue(); }
 function save(){
@@ -3785,7 +4003,7 @@ function save(){
       perks:G.perks, scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, reprintUsed:G.reprintUsed, foilUsed:G.foilUsed, challenge:G.challenge, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, jazzCharges:G.jazzCharges, runMs:G.runMs, stats:G.stats,
       wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, wordPlays:G.wordPlays, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
       attempt:G.attempt, target:G.target, score:G.score, handsLeft:G.handsLeft, discardsLeft:G.discardsLeft,
-      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas),
+      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0,
       rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
     };
     localStorage.setItem(SAVE_KEY,JSON.stringify(data));
@@ -3819,7 +4037,7 @@ function continueRun(){
   const map=a=>(a||[]).map(id=>byId[id]).filter(Boolean);
   G.attempt=d.attempt||0; G.target=d.target||targetFor(G.level);
   G.score=d.score||0; G.handsLeft=d.handsLeft||0; G.discardsLeft=d.discardsLeft||0;
-  G.drawPile=map(d.drawPile); G.hand=map(d.hand); G.canvas=map(d.canvas);
+  G.drawPile=map(d.drawPile); G.hand=map(d.hand); G.canvas=map(d.canvas); G.played=map(d.played); G.pileReshuffles=d.pileReshuffles||0;
   $("titleScreen").classList.add("hidden"); $("overScreen").classList.add("hidden");
   if(d.phase==="summary" && d.summaryInfo){
     hideGame();
