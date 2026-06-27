@@ -644,7 +644,11 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
 .chal-reward .cr-badge{font-size:.6rem;font-weight:900;letter-spacing:.08em;text-transform:uppercase;color:var(--moss)}
 .chal-reward .cr-name{font-weight:800;font-size:.98rem;color:var(--ink)}
 .chal-reward .cr-desc{font-size:.78rem;color:var(--ink-soft);line-height:1.35}
-#chalBanner{display:flex;align-items:center;justify-content:center;gap:7px;margin-top:7px;font-size:.7rem;font-weight:700;color:var(--ink-soft)}
+#chalBanner{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:7px;margin-top:7px;font-size:.7rem;font-weight:700;color:var(--ink-soft)}
+#chalBanner .cb-desc{flex-basis:100%;text-align:center;font-size:.66rem;font-weight:600;color:var(--ink-soft);opacity:.92;line-height:1.35;margin-top:1px}
+.def-strip .dd.chal-why{font-style:normal;color:var(--oxblood);font-weight:700}
+.def-strip.chal-free .dw{color:var(--moss)}
+.def-strip .dd.chal-free-why{font-style:normal;color:var(--ink-soft);font-weight:600}
 #chalBanner .cb-tag{font-size:.58rem;font-weight:900;letter-spacing:.12em;color:#fff;background:var(--brass-deep,#8a6418);border-radius:999px;padding:3px 8px}
 #chalBanner .cb-name{font-weight:800;color:var(--ink)}
 #chalBanner .cb-dot{color:var(--tile-edge)}
@@ -1070,7 +1074,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "45b";
+const VERSION = "45c";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -2122,7 +2126,7 @@ function scoreOf(res){
 function updateLive(){
   const res=resolvedCanvas();
   const lw=$("liveWord"), ls=$("liveScore");
-  if(res.length===0){ lw.textContent="—"; lw.className="live-word bad"; ls.textContent=""; updateButtons(); return; }
+  if(res.length===0){ lw.textContent="—"; lw.className="live-word bad"; ls.textContent=""; updateChallengeBlockHint(); updateButtons(); return; }
   const w=currentWord();
   const sc=scoreOf(res);
   const valid=wordValid();
@@ -2154,6 +2158,7 @@ function updateLive(){
   if(sc.verbHit) parts.push(`×1.5 verb`);
   if(sc.repeatHit>0) parts.push(`×${(1+0.5*Math.min(sc.repeatHit,3)).toFixed(1)} replay`);
   ls.innerHTML = `${sc.total} <span class="mult">${parts.join(" ")}${label?" • "+label:""}</span>`;
+  updateChallengeBlockHint();
   updateButtons();
 }
 function updateButtons(){
@@ -2517,7 +2522,8 @@ function handVowelSource(){
   // a real vowel, or a wild-vowel tile that's guaranteed to become one
   return G.hand.some(c => (c.kind==="letter" && VOWELS.has(c.letter)) || c.kind==="wildvowel");
 }
-function dealUpToHand(animate){
+const MAX_FREE_REDEALS = 6;   // safety cap on auto free re-deals per round (prevents a runaway if the deck truly can't satisfy the challenge)
+function drawIntoHand(){
   let dealt=0, didReshuffle=false;
   while(G.hand.length<G.handSize){
     if(G.drawPile.length===0){ if(!reshuffleDiscardIntoDraw()) break; didReshuffle=true; }
@@ -2533,14 +2539,79 @@ function dealUpToHand(animate){
       G.hand.push(G.drawPile.shift()); dealt++;
     }
   }
+  return {dealt, didReshuffle};
+}
+// Can this hand legally satisfy the round's challenge at all? Only Long Form can
+// make a hand impossible (Locked pulls banned letters from the deck entirely, and
+// Steep is just a higher target). Flexible tiles (wilds, clone, fused, jazz) make
+// a play almost always reachable, so we treat their presence as "not dead" rather
+// than risk handing out an undeserved free re-deal.
+function handIsDeadForChallenge(){
+  if(!challengeActive()) return false;
+  const minL=challengeMinLen(); if(!minL) return false;
+  const letters=[]; let jazz=false, flexible=false, total=0;
+  for(const c of G.hand){
+    if(c.kind==="jazz"){ if((c.jazzLeft||0)>0) jazz=true; total++; continue; }
+    if(c.kind==="wildvowel"||c.kind==="wildcons"||c.kind==="clone"||c.kind==="copycat"||c.kind==="fused"){ flexible=true; total++; continue; }
+    if(c.kind==="combo"){ comboSeq(c).forEach(L=>letters.push(L.toLowerCase())); total+=comboSeq(c).length; continue; }
+    if(c.kind==="letter"){ letters.push(c.letter.toLowerCase()); total++; continue; }
+    flexible=true; total++;
+  }
+  if(total<minL) return true;          // not enough tiles to reach the minimum length
+  if(jazz) return false;               // free jazz can play any minL tiles as a non-word
+  if(flexible) return false;           // wild/clone/fused: assume a long word is reachable
+  return !handHasValidWord(letters, minL);
+}
+// True if some sub-multiset of `letters` (size >= minL) anagrams to a dictionary word.
+function handHasValidWord(letters, minL){
+  const n=letters.length;
+  if(n>18) return true;                // too many letters to brute force; a word almost surely exists
+  const ana=anaSet(), cap=Math.min(n,12);
+  const pc=x=>{ let c=0; while(x){ x&=x-1; c++; } return c; };
+  for(let mask=1; mask<(1<<n); mask++){
+    const bits=pc(mask);
+    if(bits<minL||bits>cap) continue;
+    const sub=[];
+    for(let i=0;i<n;i++) if(mask&(1<<i)) sub.push(letters[i]);
+    if(ana.has(sub.sort().join(""))) return true;
+  }
+  return false;
+}
+function dealUpToHand(animate){
+  let {dealt, didReshuffle}=drawIntoHand();
+  // Challenge dead-hand rescue: if no legal play exists AND the player is out of
+  // discards, clear the whole hand for free and deal a fresh one. Deterministic
+  // (pure function of seed/state), capped to avoid a runaway.
+  let freeRedeals=0;
+  while(challengeActive() && challengeMinLen() && G.discardsLeft===0 && G.handsLeft>0
+        && (G._rescues||0)<MAX_FREE_REDEALS && handIsDeadForChallenge()){
+    G._rescues=(G._rescues||0)+1; freeRedeals++;
+    if(!G.played) G.played=[];
+    G.played.push(...G.hand); G.hand=[];        // dead hand goes to the discard pile, no discard spent
+    const r=drawIntoHand(); didReshuffle=didReshuffle||r.didReshuffle; dealt=G.hand.length;
+  }
   if(didReshuffle) playReshuffleAnim();
   renderHand(); renderHud();
-  if(animate && dealt>0){
+  if(freeRedeals>0){
+    showChallengeFreeDiscard(challengeMinLen());
+    haptic([10,40,10]);
+    const tiles=[...$("hand").querySelectorAll(".tile")];
+    tiles.forEach((t,i)=>{ t.classList.add("dealing"); t.style.animationDelay=(i*55)+"ms"; });
+  } else if(animate && dealt>0){
     const tiles=[...$("hand").querySelectorAll(".tile")];
     const fresh=tiles.slice(tiles.length-dealt);
     fresh.forEach((t,i)=>{ t.classList.add("dealing"); t.style.animationDelay=(i*60)+"ms"; });
   }
   save();
+}
+// The plain-language description shown on the challenge select screen, reused in
+// the in-game banner so both read identically. Banned letters are appended only
+// when asked (the banner shows them separately in its lock chip).
+function challengeDescText(type, banned, withLetters){
+  const def=CHALLENGE_TYPES[type]; if(!def) return "";
+  let desc=def.desc;
+  if(withLetters && type==="locked" && banned && banned.length){ desc+=" ("+banned.join(", ")+")"; }
+  return desc;
 }
 function renderChallengeBanner(){
   const el=$("chalBanner"); if(!el) return;
@@ -2551,7 +2622,8 @@ function renderChallengeBanner(){
     if(G.challenge.type==="locked" && (G.challenge.banned||[]).length){
       locked=`<span class="cb-dot">·</span><span class="cb-locked">🔒 ${G.challenge.banned.join(" ")}</span>`;
     }
-    el.innerHTML=`<span class="cb-tag">CHALLENGE</span><span class="cb-name">${def.name}</span><span class="cb-dot">·</span><span class="cb-reward">${rwBadge}</span>${locked}`;
+    const desc=escHtml(challengeDescText(G.challenge.type, G.challenge.banned, false));
+    el.innerHTML=`<span class="cb-tag">CHALLENGE</span><span class="cb-name">${def.name}</span><span class="cb-dot">·</span><span class="cb-reward">${rwBadge}</span>${locked}<span class="cb-desc">${desc}</span>`;
     el.classList.remove("hidden");
   } else { el.classList.add("hidden"); el.innerHTML=""; }
 }
@@ -2565,6 +2637,7 @@ function startLevel(){
   { const ds=$("defStrip"); if(ds){ ds.classList.add("hidden"); ds.innerHTML=""; } }  // clear last word's definition
   G.reshuffleCount=0;
   G.pileReshuffles=0;
+  G._rescues=0;
   G.levelStats={bestWord:"",bestScore:0,words:0};
   const rng=makeRng("lvl:"+G.level+":"+G.attempt);
   // Locked challenge: pull the banned letters out of the deck for this level only,
@@ -3345,9 +3418,7 @@ function renderChallenge(lvl){
   $("chalRound").textContent="Round "+lvl;
   $("chalName").textContent=def.name;
   $("chalBadge").textContent=def.badge;
-  let desc=def.desc;
-  if(p.type==="locked" && p.banned.length){ desc+=" ("+p.banned.join(", ")+")"; }
-  $("chalDesc").textContent=desc;
+  $("chalDesc").textContent=challengeDescText(p.type, p.banned, true);
   const base=targetFor(lvl);
   const tgt = p.type==="steep" ? Math.round(base*CHALLENGE_TARGET_MULT) : base;
   $("chalTarget").innerHTML = p.type==="steep"
@@ -3860,9 +3931,57 @@ function showDefinition(word, isJazz){
   const token=String(Date.now()+Math.random()); el.dataset.token=token;
   lookupDefinition(word).then(res=>{
     if(el.dataset.token!==token) return;   // superseded by a newer word
+    if(el.dataset.chalblock==="1"){        // a challenge-block hint is showing; stash the def to restore later
+      el.dataset.savedHtml = res
+        ? `<span class="dw">${w}</span><span class="dpos">${escHtml(res.pos)}</span><span class="dd">${escHtml(res.def)}</span>`
+        : `<span class="dw">${w}</span><span class="dd muted">definition unavailable</span>`;
+      el.dataset.savedHidden="0";
+      return;
+    }
     if(res) el.innerHTML=`<span class="dw">${w}</span><span class="dpos">${escHtml(res.pos)}</span><span class="dd">${escHtml(res.def)}</span>`;
     else    el.innerHTML=`<span class="dw">${w}</span><span class="dd muted">definition unavailable</span>`;
   });
+}
+/* A real dictionary word can be barred purely by the round's challenge (too short
+   for Long Form, or it uses a Locked letter). When that happens while composing,
+   take over the definition strip to explain why, then restore the prior contents
+   once the word is cleared or fixed. */
+function updateChallengeBlockHint(){
+  const el=$("defStrip"); if(!el) return;
+  const blocked = challengeActive() && isRealWord() && !wordValid();
+  if(blocked){
+    if(el.dataset.chalblock!=="1"){
+      el.dataset.savedHtml = el.innerHTML;
+      el.dataset.savedHidden = el.classList.contains("hidden") ? "1" : "0";
+      el.dataset.chalblock = "1";
+    }
+    const res=resolvedCanvas();
+    const w=escHtml(currentWord().toUpperCase());
+    const minL=challengeMinLen(), banned=bannedLetterSet();
+    let why;
+    if(minL && res.length<minL){
+      why = `a valid word, but this round only counts words of ${minL} letters or more`;
+    } else if(banned && res.some(r=>r.letter&&banned.has(r.letter))){
+      const hit=[...new Set(res.filter(r=>r.letter&&banned.has(r.letter)).map(r=>r.letter))];
+      why = `a valid word, but ${hit.join(", ")} ${hit.length>1?"are":"is"} locked this round`;
+    } else {
+      why = "blocked by this round's challenge";
+    }
+    el.classList.remove("hidden","chal-free");
+    el.innerHTML=`<span class="dw">${w}</span><span class="dd chal-why">${why}</span>`;
+  } else if(el.dataset.chalblock==="1"){
+    el.innerHTML = el.dataset.savedHtml || "";
+    if(el.dataset.savedHidden==="1") el.classList.add("hidden"); else el.classList.remove("hidden");
+    el.dataset.chalblock=""; el.dataset.savedHtml=""; el.dataset.savedHidden="";
+  }
+}
+function showChallengeFreeDiscard(minL){
+  const el=$("defStrip"); if(!el) return;
+  el.dataset.token="";                 // cancel any in-flight definition lookup
+  el.dataset.chalblock="";             // this is the new baseline content
+  el.dataset.savedHtml=""; el.dataset.savedHidden="";
+  el.classList.remove("hidden"); el.classList.add("chal-free");
+  el.innerHTML=`<span class="dw">Free re-deal</span><span class="dd chal-free-why">No ${minL}+ letter word was possible and you were out of discards, so that hand was cleared for a fresh one.</span>`;
 }
 
 /* ---------- Owned perks (for the deck screen) ---------- */
