@@ -1070,7 +1070,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "45a";
+const VERSION = "45b";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -3777,20 +3777,38 @@ function exportAllRuns(){
    rate-limited. Both return the same shape to the caller: {pos, def} or null.
    Data sourced from Wiktionary (CC BY-SA 4.0); see the attribution in How to Play. */
 const defCache={};
+/* Hard blocklist: words whose dictionary card is always suppressed (shown as
+   "definition unavailable"), regardless of what the API returns. These are words
+   whose only/dominant senses are slurs, fetish, or otherwise not PBS-appropriate,
+   where relying on per-sense filtering alone is too risky. The word can still be
+   played; only its definition card is hidden. Lowercase, letters only. */
+const DEF_BLOCKLIST=new Set([
+  "nance","nances","nancy","nancies",
+  "sissy","sissies","sissified",
+  "poofter","poofters","poof","poofs","poofy",
+  "shemale","shemales","ladyboy","ladyboys",
+  "transvestite","transvestites","crossdresser","crossdressers",
+  "catamite","catamites","ponce","ponces"
+]);
 function escHtml(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 /* Family-safety filter on definitions (PBS). Full Wiktionary includes explicit and
    slur content, so we never display a vulgar sense: skip any sense flagged by tag or
    worded explicitly, fall through to the next clean sense, and if none is clean the
    word shows "definition unavailable". This is the runtime net behind the word-list filter. */
-const EXPLICIT_TAG_RE=/\b(vulgar|offensive|derogatory|slur|obscene|coarse|profan\w*|pejorative|ethnic)\b/i;
+const EXPLICIT_TAG_RE=/\b(vulgar|offensive|derogatory|derogative|disparaging|contempt\w*|slur|obscene|coarse|profan\w*|pejorative|ethnic|racial|racist|religious|taboo|bdsm|fetish|homophob\w*|transphob\w*)\b/i;
 const EXPLICIT_DEF_RE=new RegExp(
   "blow ?job|hand ?job|rim ?job|blowie|oral sex|oral stimulation|anal sex|\\banal\\b|"+
   "masturbat|ejaculat|fellati|cunniling|anilingus|\\bcoitus\\b|copulat|fornicat|sodom|"+
   "sexual intercourse|genitalia|genital\\w*|\\bpenis\\b|penile|\\bvagina\\b|vaginal|vulva|"+
   "clitor\\w*|scrotum|testicl\\w*|\\bsemen\\b|\\bcum\\b|\\bjizz\\b|male member|dildo|vibrator|"+
   "butt ?plug|sex toy|pornograph\\w*|prostitut\\w*|orgasm\\w*|"+
+  // fetish / BDSM / cross-dressing framing (PBS: adult or slur context, hide the card)
+  "\\bbdsm\\b|bondage|dominatrix|dominatrices|fetish\\w*|cross-? ?dress\\w*|transvestit\\w*|"+
+  "ladyboy|she-? ?male|catamite|\\beffeminate\\b|emasculat\\w*|"+
+  // derogatory framing of people / groups
+  "homophob\\w*|transphob\\w*|\\bracist\\b|ethnic slur|racial slur|derogatory (?:term|word|name)|"+
   "\\bfuck\\w*|\\bshit\\w*|\\bcunt\\w*|\\bbitch\\w*|motherfuck\\w*|asshole|\\bwank\\w*|\\bslut\\b|\\bwhore\\b|"+
-  "nigg(?:er|a|ers|as)|faggot|\\bkike\\b|\\bspic\\b|\\bchink\\b|wetback|\\bcoon\\b|raghead|towelhead|tranny|\\bretard\\w*",
+  "nigg(?:er|a|ers|as)|faggot|\\bfag\\b|\\bfags\\b|\\bkike\\b|\\bspic\\b|\\bchink\\b|wetback|\\bcoon\\b|raghead|towelhead|tranny|\\bretard\\w*",
   "i");
 function defExplicit(text, tags){
   if(Array.isArray(tags) && tags.some(t=>EXPLICIT_TAG_RE.test(String(t)))) return true;
@@ -3825,6 +3843,7 @@ async function defFromDictDev(key){
 async function lookupDefinition(word){
   const key=String(word||"").toLowerCase().replace(/[^a-z]/g,"");
   if(!key) return null;
+  if(DEF_BLOCKLIST.has(key)){ defCache[key]=null; return null; }   // PBS: always "definition unavailable"
   if(key in defCache) return defCache[key];
   let res=null;
   try{ res=await defFromFreeDict(key); }catch(e){ res=null; }
