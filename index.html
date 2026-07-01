@@ -163,7 +163,12 @@ body::before{
 .bar.met > i{background:linear-gradient(90deg,var(--brass),#E2B64B)}
 
 /* ---------- Main play area ---------- */
-main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
+/* overflow:clip keeps tile spring/overshoot transforms from extending the
+   document's scroll region (which would flash the scrollbar and jutter the
+   layout on desktop). It does not create a scroll container, so in-flow content
+   still scrolls normally on short windows; the clip-margin preserves tile
+   shadows and spark juice near the edges. */
+main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;overflow:clip;overflow-clip-margin:40px}
 .play-center{flex:1;display:flex;flex-direction:column;justify-content:center;gap:10px;min-height:0}
 .def-strip{background:var(--paper);border:1px solid var(--tile-edge);border-radius:12px;padding:9px 13px;text-align:center;
   box-shadow:0 1px 0 #fff inset, 0 4px 14px rgba(35,32,46,.06)}
@@ -430,6 +435,10 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px}
   font-family:var(--serif);font-weight:600;font-size:1.6rem;color:var(--ink);cursor:pointer}
 .clone-choice:active{transform:translateY(1px)}
 .clone-choice .cc-val{position:absolute;right:5px;bottom:3px;font-family:var(--ui);font-size:.6rem;font-weight:800;color:var(--ink-soft)}
+/* locked-out letters in the wild vowel/consonant pickers */
+.clone-choice.locked,.vowel-choice.locked{opacity:.4;cursor:not-allowed;filter:grayscale(.5)}
+.clone-choice.locked::after,.vowel-choice.locked::after{content:"";position:absolute;left:12%;right:12%;top:48%;height:3px;background:var(--oxblood);transform:rotate(-18deg);border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,.5);pointer-events:none;z-index:4}
+.clone-choice.locked:active,.vowel-choice.locked:active{transform:none}
 
 /* wild-vowel fan-out chooser */
 .vowel-overlay{position:fixed;inset:0;z-index:60;background:rgba(20,18,30,.55);-webkit-backdrop-filter:blur(2px);backdrop-filter:blur(2px);opacity:0;transition:opacity .2s ease}
@@ -1078,7 +1087,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "45d";
+const VERSION = "46a";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1679,6 +1688,55 @@ function submitSound(power){
   blip(120+power*90, 0.16, 0.13, "sawtooth");
   blip(520+power*620, 0.12, 0.10, "triangle");
 }
+/* ---------- celebratory chime + low-end boom when a word is set ----------
+   Intentionally NOT gated by SFX_MUTED: this is the one always-on flourish.
+   Longer words ring longer, add higher shimmer, and hit the boom harder so the
+   payoff scales with the play (and lands with the screen shake). */
+const _PENTA=[0,2,4,7,9,12,14,16,19,21];   // major-pentatonic semitone offsets across octaves
+function _bell(freq, at, dur, vol){
+  const ac=audio(); if(!ac) return;
+  const t=ac.currentTime+at;
+  [[1,vol],[2.01,vol*0.32],[3.0,vol*0.12]].forEach(([mult,v])=>{   // a few partials → bell-ish timbre
+    const o=ac.createOscillator(), g=ac.createGain();
+    o.type="sine"; o.frequency.value=freq*mult;
+    g.gain.setValueAtTime(0,t);
+    g.gain.linearRampToValueAtTime(v, t+0.006);
+    g.gain.exponentialRampToValueAtTime(0.0001, t+dur);
+    o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+dur+0.02);
+  });
+}
+function _boom(at, dur, vol, f0, f1){
+  const ac=audio(); if(!ac) return;
+  const t=ac.currentTime+at;
+  const o=ac.createOscillator(), g=ac.createGain();
+  o.type="sine"; o.frequency.setValueAtTime(f0,t); o.frequency.exponentialRampToValueAtTime(f1,t+dur);
+  g.gain.setValueAtTime(0,t); g.gain.linearRampToValueAtTime(vol,t+0.012); g.gain.exponentialRampToValueAtTime(0.0001,t+dur);
+  o.connect(g); g.connect(ac.destination); o.start(t); o.stop(t+dur+0.03);
+  const o2=ac.createOscillator(), g2=ac.createGain();   // punchy transient so it reads over the shake
+  o2.type="triangle"; o2.frequency.setValueAtTime(f0*2.4,t); o2.frequency.exponentialRampToValueAtTime(f0*0.8,t+0.07);
+  g2.gain.setValueAtTime(vol*0.5,t); g2.gain.exponentialRampToValueAtTime(0.0001,t+0.09);
+  o2.connect(g2); g2.connect(ac.destination); o2.start(t); o2.stop(t+0.11);
+}
+function wordChime(len){
+  const ac=audio(); if(!ac) return;
+  const L=Math.min(Math.max(2, len|0), 12);
+  const notes=Math.min(Math.max(3, L), 9);            // 3..9 ascending chime notes
+  const step=0.056;                                   // arpeggio spacing
+  const noteDur=0.32 + Math.min(L,10)*0.04;           // longer words ring longer
+  const root=523.25;                                  // C5
+  _boom(0, 0.26 + L*0.025, Math.min(0.5, 0.20 + L*0.022), 74, 40);   // low boom with the shake
+  for(let i=0;i<notes;i++){
+    const semi=_PENTA[i % _PENTA.length] + 12*Math.floor(i/_PENTA.length);
+    _bell(root*Math.pow(2, semi/12), 0.02 + i*step, noteDur, 0.13);
+  }
+  if(L>=6){   // epic tail: a ringing higher chord for longer words
+    const at=0.02 + notes*step;
+    [0,4,7,12].forEach((semi,k)=>_bell(root*2*Math.pow(2,semi/12), at+k*0.012, noteDur*1.4, 0.085));
+  }
+  if(L>=9){   // sparkle cluster up high for the big ones
+    for(let i=0;i<5;i++) _bell(root*4*Math.pow(2, _PENTA[i]/12), 0.12+notes*step+i*0.032, 0.55, 0.045);
+  }
+}
 
 /* ---------- screen shake ---------- */
 function screenShake(amp){
@@ -1837,17 +1895,17 @@ function buildTile(c,where){
   if(c.kind==="jazz"){
     const g=document.createElement("span"); g.className="glyph"; g.textContent="🎷"; t.appendChild(g);
     const s=document.createElement("span"); s.className="glyph-sub"; s.textContent=(c.jazzLeft||0)+"/"+JAZZ_USES; t.appendChild(s);
-    attachTileHandlers(t,c,where); return t;
+    tileBadges(t,c); attachTileHandlers(t,c,where); return t;
   }
   if(c.kind==="wildvowel" && !wildSet){
     const d=document.createElement("span"); d.className="wv-design"; d.innerHTML=wildVowelDesignHTML(); t.appendChild(d);
     const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="WILD"; t.appendChild(s);
-    attachTileHandlers(t,c,where); return t;
+    tileBadges(t,c); attachTileHandlers(t,c,where); return t;
   }
   if(c.kind==="wildcons" && !assignedWildCons){
     const d=document.createElement("span"); d.className="wv-design"; d.innerHTML=wildConsDesignHTML(); t.appendChild(d);
     const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="CONS"; t.appendChild(s);
-    attachTileHandlers(t,c,where); return t;
+    tileBadges(t,c); attachTileHandlers(t,c,where); return t;
   }
   if(c.kind==="fused"){
     t.classList.add("fused","domino");
@@ -2101,9 +2159,9 @@ function scoreOf(res){
   let pairHit=false;
   if(G.perks.twoOfAKind){ const seen={}; for(const r of res){ if(r.letter){ if(seen[r.letter]){ pairHit=true; break; } seen[r.letter]=1; } } }
   if(pairHit) total*=1.5;
-  // Short King: short words (2–4 letters) → ×1.5
+  // Short King: short words (2–5 letters) → ×1.75
   let shortHit=false;
-  if(G.perks.shortKing && res.length>=2 && res.length<=4){ shortHit=true; total*=1.5; }
+  if(G.perks.shortKing && res.length>=2 && res.length<=5){ shortHit=true; total*=1.75; }
   // Kerning (v42a): words with no repeated letter → +25%
   let kernHit=false;
   if(G.perks.kerning && res.length>=2){ const seen={}; let rep=false; for(const r of res){ if(r.letter){ if(seen[r.letter]){ rep=true; break; } seen[r.letter]=1; } } if(!rep){ kernHit=true; total*=1.25; } }
@@ -2479,6 +2537,7 @@ function openVowelChooser(card,idx){
   ov.style.setProperty("--cx",cx+"px");
   ov.style.setProperty("--cy",cy+"px");
   const vowels=["A","E","I","O","U"];
+  const banned=bannedLetterSet();
   // positions: A E above the canvas, I centred, O U below — a fanned arc
   const layout=[
     {x:-150,y:-118,rot:-16},{x:-72,y:-150,rot:-8},
@@ -2486,12 +2545,14 @@ function openVowelChooser(card,idx){
     {x:72,y:150,rot:8},{x:150,y:118,rot:16}
   ];
   vowels.forEach((L,k)=>{
+    const locked=!!(banned && banned.has(L));
     const b=document.createElement("button");
-    b.className="vowel-choice"; b.style.setProperty("--dx",layout[k].x+"px");
+    b.className="vowel-choice"+(locked?" locked":""); b.style.setProperty("--dx",layout[k].x+"px");
     b.style.setProperty("--dy",layout[k].y+"px"); b.style.setProperty("--rot",layout[k].rot+"deg");
     b.style.animationDelay=(k*55)+"ms";
     b.innerHTML=`<span class="vc-l">${L}</span><span class="vc-v">${LETTER_VALUES[L]}</span>`;
-    b.addEventListener("click",()=>pickVowel(L));
+    if(locked){ b.disabled=true; b.title="Locked this round"; }
+    else b.addEventListener("click",()=>pickVowel(L));
     fan.appendChild(b);
   });
   ov.classList.remove("hidden");
@@ -2499,6 +2560,7 @@ function openVowelChooser(card,idx){
 }
 function pickVowel(L){
   if(!vowelPending) return;
+  const banned=bannedLetterSet(); if(banned && banned.has(L)) return;   // locked this round
   const {cardId,idx}=vowelPending; vowelPending=null;
   const ov=$("vowelChooser"); ov.classList.remove("show"); ov.classList.add("hidden");
   const c=G.hand.find(x=>x.id===cardId); if(!c) return;
@@ -2512,16 +2574,20 @@ let consPending=null;
 function openConsChooser(card,idx){
   consPending={cardId:card.id, idx};
   const wrap=$("consChoices"); wrap.innerHTML="";
+  const banned=bannedLetterSet();
   CONSONANTS.forEach(L=>{
-    const b=document.createElement("button"); b.className="clone-choice";
+    const locked=!!(banned && banned.has(L));
+    const b=document.createElement("button"); b.className="clone-choice"+(locked?" locked":"");
     b.innerHTML=`${L}<span class="cc-val">${LETTER_VALUES[L]}</span>`;
-    b.addEventListener("click",()=>pickCons(L));
+    if(locked){ b.disabled=true; b.title="Locked this round"; }
+    else b.addEventListener("click",()=>pickCons(L));
     wrap.appendChild(b);
   });
   $("consChooser").classList.remove("hidden");
 }
 function pickCons(L){
   if(!consPending) return;
+  const banned=bannedLetterSet(); if(banned && banned.has(L)) return;   // locked this round
   const {cardId,idx}=consPending; consPending=null;
   $("consChooser").classList.add("hidden");
   const c=G.hand.find(x=>x.id===cardId); if(!c) return;
@@ -2765,6 +2831,7 @@ function submitWord(){
   bigBurst(cr.left+cr.width/2, cr.top+cr.height/2, power);
   screenShake(Math.min(42, 5+power*26));
   submitSound(power);
+  wordChime(res.length);   // celebratory chime + boom, scaled by word length
   floatText(cr.left+cr.width/2, cr.top+6, "+"+sc.total, "#B98A2E", {size:(1.5+power*1.0).toFixed(2)+"rem"});
   if(cash>0){ setTimeout(()=>{ floatText(cr.left+cr.width/2, cr.top+34, "+$"+cash, "#3C6E63", {slow:true, size:"1.7rem"}); blip(660,0.08); },180); }
   if(pressGrew){ setTimeout(()=>{ floatText(cr.left+cr.width/2, cr.top+(cash>0?60:34), "Press ×"+Number(G.scoreMult).toFixed(3), "#7A5CA6", {slow:true, size:"1.25rem"}); },300); }
@@ -3216,7 +3283,7 @@ function twoOfAKindOffer(){
     price:px(9), art:"🃏", d:{type:"twoOfAKind"}};
 }
 function shortKingOffer(){
-  return {kind:"Perk",rarity:"rare",name:"Short King",desc:"Words of four letters or fewer score ×1.5.",
+  return {kind:"Perk",rarity:"rare",name:"Short King",desc:"Words of five letters or fewer score ×1.75.",
     price:px(8), art:"👑", d:{type:"shortKing"}};
 }
 function freeJazzOffer(){
@@ -3266,7 +3333,7 @@ function growthMindOffer(){
     price:px(9), art:"📈", needsTarget:"growth", d:{type:"growthMind"}};
 }
 function encoreOffer(){
-  return {kind:"Upgrade",rarity:"epic",name:"Encore",desc:"Pick a letter. After you play it, it returns to the top of your pile.",
+  return {kind:"Upgrade",rarity:"epic",name:"Encore",desc:"Pick any tile. After you play it, it returns to the top of your pile.",
     price:px(11), art:"↻", needsTarget:"encore", d:{type:"encore"}};
 }
 function foilOffer(){
@@ -3524,7 +3591,7 @@ function openDeck(mode){
   if(mode==="remove"){ hint.textContent="Tap a letter to remove it from your deck."; hint.className="select-hint"; }
   else if(mode==="gild"){ hint.textContent="Tap a letter to gild it. Re-gilding the same letter costs double each time."; hint.className="select-hint gild"; }
   else if(mode==="growth"){ hint.textContent="Tap a letter. It gains +1 point every time you play it."; hint.className="select-hint"; }
-  else if(mode==="encore"){ hint.textContent="Tap a letter. After you play it, it returns to the top of your pile."; hint.className="select-hint"; }
+  else if(mode==="encore"){ hint.textContent="Tap any tile. After you play it, it returns to the top of your pile."; hint.className="select-hint"; }
   else if(mode==="foil"){ hint.textContent="Tap a letter. Its value is doubled the first time you play it each round."; hint.className="select-hint"; }
   else if(mode==="watermark"){ hint.textContent="Tap a letter. It is always in your opening hand each round."; hint.className="select-hint"; }
   else if(mode==="fuse"){ hint.textContent="Tap two letters to fuse into one tile. Pick the first."; hint.className="select-hint gild"; }
@@ -3540,7 +3607,7 @@ function deckTileEl(c){
   if(G.selectMode==="remove"){ wrap.classList.add("selectable","danger"); wrap.addEventListener("click",()=>doRemove(c.id)); }
   if(G.selectMode==="gild" && upgradable && (c.upLevel||0)<GILD_CAP){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doGild(c.id)); }
   if(G.selectMode==="growth"    && upgradable && typeof c.growth!=="number"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"growth")); }
-  if(G.selectMode==="encore"    && upgradable && !c.encore){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"encore")); }
+  if(G.selectMode==="encore"    && c.kind!=="lucky7" && !c.encore){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"encore")); }
   if(G.selectMode==="foil"      && upgradable && !c.foil){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"foil")); }
   if(G.selectMode==="watermark" && upgradable && !c.watermark){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"watermark")); }
   if(G.selectMode==="fuse" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); if(G.fusePending===c.id) wrap.classList.add("fuse-pending"); wrap.addEventListener("click",()=>tapFuse(c.id)); }
@@ -3690,15 +3757,32 @@ function buildStaticTile(c){
   tileBadges(t,c);
   return t;
 }
+function tileShortName(c){
+  if(!c) return "the tile";
+  if(c.kind==="letter") return c.letter;
+  if(c.kind==="fused") return fusedLabel(c);
+  if(c.kind==="combo") return comboLabel(c);
+  if(c.kind==="clone") return "the clone";
+  if(c.kind==="wildvowel") return "the wild vowel";
+  if(c.kind==="wildcons") return "the wild consonant";
+  if(c.kind==="copycat") return "the copy cat";
+  if(c.kind==="jazz") return "free jazz";
+  if(c.kind==="lucky7") return "Lucky 7";
+  return "the tile";
+}
 function doTileUpgrade(id,kind){
-  const c=G.deck.find(x=>x.id===id); if(!c||(c.kind!=="letter"&&c.kind!=="fused")) return;
+  const c=G.deck.find(x=>x.id===id); if(!c) return;
+  // Encore now works on ANY playable tile (letters, combos, fused, wilds, free jazz...);
+  // the other stamps still target letters and fused tiles only.
+  if(kind==="encore"){ if(c.kind==="lucky7") return; }
+  else if(c.kind!=="letter" && c.kind!=="fused") return;
   if(kind==="growth"){ if(typeof c.growth!=="number") c.growth=0; }
   else if(kind==="encore"){ c.encore=true; }
   else if(kind==="foil"){ c.foil=true; }
   else if(kind==="watermark"){ c.watermark=true; }
   G.selectMode=null;
   const label={growth:"Growth Mindset",encore:"Encore",foil:"Foil Stamp",watermark:"Watermark"}[kind];
-  toast(label+" applied to "+(c.kind==="fused"?fusedLabel(c):c.letter));
+  toast(label+" applied to "+tileShortName(c));
   haptic(20);
   closeDeck(); save();
 }
@@ -3845,6 +3929,7 @@ function closeBonusChooser(){ $("bonusChooser").classList.add("hidden"); }
    ============================================================ */
 function statInit(seed){
   G.stats={ game:"letterati", version:VERSION, seed,
+    runId:(typeof crypto!=="undefined"&&crypto.randomUUID)?crypto.randomUUID():("run-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,10)),
     startedAt:new Date().toISOString(), words:[], shops:[], result:null,
     finalRound:1, finalDeck:null, runMs:0, runScore:0, bestWord:"", bestScore:0 };
   G._curShop=null;
@@ -3888,7 +3973,88 @@ function statFinish(result){
   try{ localStorage.setItem("letterati_laststats", JSON.stringify(G.stats)); }catch(e){}
   try{ const arr=JSON.parse(localStorage.getItem("letterati_runs")||"[]"); arr.push(G.stats);
        while(arr.length>500) arr.shift(); localStorage.setItem("letterati_runs", JSON.stringify(arr)); }catch(e){}
+  enqueueTelemetry(G.stats);   // anonymous online upload (best-effort)
 }
+
+/* ── Telemetry: anonymous online run upload (Supabase), mirrors Golf Gone Wrong ──
+   Each TERMINAL run POSTs its full stats object to the letterati_runs table, in
+   addition to the localStorage history. Plain HTTPS fetch, so it works in a
+   browser, a mobile browser, and any desktop wrapper. Prefer:return=minimal so
+   Supabase echoes nothing back and the anon role only needs INSERT.
+
+   Backend (create in the same Supabase project as GGW):
+     table public.letterati_runs, RLS enabled, INSERT-only policy for anon +
+     `grant insert on public.letterati_runs to anon`. The publishable key below
+     is safe to ship (insert-only behind RLS: can write, cannot read or wipe). */
+const TELEMETRY_ENDPOINT   = 'https://mqgixxqhfmkcvhzqmess.supabase.co/rest/v1/letterati_runs';
+const TELEMETRY_ANON_KEY   = 'sb_publishable_6aC2JTgcfGWfimYJaVFE1A_HKQpSonb';
+const TELEMETRY_QUEUE_KEY  = 'letterati_pending_telemetry';
+const TELEMETRY_MAX_QUEUE  = 50;   // cap so a long offline streak can't blow localStorage quota
+let _telemetryFlushing = false;
+function telemetryEnabled(){ return !!(TELEMETRY_ENDPOINT && TELEMETRY_ANON_KEY); }
+// Stable anonymous per-install id (no PII), groups runs by device.
+function getInstallId(){
+  try{
+    let id=localStorage.getItem('letterati_install_id');
+    if(!id){
+      id=(typeof crypto!=='undefined'&&crypto.randomUUID)?crypto.randomUUID()
+         :('iid-'+Date.now().toString(36)+'-'+Math.random().toString(36).slice(2,10));
+      localStorage.setItem('letterati_install_id', id);
+    }
+    return id;
+  }catch(_){ return 'anon'; }
+}
+function _telemetryReadQueue(){
+  try{ const raw=localStorage.getItem(TELEMETRY_QUEUE_KEY); if(!raw) return [];
+       const arr=JSON.parse(raw); return Array.isArray(arr)?arr:[]; }catch(_){ return []; }
+}
+function _telemetryWriteQueue(arr){
+  try{ localStorage.setItem(TELEMETRY_QUEUE_KEY, JSON.stringify(arr.slice(-TELEMETRY_MAX_QUEUE))); }catch(_){}
+}
+// Flat promoted filter columns + the full run object as JSONB `payload`.
+function enqueueTelemetry(run){
+  if(!run || !run.runId) return;
+  try{
+    const row={
+      run_id:      run.runId,
+      install_id:  getInstallId(),
+      version:     run.version || VERSION,
+      seed:        run.seed || null,
+      outcome:     run.ending || run.result || 'unknown',
+      final_round: run.finalRound|0,
+      run_score:   run.runScore|0,
+      best_score:  run.bestScore|0,
+      won_run:     !!run.wonRun,
+      payload:     run,
+    };
+    const q=_telemetryReadQueue();
+    if(!q.some(r=>r && r.run_id===row.run_id)) q.push(row);   // de-dupe by run_id
+    _telemetryWriteQueue(q);
+  }catch(e){ /* best-effort, never load-bearing */ }
+  flushTelemetry();
+}
+async function _postTelemetryRow(row){
+  try{
+    const headers={ 'Content-Type':'application/json', 'apikey':TELEMETRY_ANON_KEY, 'Prefer':'return=minimal' };
+    if(/^eyJ/.test(TELEMETRY_ANON_KEY)) headers['Authorization']='Bearer '+TELEMETRY_ANON_KEY;   // legacy JWT anon keys
+    const res=await fetch(TELEMETRY_ENDPOINT, { method:'POST', headers, body:JSON.stringify(row), keepalive:true });
+    return res.ok || res.status===409;   // 409 = duplicate run_id already stored → treat as success
+  }catch(_){ return false; }
+}
+async function flushTelemetry(){
+  if(!telemetryEnabled() || _telemetryFlushing) return;
+  const queue=_telemetryReadQueue(); if(!queue.length) return;
+  _telemetryFlushing=true;
+  try{
+    const remaining=[];
+    for(const row of queue){ const ok=await _postTelemetryRow(row); if(!ok) remaining.push(row); }
+    _telemetryWriteQueue(remaining);
+  }finally{ _telemetryFlushing=false; }
+}
+if(typeof document!=='undefined' && document.addEventListener){
+  document.addEventListener('visibilitychange',()=>{ if(document.visibilityState==='hidden') flushTelemetry(); });
+}
+if(typeof window!=='undefined'){ setTimeout(()=>{ try{ flushTelemetry(); }catch(_){} }, 4000); }
 function downloadJSON(filename, obj){
   try{
     const blob=new Blob([JSON.stringify(obj,null,2)],{type:"application/json"});
@@ -4065,7 +4231,7 @@ function ownedPerksList(){
   if(G.perks.bigWords)   out.push("Big Words · ×2 length bonus");
   if(G.perks.twinsies)   out.push("Twinsies · ×2 side-by-side doubles");
   if(G.perks.twoOfAKind) out.push("Two of a Kind · ×1.5 on a repeated letter");
-  if(G.perks.shortKing)  out.push("Short King · ×1.5 words ≤4 letters");
+  if(G.perks.shortKing)  out.push("Short King · ×1.75 words ≤5 letters");
   if(G.perks.kerning)    out.push("Kerning · +25% no repeated letter");
   if(G.perks.fiveTimer)  out.push("Five Timer · ×1.5 five-letter words");
   if(G.perks.marginalia) out.push("Marginalia · 1 coin per 15 over target");
@@ -4095,7 +4261,7 @@ function ownedPerkCards(){
   if(P.bigWords)   push("📏","Big Words","Longer words give double the length multiplier.");
   if(P.twinsies)   push("👯","Twinsies","×2 when two of the same letter sit side by side.");
   if(P.twoOfAKind) push("🃏","Two of a Kind","×1.5 on any word with a repeated letter.");
-  if(P.shortKing)  push("👑","Short King","×1.5 on words of four letters or fewer.");
+  if(P.shortKing)  push("👑","Short King","×1.75 on words of five letters or fewer.");
   if(P.kerning)    push("📐","Kerning","+25% on words with no repeated letter.");
   if(P.fiveTimer)  push("5️⃣","Five Timer","×1.5 on exactly five-letter words.");
   if(P.marginalia) push("🪙","Marginalia","1 coin for every 15 points past the target.");
