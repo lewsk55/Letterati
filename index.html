@@ -1087,7 +1087,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "46a";
+const VERSION = "46b";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -2176,11 +2176,11 @@ function scoreOf(res){
   if(G.perks.powerTrio){ const cnt={}; for(const r of res){ if(r.letter){ cnt[r.letter]=(cnt[r.letter]||0)+1; if(cnt[r.letter]>=3){ trioHit=true; break; } } } }
   if(trioHit) total*=2;
   // Repeater (v42f): replaying a word you've already played this run scores higher
-  let repeatHit=0;
+  let repeatHit=0, repeatMult=1;
   if(G.perks.repeater && res.length>=2 && res.every(r=>r.letter)){
     const w=res.map(r=>r.letter.toLowerCase()).join("");
     repeatHit=(G.wordPlays&&G.wordPlays[w])||0;
-    if(repeatHit>0) total*=(1+0.5*Math.min(repeatHit,3));   // ×1.5, ×2, ×2.5 cap
+    if(repeatHit>0){ repeatMult=Math.min(5, 1+0.5*repeatHit); total*=repeatMult; }   // +0.5 per prior play, capped at ×5
   }
   // Verbose (v44b): the word is a verb (any form) → +50%
   let verbHit=false;
@@ -2189,7 +2189,7 @@ function scoreOf(res){
     if(VERBS.has(w)){ verbHit=true; total*=1.5; }
   }
   total*=(G.scoreMult||1);
-  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,twinHit,pairHit,shortHit,kernHit,fiveHit,mirrorHit,trioHit,repeatHit,verbHit};
+  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,twinHit,pairHit,shortHit,kernHit,fiveHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit};
 }
 function updateLive(){
   const res=resolvedCanvas();
@@ -2218,13 +2218,13 @@ function updateLive(){
   if(sc.lastHit) parts.push(`×${1+sc.luStacks} finale`);
   if(sc.twinHit) parts.push(`×2 twins`);
   if(sc.pairHit) parts.push(`×1.5 pair`);
-  if(sc.shortHit) parts.push(`×1.5 short`);
+  if(sc.shortHit) parts.push(`×1.75 short`);
   if(sc.kernHit) parts.push(`×1.25 kerning`);
   if(sc.fiveHit) parts.push(`×1.5 five`);
   if(sc.mirrorHit) parts.push(`×3 mirror`);
   if(sc.trioHit) parts.push(`×2 trio`);
   if(sc.verbHit) parts.push(`×1.5 verb`);
-  if(sc.repeatHit>0) parts.push(`×${(1+0.5*Math.min(sc.repeatHit,3)).toFixed(1)} replay`);
+  if(sc.repeatHit>0) parts.push(`×${(sc.repeatMult||1).toFixed(1)} replay`);
   ls.innerHTML = `${sc.total} <span class="mult">${parts.join(" ")}${label?" • "+label:""}</span>`;
   updateChallengeBlockHint();
   updateButtons();
@@ -3321,7 +3321,7 @@ function verboseOffer(){
     price:px(8), art:"🅥", d:{type:"verbose"}};
 }
 function repeaterOffer(){
-  return {kind:"Perk",rarity:"rare",name:"Repeater",desc:"Replaying a word you've already played this run scores higher (up to ×2.5).",
+  return {kind:"Perk",rarity:"rare",name:"Repeater",desc:"Replaying a word you've already played this run scores higher (up to ×5).",
     price:px(8), art:"🔁", d:{type:"repeater"}};
 }
 function powerTrioOffer(){
