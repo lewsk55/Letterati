@@ -1087,7 +1087,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "46b";
+const VERSION = "46c";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1153,10 +1153,10 @@ const DECK_FACE_MIN = 40; // and at least 40 total face value — kills the unfa
 const START_HAND = 7;
 const GILD_BASE = 6;   // base price to gild a fresh letter (doubles per existing gild)
 const HANDS_PER_LEVEL = 4;     // "turns" — words you may set
-const DISCARDS_PER_LEVEL = 3;
+const DISCARDS_PER_LEVEL = 4;
 const PRICE_MULTIPLIER = 1.22; // per-round shop inflation (GGW used ~1.46)
 const SHOP_PRICE_SCALE = 0.8;  // v3a: 20% cheaper across the board (stacks on the base 35% off)
-const MAX_HEARTS = 3;
+const MAX_HEARTS = 4;
 const COIN_CAP = 12;           // economy guard rail (caps base payout only)
 const INTEREST_CAP = 10;       // max compound-interest payout per round
 
@@ -2159,9 +2159,13 @@ function scoreOf(res){
   let pairHit=false;
   if(G.perks.twoOfAKind){ const seen={}; for(const r of res){ if(r.letter){ if(seen[r.letter]){ pairHit=true; break; } seen[r.letter]=1; } } }
   if(pairHit) total*=1.5;
-  // Short King: short words (2–5 letters) → ×1.75
-  let shortHit=false;
-  if(G.perks.shortKing && res.length>=2 && res.length<=5){ shortHit=true; total*=1.75; }
+  // Short King: tiered boost for short words — 2L ×4, 3L ×3, 4L ×2.5, 5L ×2
+  let shortHit=false, shortMult=1;
+  if(G.perks.shortKing && res.length>=2 && res.length<=5){
+    shortHit=true;
+    shortMult={2:4, 3:3, 4:2.5, 5:2}[res.length];
+    total*=shortMult;
+  }
   // Kerning (v42a): words with no repeated letter → +25%
   let kernHit=false;
   if(G.perks.kerning && res.length>=2){ const seen={}; let rep=false; for(const r of res){ if(r.letter){ if(seen[r.letter]){ rep=true; break; } seen[r.letter]=1; } } if(!rep){ kernHit=true; total*=1.25; } }
@@ -2189,7 +2193,7 @@ function scoreOf(res){
     if(VERBS.has(w)){ verbHit=true; total*=1.5; }
   }
   total*=(G.scoreMult||1);
-  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,twinHit,pairHit,shortHit,kernHit,fiveHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit};
+  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,twinHit,pairHit,shortHit,shortMult,kernHit,fiveHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit};
 }
 function updateLive(){
   const res=resolvedCanvas();
@@ -2218,7 +2222,7 @@ function updateLive(){
   if(sc.lastHit) parts.push(`×${1+sc.luStacks} finale`);
   if(sc.twinHit) parts.push(`×2 twins`);
   if(sc.pairHit) parts.push(`×1.5 pair`);
-  if(sc.shortHit) parts.push(`×1.75 short`);
+  if(sc.shortHit) parts.push(`×${(sc.shortMult%1?sc.shortMult.toFixed(1):sc.shortMult)} short`);
   if(sc.kernHit) parts.push(`×1.25 kerning`);
   if(sc.fiveHit) parts.push(`×1.5 five`);
   if(sc.mirrorHit) parts.push(`×3 mirror`);
@@ -3283,7 +3287,7 @@ function twoOfAKindOffer(){
     price:px(9), art:"🃏", d:{type:"twoOfAKind"}};
 }
 function shortKingOffer(){
-  return {kind:"Perk",rarity:"rare",name:"Short King",desc:"Words of five letters or fewer score ×1.75.",
+  return {kind:"Perk",rarity:"rare",name:"Short King",desc:"Short words score big: 2 letters ×4, 3 letters ×3, 4 letters ×2.5, 5 letters ×2.",
     price:px(8), art:"👑", d:{type:"shortKing"}};
 }
 function freeJazzOffer(){
@@ -4231,7 +4235,7 @@ function ownedPerksList(){
   if(G.perks.bigWords)   out.push("Big Words · ×2 length bonus");
   if(G.perks.twinsies)   out.push("Twinsies · ×2 side-by-side doubles");
   if(G.perks.twoOfAKind) out.push("Two of a Kind · ×1.5 on a repeated letter");
-  if(G.perks.shortKing)  out.push("Short King · ×1.75 words ≤5 letters");
+  if(G.perks.shortKing)  out.push("Short King · ×4/×3/×2.5/×2 for 2–5 letters");
   if(G.perks.kerning)    out.push("Kerning · +25% no repeated letter");
   if(G.perks.fiveTimer)  out.push("Five Timer · ×1.5 five-letter words");
   if(G.perks.marginalia) out.push("Marginalia · 1 coin per 15 over target");
@@ -4261,7 +4265,7 @@ function ownedPerkCards(){
   if(P.bigWords)   push("📏","Big Words","Longer words give double the length multiplier.");
   if(P.twinsies)   push("👯","Twinsies","×2 when two of the same letter sit side by side.");
   if(P.twoOfAKind) push("🃏","Two of a Kind","×1.5 on any word with a repeated letter.");
-  if(P.shortKing)  push("👑","Short King","×1.75 on words of five letters or fewer.");
+  if(P.shortKing)  push("👑","Short King","Short words score big: ×4, ×3, ×2.5, ×2 for 2, 3, 4, 5 letters.");
   if(P.kerning)    push("📐","Kerning","+25% on words with no repeated letter.");
   if(P.fiveTimer)  push("5️⃣","Five Timer","×1.5 on exactly five-letter words.");
   if(P.marginalia) push("🪙","Marginalia","1 coin for every 15 points past the target.");
@@ -4446,11 +4450,10 @@ function renderLeaderboard(){
   }
   let rows="";
   top.forEach((r,i)=>{
-    const won=(r.result==="win")||r.wonRun;
     rows+='<div class="lb-row'+(i===0?" lb-top":"")+'">'
       +'<span class="lb-rank">'+(i+1)+'</span>'
       +'<span class="lb-score">'+(r.runScore||0).toLocaleString()+'</span>'
-      +'<span class="lb-meta">'+(won?'<b class="lb-win">WON</b> · ':'')+'Round '+(r.finalRound||1)+' · '+(r.seed||"—")+'</span>'
+      +'<span class="lb-meta">'+'Round '+(r.finalRound||1)+' · '+(r.seed||"—")+'</span>'
       +'</div>';
   });
   box.innerHTML='<h3>Your best runs</h3>'+rows;
