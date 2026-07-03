@@ -1,0 +1,539 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="utf-8"/>
+<meta name="viewport" content="width=device-width,initial-scale=1"/>
+<title>Letterati Simulator</title>
+<!-- Loads the REAL dictionary from the same folder as the game -->
+<script src="letterati-dictionary.js"></script>
+<script src="letterati-verbs.js"></script>
+<style>
+:root{--ink:#23202E;--soft:#6e6578;--paper:#FBF6EA;--edge:#D8C9A5;--brass:#B98A2E;--moss:#3C7E6E;--ox:#8E3B3B;--page:#EFE7D4}
+*{box-sizing:border-box}
+body{font-family:ui-sans-serif,system-ui,sans-serif;background:var(--page);color:var(--ink);margin:0;padding:18px}
+h1{font-family:Georgia,serif;font-size:1.35rem;margin:0 0 2px}
+.sub{color:var(--soft);font-size:.8rem;margin-bottom:14px}
+.panel{background:var(--paper);border:1px solid var(--edge);border-radius:12px;padding:14px;margin-bottom:14px;box-shadow:0 2px 8px rgba(35,32,46,.06)}
+.row{display:flex;flex-wrap:wrap;gap:10px;align-items:end}
+label{display:block;font-size:.62rem;text-transform:uppercase;letter-spacing:.12em;color:var(--soft);font-weight:800;margin-bottom:3px}
+input,select{font:inherit;padding:7px 9px;border:1px solid var(--edge);border-radius:8px;background:#fff;min-width:90px}
+input[type=number]{width:90px}
+button{font:inherit;font-weight:800;padding:9px 16px;border:1px solid var(--edge);border-radius:9px;background:linear-gradient(180deg,#F6EAD0,#EAD9B4);color:var(--ink);cursor:pointer}
+button:disabled{opacity:.5;cursor:default}
+button.alt{background:#fff}
+#prog{height:8px;background:#e7ddc6;border-radius:5px;overflow:hidden;margin-top:10px;display:none}
+#progFill{height:100%;width:0;background:var(--moss)}
+table{border-collapse:collapse;font-size:.8rem;width:100%;margin-top:8px}
+th,td{padding:5px 8px;border-bottom:1px solid var(--edge);text-align:right}
+th:first-child,td:first-child{text-align:left}
+th{font-size:.62rem;text-transform:uppercase;letter-spacing:.1em;color:var(--soft)}
+.good{color:var(--moss);font-weight:800}.bad{color:var(--ox);font-weight:800}
+.tag{display:inline-block;font-size:.62rem;font-weight:800;background:#efe3c6;border-radius:99px;padding:2px 8px;margin:2px 3px 0 0}
+.note{font-size:.72rem;color:var(--soft);line-height:1.5}
+pre{background:#fff;border:1px solid var(--edge);border-radius:8px;padding:10px;font-size:.7rem;overflow:auto;max-height:260px}
+h3{font-family:Georgia,serif;font-size:.95rem;margin:14px 0 4px}
+.grid2{display:grid;grid-template-columns:1fr 1fr;gap:14px}
+@media(max-width:820px){.grid2{grid-template-columns:1fr}}
+</style>
+</head>
+<body>
+<h1>Letterati Simulator</h1>
+<div class="sub">Runs the real game engine (scoring, economy, shop) headlessly with configurable bot players. Put this file in the same folder as the game and the dictionary.</div>
+
+<div class="panel">
+  <div class="row">
+    <div><label>Game file</label><input id="gameFile" value="letterati_v47b.html" size="24"/></div>
+    <div><label>Compare file (optional A/B)</label><input id="gameFileB" value="" size="24" placeholder="none"/></div>
+    <div><label>Runs</label><input id="numRuns" type="number" value="500" min="10" max="20000"/></div>
+    <div><label>Seed prefix</label><input id="seedPrefix" value="sim"/></div>
+    <div><label>Player level</label>
+      <select id="level">
+        <option value="rookie">Rookie</option>
+        <option value="casual">Casual</option>
+        <option value="skilled" selected>Skilled</option>
+      </select></div>
+    <div><label>Playstyle</label>
+      <select id="style">
+        <option value="generalist" selected>Generalist</option>
+        <option value="longform">Long-form press</option>
+        <option value="shortking">Short King</option>
+        <option value="fusion">Fusion</option>
+        <option value="hoarder">Hoarder (Commission/Interest)</option>
+        <option value="variety">Variety (Anthology/ABCs)</option>
+      </select></div>
+    <div><button id="runBtn">Run simulation</button></div>
+    <div><button id="suiteBtn" class="alt">Run full suite</button></div>
+    <div><button id="exportBtn" class="alt" disabled>Export JSON</button></div>
+  </div>
+  <div id="prog"><div id="progFill"></div></div>
+  <div class="note" id="status" style="margin-top:8px">Loading game engine…</div>
+</div>
+
+<div class="panel" id="results" style="display:none">
+  <h3>Results</h3>
+  <div id="summary"></div>
+  <div class="grid2">
+    <div><h3>Fail rounds</h3><div id="failTable"></div></div>
+    <div><h3>Per-round score vs target</h3><div id="ratioTable"></div></div>
+  </div>
+  <h3>Shop: purchase rate and win correlation</h3>
+  <div class="note">Correlation = win rate of runs that bought the item minus win rate of runs that did not. Positive numbers suggest consistency perks; strongly negative numbers can indicate traps.</div>
+  <div id="perkTable"></div>
+  <h3>Model notes</h3>
+  <div class="note">
+    Uses the real scoreOf, computeReward, px, seeded shop pool, applyOffer, reroll ladder, pile cycling, and all perk state hooks from the loaded game file, with the real dictionary in this folder.
+    Simplifications: challenges are off; wild vowels play as E and wild consonants as S; clone and copy cat tiles are held but not played; free jazz is never used as a non-word; letter ordering favors Drop Cap and Serif positions but is not fully optimal.
+    Calibration: these bots buy only what the seeded shop actually offers, so absolute win rates run well below the in-game predictor bot (which assumes engine pieces are always purchasable). Treat sim numbers as comparative, not absolute: A/B two builds, compare styles, and watch the purchase and win-correlation table. Bot behavior lives in STYLE_WEIGHTS and LEVELS near the top of the script and is meant to be tuned as you QA.
+  </div>
+</div>
+
+<script>
+/* ============================================================
+   ENGINE LOADER: fetch the game HTML, extract its main script,
+   run it in a sandbox with a stub DOM, and pull out real symbols.
+   ============================================================ */
+const SimCore = (function(){
+
+function mkNode(){
+  const n={_c:[],style:{setProperty(){},removeProperty(){}},dataset:{},
+    classList:{add(){},remove(){},toggle(){},contains(){return false;}},
+    appendChild(c){n._c.push(c);return c;},addEventListener(){},removeEventListener(){},
+    setAttribute(){},removeAttribute(){},querySelectorAll(){return [];},querySelector(){return mkNode();},
+    getBoundingClientRect(){return {left:0,top:0,width:10,height:10,right:10,bottom:10};},
+    focus(){},blur(){},remove(){},
+    get children(){return n._c;},get childNodes(){return n._c;}};
+  let cls="",txt="",html="",val="";
+  Object.defineProperty(n,"className",{get:()=>cls,set:v=>{cls=String(v);}});
+  Object.defineProperty(n,"textContent",{get:()=>txt,set:v=>{txt=String(v??"");}});
+  Object.defineProperty(n,"innerHTML",{get:()=>html,set:v=>{html=String(v??"");}});
+  Object.defineProperty(n,"value",{get:()=>val,set:v=>{val=String(v??"");}});
+  return n;
+}
+function makeSandbox(){
+  const els={};
+  const doc={getElementById:id=>(els[id]||(els[id]=mkNode())),querySelector:()=>mkNode(),
+    querySelectorAll:()=>[],createElement:()=>mkNode(),addEventListener(){},
+    body:mkNode(),head:mkNode(),visibilityState:"visible"};
+  const win={addEventListener(){},innerWidth:400,innerHeight:800,
+    matchMedia:()=>({matches:false,addListener(){},addEventListener(){}}),
+    AudioContext:null,webkitAudioContext:null,
+    WORD_BLOB:(typeof WORD_BLOB!=="undefined")?WORD_BLOB:"",
+    VERB_BLOB:(typeof VERB_BLOB!=="undefined")?VERB_BLOB:""};
+  return {
+    document:doc, window:win, localStorage:{getItem:()=>null,setItem(){},removeItem(){}},
+    navigator:{vibrate(){}}, requestAnimationFrame:()=>0,
+    performance:{now:()=>Date.now()},
+    getComputedStyle:()=>({getPropertyValue:()=>"0px",paddingLeft:"0px",paddingRight:"0px"}),
+    fetch:async()=>({ok:true,status:201,json:async()=>({})}),
+    setTimeout:(f)=>0, setInterval:()=>0, clearTimeout(){}, clearInterval(){},
+    crypto:{randomUUID:()=>"sim-"+Math.random().toString(36).slice(2)},
+    WORD_BLOB:win.WORD_BLOB, VERB_BLOB:win.VERB_BLOB,
+    AudioContext:null, webkitAudioContext:null, alert(){}, confirm:()=>true
+  };
+}
+
+async function loadGame(fileName){
+  const resp=await fetch(fileName,{cache:"no-store"});
+  if(!resp.ok) throw new Error("Could not fetch "+fileName+" ("+resp.status+")");
+  const htmlText=await resp.text();
+  const scripts=[...htmlText.matchAll(/<script(?![^>]*\bsrc=)[^>]*>([\s\S]*?)<\/script>/g)]
+    .map(m=>m[1]).sort((a,b)=>b.length-a.length);
+  if(!scripts.length) throw new Error("No inline script found in "+fileName);
+  const src=scripts[0];
+  const versionMatch=src.match(/const VERSION\s*=\s*"([^"]+)"/);
+  const sb=makeSandbox();
+  // Run the game script inside a function scope; return an eval hook so the
+  // simulator can pull any in-scope symbol by name (robust to renames).
+  const runner=new Function(
+    "document","window","localStorage","navigator","requestAnimationFrame",
+    "performance","getComputedStyle","fetch","setTimeout","setInterval",
+    "clearTimeout","clearInterval","crypto","alert","confirm",
+    src + "\n;return {sym:function(n){try{return eval(n);}catch(e){return undefined;}}};"
+  );
+  const out=runner(sb.document,sb.window,sb.localStorage,sb.navigator,sb.requestAnimationFrame,
+    sb.performance,sb.getComputedStyle,sb.fetch,sb.setTimeout,sb.setInterval,
+    sb.clearTimeout,sb.clearInterval,sb.crypto,sb.alert,sb.confirm);
+  const S=n=>out.sym(n);
+  const eng={
+    version:(versionMatch?versionMatch[1]:"?"),
+    sym:S,
+    G:S("G"), scoreOf:S("scoreOf"), computeReward:S("computeReward"), px:S("px"),
+    targetFor:S("targetFor"), WORDS:S("WORDS"), anaSet:S("anaSet"), lenMult:S("lenMult"),
+    makeRng:S("makeRng"), shuffle:S("shuffle"), wordCashDivisor:S("wordCashDivisor"),
+    rollStartingDeck:S("rollStartingDeck"), buildShopPool:S("buildShopPool"),
+    applyOffer:S("applyOffer"), doTileUpgrade:S("doTileUpgrade"), doRemove:S("doRemove"),
+    gildCostFor:S("gildCostFor"),
+    makeLetterCard:S("makeLetterCard"), makeFusedCard:S("makeFusedCard"),
+    makeComboCard:S("makeComboCard"),
+    returnCanvasToPile:S("returnCanvasToPile"),
+    reshuffleDiscardIntoDraw:S("reshuffleDiscardIntoDraw"),
+    dealUpToHand:S("dealUpToHand"), discardCanvas:S("discardCanvas"),
+    verbizedStem:S("verbizedStem"), comboSeq:S("comboSeq"), rerollShop:S("rerollShop"), rerollCost:S("rerollCost"),
+    fusedLabel:S("fusedLabel"), useLucky7:S("useLucky7"),
+    MAX_HEARTS:S("MAX_HEARTS"), DISCARDS_PER_LEVEL:S("DISCARDS_PER_LEVEL"),
+    START_HAND:S("START_HAND"), WIN_LEVEL:S("WIN_LEVEL")||10,
+    VOWELS:S("VOWELS"), LETTER_VALUES:S("LETTER_VALUES"), GILD_CAP:S("GILD_CAP")||3
+  };
+  const required=["G","scoreOf","computeReward","px","targetFor","WORDS","makeRng","shuffle",
+    "rollStartingDeck","buildShopPool","applyOffer","returnCanvasToPile","dealUpToHand","discardCanvas"];
+  const missing=required.filter(k=>!eng[k]);
+  if(missing.length) throw new Error("Engine symbols missing: "+missing.join(", "));
+  // signature -> a few real words, for choosing an actual word (and letter order)
+  eng.sigWords=(function(){
+    const m=new Map();
+    for(const w of eng.WORDS){
+      if(w.length<2||w.length>10||!/^[a-z]+$/.test(w)) continue;
+      const k=w.split("").sort().join("");
+      let arr=m.get(k); if(!arr){arr=[];m.set(k,arr);}
+      if(arr.length<3) arr.push(w);
+    }
+    return m;
+  })();
+  return eng;
+}
+
+/* ============================================================
+   BOT: word search over the real hand, real scoring, policies.
+   ============================================================ */
+function tileGlyphModes(eng,c){
+  // Returns [{g:"er", parts:[{letter,value,card}...]}] mode options for a card.
+  const up=Math.pow(2,c.upLevel||0);
+  if(c.kind==="letter") return [{g:c.letter.toLowerCase(),parts:[{letter:c.letter,value:(c.base*up)*(c.mult||1)+(c.growth||0),card:c}]}];
+  if(c.kind==="wildvowel") return [{g:"e",parts:[{letter:"E",value:1,card:c}]}];
+  if(c.kind==="wildcons")  return [{g:"s",parts:[{letter:"S",value:1,card:c}]}];
+  if(c.kind==="combo" && eng.comboSeq){
+    const seq=eng.comboSeq(c);
+    return [{g:seq.join("").toLowerCase(),parts:seq.map((L,i)=>({letter:L,value:1*up+(i===0?(c.growth||0):0),card:c}))}];
+  }
+  if(c.kind==="fused" && c.sides && c.sides.length===2){
+    const a=c.sides[0], b=c.sides[1], av=a.base*Math.pow(2,a.upLevel||0), bv=b.base*Math.pow(2,b.upLevel||0);
+    return [
+      {g:a.letter.toLowerCase(),parts:[{letter:a.letter,value:av+(c.growth||0),card:c}]},
+      {g:b.letter.toLowerCase(),parts:[{letter:b.letter,value:bv+(c.growth||0),card:c}]},
+      {g:(a.letter+b.letter).toLowerCase(),parts:[{letter:a.letter,value:av+(c.growth||0),card:c},{letter:b.letter,value:bv,card:c}]}
+    ];
+  }
+  return null; // clone / copycat / jazz / lucky7: not played in words (v1)
+}
+function bestWord(eng,hand,opts){
+  opts=opts||{};
+  const cands=hand.map(t=>({t,modes:tileGlyphModes(eng,t)})).filter(x=>x.modes);
+  const n=Math.min(cands.length,11), sig=eng.sigWords;
+  let best=null;
+  for(let mask=1;mask<(1<<n);mask++){
+    const idx=[]; for(let i=0;i<n;i++) if(mask&(1<<i)) idx.push(i);
+    // cartesian over modes (capped)
+    let combos=[[]];
+    for(const i of idx){
+      const next=[];
+      for(const base of combos){ for(const m of cands[i].modes){ next.push(base.concat([m])); if(next.length>120) break; } if(next.length>120) break; }
+      combos=next;
+    }
+    for(const modes of combos){
+      let len=0; for(const m of modes) len+=m.g.length;
+      if(len<2||len>10) continue;
+      const key=modes.map(m=>m.g).join("").split("").sort().join("");
+      const words=sig.get(key); if(!words) continue;
+      for(const w of words){
+        // assign parts to word letter positions (greedy; dropcap prefers pos 0, serif prefers ends)
+        const parts=[]; for(const m of modes) for(const pdt of m.parts) parts.push(pdt);
+        const ordered=orderParts(parts,w);
+        if(!ordered) continue;
+        const sc=eng.scoreOf(ordered);
+        if(!best || sc.total>best.score){ best={score:sc.total,sc,word:w,res:ordered,tiles:idx.map(i=>cands[i].t),modes}; }
+      }
+      if(mask%512===0 && best && opts.fast) break;
+    }
+  }
+  return best;
+}
+function orderParts(parts,w){
+  const avail=parts.slice(), out=[];
+  const take=(L,prefer)=>{ // prefer: fn(part)->score for tie-breaks
+    let bi=-1,bs=-Infinity;
+    for(let i=0;i<avail.length;i++){ const p=avail[i]; if(p.letter.toLowerCase()!==L) continue;
+      const s=prefer?prefer(p):0; if(s>bs){bs=s;bi=i;} }
+    if(bi<0) return null; return avail.splice(bi,1)[0];
+  };
+  for(let i=0;i<w.length;i++){
+    const L=w[i];
+    const prefer= i===0 ? (p=>(p.card&&p.card.dropcap?3:0)+(p.card&&p.card.serif?2:0))
+      : i===w.length-1 ? (p=>(p.card&&p.card.serif?2:0))
+      : (p=>(p.card&&(p.card.dropcap||p.card.serif))?-1:0);
+    const got=take(L,prefer); if(!got) return null;
+    out.push(got);
+  }
+  return avail.length===0?out:null;
+}
+
+/* ---------- shop policy ---------- */
+const STYLE_WEIGHTS={
+  generalist:{vowelPower:6,bigWords:7,pressMult:8,gild:5,fuller:5,extraTurn:5,letter:1.5,extraDiscard:4,shortKing:1,fuse:1,fusedPair:2,combo:3,marginalia:4,interest:3,anthology:3,abcs:3,ligature:2,crossword:3,footnote:1,pulpMill:1,recycledStock:3,colophon:3,alphabetizer:1,commission:2,vanityPress:2,movableType:2,verbose:3,verbizer:3,fiveTimer:2,kerning:2,mirror:1,twoOfAKind:2,twinsies:2,powerTrio:1,repeater:2,proofSheet:1,reprint:4,heart:6,fireSale:3,freeRerolls:1,eraser:0.5,abridged:2,boldfaceStamp:2,dropcapStamp:2,serifStamp:2,dittoStamp:2,inkwellStamp:2,encore:2,foil:2,watermark:1,growthMind:2,lucky7:2,firstUp:1,lastUp:1,wildVowel:2,wildCons:1,clone:1,copyCat:1,freeJazz:0},
+  longform:{vowelPower:6,bigWords:10,pressMult:10,gild:5,fuller:7,extraTurn:6,letter:3,extraDiscard:4,verbose:4,verbizer:4,marginalia:4,interest:3,reprint:4,heart:6,fireSale:3,anthology:2,colophon:3,ligature:2,crossword:2,commission:1,recycledStock:2,fusedPair:2,combo:3,encore:2,foil:2,growthMind:3,lucky7:2,boldfaceStamp:1,dropcapStamp:2,serifStamp:2,dittoStamp:2,inkwellStamp:1,abridged:1,eraser:1},
+  shortking:{shortKing:12,gild:9,vowelPower:5,extraTurn:5,extraDiscard:5,letter:2,repeater:5,movableType:4,footnote:5,fiveTimer:5,twoOfAKind:3,marginalia:3,reprint:4,heart:6,fireSale:3,abridged:4,eraser:3,dropcapStamp:3,serifStamp:3,dittoStamp:3,inkwellStamp:2,boldfaceStamp:1,interest:2,crossword:3,pressMult:1,bigWords:0,fuller:2,anthology:2,abcs:2,commission:1},
+  fusion:{fuse:10,fusedPair:9,gild:7,vowelPower:5,bigWords:6,pressMult:7,fuller:6,extraTurn:5,extraDiscard:4,combo:5,verbizer:4,encore:3,growthMind:3,reprint:4,heart:6,fireSale:3,marginalia:3,dittoStamp:2,dropcapStamp:2,serifStamp:2},
+  hoarder:{interest:10,commission:10,marginalia:6,fireSale:5,vanityPress:1,vowelPower:4,pressMult:5,bigWords:5,extraDiscard:6,extraTurn:3,gild:3,fuller:3,letter:2,reprint:4,heart:5,inkwellStamp:4,footnote:3,abcs:4,anthology:3},
+  variety:{anthology:11,abcs:9,movableType:7,crossword:6,vowelPower:5,extraTurn:6,fuller:6,extraDiscard:5,pressMult:5,bigWords:4,gild:3,letter:4,wildVowel:3,wildCons:3,marginalia:3,reprint:4,heart:6,fireSale:3,verbizer:4,ligature:3,pulpMill:2,footnote:2}
+};
+function offerKey(o){ return (o.d&&o.d.type)||o.name||"?"; }
+function shopPhase(eng,st,levelCfg){
+  const G=eng.G;
+  G.shopOffers=eng.buildShopPool();
+  if(G.perks.abridged){ G.shopOffers.push({kind:"Upgrade",rarity:"epic",name:"Abridged",desc:"",price:1,art:"",needsTarget:"remove",d:{type:"eraser"}}); }
+  const W=STYLE_WEIGHTS[st.style]||STYLE_WEIGHTS.generalist;
+  const reserve=levelCfg.reserve;
+  // reroll policy: skilled players dig for engine pieces when the shelf is weak
+  if(levelCfg.rerolls && eng.rerollShop && eng.rerollCost){
+    G.rerollCount=G.rerollCount||0; G.freeRerollUsed=false; G.shopUndo=G.shopUndo||[];
+    let digs=0;
+    while(digs++<levelCfg.rerolls){
+      let bestW=0;
+      G.shopOffers.forEach(o=>{ if(o.sold) return; const w=(W[offerKey(o)]!=null?W[offerKey(o)]:1.5); if(G.coins-o.price>=reserve && w>bestW) bestW=w; });
+      if(bestW>=6) break;                              // an engine piece is on the shelf
+      const cost=eng.rerollCost();
+      if(G.coins-cost<reserve+3) break;                // keep buying power
+      try{ eng.rerollShop(); }catch(e){ break; }
+      if(G.perks.abridged){ G.shopOffers.push({kind:"Upgrade",rarity:"epic",name:"Abridged",desc:"",price:1,art:"",needsTarget:"remove",d:{type:"eraser"}}); }
+    }
+  }
+  let guard=0;
+  while(guard++<12){
+    let bi=-1,bs=0;
+    G.shopOffers.forEach((o,i)=>{
+      if(o.sold) return;
+      const k=offerKey(o), w=(W[k]!=null?W[k]:1.5);
+      if(w<=0) return;
+      if(G.coins-o.price<reserve) return;
+      const s=w/(1+o.price*0.06) * (levelCfg.shopNoise?(0.6+Math.random()*0.8):1);
+      if(s>bs){bs=s;bi=i;}
+    });
+    if(bi<0) break;
+    const o=G.shopOffers[bi];
+    G.coins-=o.price; o.sold=true; st.buys.push(offerKey(o));
+    const t=(o.d&&o.d.type)||"";
+    // targeting offers: resolve the target ourselves with the real functions
+    const stampModes={boldfaceStamp:"boldface",dropcapStamp:"dropcap",serifStamp:"serif",dittoStamp:"ditto",inkwellStamp:"inkwell",encore:"encore",foil:"foil",watermark:"watermark",growthMind:"growth"};
+    if(t==="gild"){
+      let best=null; G.deck.forEach(c=>{ if((c.kind==="letter"||c.kind==="fused")&&(c.upLevel||0)<eng.GILD_CAP){ const v=(c.kind==="fused")?(c.sides[0].base+c.sides[1].base):c.base; if(!best||v>((best.kind==="fused")?(best.sides[0].base+best.sides[1].base):best.base)) best=c; } });
+      if(best){ best.upLevel=(best.upLevel||0)+1; if(best.kind==="fused") best.sides.forEach(s2=>s2.upLevel=(s2.upLevel||0)+1); }
+    } else if(t==="eraser"){
+      // remove lowest-value 1-point letter (deck thinning)
+      let worst=null; G.deck.forEach(c=>{ if(c.kind==="letter"&&(!worst||c.base<worst.base)) worst=c; });
+      if(worst && G.deck.length>8) G.deck=G.deck.filter(c=>c!==worst);
+    } else if(t==="fuse"){
+      const ls=G.deck.filter(c=>c.kind==="letter").sort((a,b)=>b.base-a.base);
+      if(ls.length>=2 && eng.makeFusedCard){ const A=ls[0],B=ls[1]; G.deck=G.deck.filter(c=>c!==A&&c!==B); G.deck.push(eng.makeFusedCard(A,B)); }
+    } else if(stampModes[t]){
+      eng.applyOffer(o);  // sets selectMode via openDeck (stubbed)
+      let best=null; G.deck.forEach(c=>{ if(c.kind==="letter" && !c[stampModes[t]] && (!best||c.base>best.base)) best=c; });
+      if(best && eng.doTileUpgrade) eng.doTileUpgrade(best.id, stampModes[t]);
+      eng.G.selectMode=null;
+    } else {
+      try{ eng.applyOffer(o); }catch(e){}
+      eng.G.selectMode=null;
+    }
+  }
+}
+
+/* ---------- one full run ---------- */
+function playRun(eng,seed,cfg){
+  const G=eng.G, R=eng.WIN_LEVEL;
+  // fresh run state (mirrors newRun without DOM)
+  G.seed=seed; G.level=1; G.hearts=eng.MAX_HEARTS; G.coins=0; G.handSize=eng.START_HAND;
+  G.extraTurns=0; G.extraDiscards=0; G.scoreMult=1; G.pressGrowth=0; G.reprintUsed=false;
+  G.jazzCharges=0; G.attempt=0; G.shopOffers=[]; G.challenge=null; G.challengePending=null;
+  G.wordPlays={}; G.anagramSigs={}; G.anthologyCount=0; G.abcSeen={}; G.lastWordLetters=null;
+  G.pulpPending=0; G.lucky7Stash=[]; G._rescues=0; G.stats=null;
+  G.perks={firstUp:{},lastUp:{}};
+  G.deck=eng.rollStartingDeck();
+  const st={style:cfg.style, buys:[], rounds:[]};
+  const levelCfg=cfg.levelCfg;
+
+  for(let lvl=1;lvl<=R;lvl++){
+    G.level=lvl; G.target=eng.targetFor(lvl); G.score=0;
+    G.handsLeft=4+(G.extraTurns||0); G.discardsLeft=eng.DISCARDS_PER_LEVEL+(G.extraDiscards||0);
+    G.foilUsed=[]; G.lastWordLetters=null; G.pulpPending=0; G.pileReshuffles=0;
+    if(G.lucky7Stash&&G.lucky7Stash.length){ G.deck.push(...G.lucky7Stash); G.lucky7Stash=[]; }
+    const rng=eng.makeRng("lvl:"+lvl+":0:"+seed);
+    G.drawPile=eng.shuffle(G.deck,rng).slice(); G.hand=[]; G.canvas=[]; G.played=[];
+    eng.dealUpToHand(false);
+    let hearts0=G.hearts;
+    while(true){
+      if(G.score>=G.target) break;
+      if(G.handsLeft<=0){
+        G.hearts--; if(G.hearts<=0){ st.result={win:false,round:lvl}; return finish(eng,st,cfg); }
+        G.handsLeft=1;  // grace word, mirrors bot convention
+      }
+      // discard policy
+      let dGuard=0;
+      while(levelCfg.discards && G.discardsLeft>0 && dGuard++<6){
+        const probe=bestWord(eng,G.hand,{fast:levelCfg.fast});
+        const need=(G.target-G.score)/Math.max(1,G.handsLeft);
+        if(probe && probe.score>=need*levelCfg.discardBar) break;
+        const keep=new Set(probe?probe.tiles:[]);
+        const junk=G.hand.filter(t=>!keep.has(t)).sort((a,b)=>(a.base||0)-(b.base||0)).slice(0,4);
+        if(!junk.length) break;
+        G.canvas=junk; G.hand=G.hand.filter(t=>!junk.includes(t));
+        eng.discardCanvas();          // real fn: pays hooks (Recycled, Pulp), moves canvas->discard, redeals
+        if(G.hand.length<G.handSize) eng.dealUpToHand(false);
+      }
+      // Lucky 7 if held and hand weak
+      const l7=G.hand.find(c=>c.kind==="lucky7");
+      if(l7 && eng.useLucky7){ const probe=bestWord(eng,G.hand,{fast:true});
+        const need=(G.target-G.score)/Math.max(1,G.handsLeft);
+        if(!probe || probe.score<need*0.5) eng.useLucky7(l7); }
+      // choose word
+      let play=bestWord(eng,G.hand,{fast:levelCfg.fast});
+      if(play && levelCfg.pickTopK>1){
+        // weaker players don't always find the best word: resample among top-K approximations
+        if(Math.random()<levelCfg.missRate){
+          const alt=bestWord(eng,G.hand.slice(0,Math.max(4,G.hand.length-2)),{fast:true});
+          if(alt) play=alt;
+        }
+      }
+      if(!play){ // cycle a tile
+        G.handsLeft--; if(G.hand.length){ G.played.push(G.hand.shift()); eng.dealUpToHand(false); }
+        continue;
+      }
+      // ---- apply word (mirrors submitWord state effects; scoring via real scoreOf) ----
+      const sc=play.sc, w=play.word;
+      G.score+=sc.total;
+      // press growth incl. Short King mini-press
+      if(play.res.length>=6 && (G.pressGrowth||0)>0){ G.scoreMult=Math.round(((G.scoreMult||1)+G.pressGrowth)*1000)/1000; }
+      else if(G.perks.shortKing && sc.effLen>=2 && sc.effLen<=5){ G.scoreMult=Math.round(((G.scoreMult||1)+0.025)*1000)/1000; }
+      // foil once-per-round
+      play.res.forEach(r=>{ if(r.card&&r.card.foil){ if(!G.foilUsed.includes(r.card.id)) G.foilUsed.push(r.card.id); } });
+      // histories
+      G.wordPlays[w]=(G.wordPlays[w]||0)+1;
+      const sig2=w.split("").sort().join("");
+      if(!G.anagramSigs[sig2]) G.anagramSigs[sig2]=[];
+      if(!G.anagramSigs[sig2].includes(w)) G.anagramSigs[sig2].push(w);
+      if(G.perks.anthology && G.wordPlays[w]===1) G.anthologyCount=(G.anthologyCount||0)+1;
+      G.lastWordLetters=[...new Set(play.res.map(r=>r.letter).filter(Boolean))];
+      G.pulpPending=0;
+      // word cash
+      let cash=Math.floor(sc.total/eng.wordCashDivisor(G.level));
+      if(G.perks.footnote && play.res.length>=2 && play.res.length<=3) cash+=1;
+      cash+=play.res.reduce((n,r)=>n+((r.card&&r.card.inkwell)?1:0),0);
+      if(G.perks.abcs){ play.res.forEach(r=>{ if(r.letter&&!G.abcSeen[r.letter]){G.abcSeen[r.letter]=true;cash+=1;} }); }
+      if(cash>0) G.coins=Math.min(999,G.coins+cash);
+      // pile mechanics via real fn (encore, discard pile)
+      G.canvas=play.tiles.slice(); G.hand=G.hand.filter(t=>!play.tiles.includes(t));
+      eng.returnCanvasToPile();
+      G.handsLeft--;
+      eng.dealUpToHand(false);
+    }
+    st.rounds.push({round:lvl,score:G.score,target:G.target,margin:G.score-G.target,heartsLost:hearts0-G.hearts,discardsLeft:G.discardsLeft});
+    if(lvl<R){
+      const rw=eng.computeReward();
+      G.coins=Math.min(999,G.coins+rw.total);
+      shopPhase(eng,st,levelCfg);
+    }
+  }
+  st.result={win:true,round:R,heartsLeft:G.hearts};
+  return finish(eng,st,cfg);
+}
+function finish(eng,st){ return st; }
+
+const LEVELS={
+  rookie:  {discards:false,discardBar:0,   pickTopK:3,missRate:0.55,fast:true, reserve:0, shopNoise:true, rerolls:0},
+  casual:  {discards:true, discardBar:0.35,pickTopK:2,missRate:0.30,fast:true, reserve:0, shopNoise:true, rerolls:1},
+  skilled: {discards:true, discardBar:0.55,pickTopK:1,missRate:0,   fast:false,reserve:1, shopNoise:false, rerolls:3}
+};
+
+async function runBatch(eng,cfg,onProgress){
+  const N=cfg.N, agg={N,cfg:{level:cfg.level,style:cfg.style},version:eng.version,
+    wins:0,heartsLeft:0,failAt:{},ratio:Array(11).fill(0).map(()=>({s:0,n:0})),
+    buys:{},buyWins:{},runs:[]};
+  for(let i=0;i<N;i++){
+    const st=playRun(eng,cfg.seedPrefix+"-"+i,{style:cfg.style,levelCfg:LEVELS[cfg.level]});
+    const won=st.result.win;
+    if(won){agg.wins++;agg.heartsLeft+=st.result.heartsLeft;}
+    else agg.failAt[st.result.round]=(agg.failAt[st.result.round]||0)+1;
+    st.rounds.forEach(r=>{const b=agg.ratio[r.round]; b.s+=r.score/Math.max(1,r.target); b.n++;});
+    const seen=new Set(st.buys);
+    seen.forEach(k=>{agg.buys[k]=(agg.buys[k]||0)+1; if(won) agg.buyWins[k]=(agg.buyWins[k]||0)+1;});
+    if(i%25===24 && onProgress){ onProgress((i+1)/N); await new Promise(r=>setTimeout(r,0)); }
+  }
+  agg.winPct=+(100*agg.wins/N).toFixed(1);
+  agg.avgHearts=agg.wins?+(agg.heartsLeft/agg.wins).toFixed(2):0;
+  return agg;
+}
+return {loadGame,runBatch,LEVELS,STYLE_WEIGHTS,_internals:{bestWord,orderParts,playRun,tileGlyphModes,shopPhase}};
+})();
+
+/* ============================================================ UI ============================================================ */
+const $=id=>document.getElementById(id);
+let ENGINES={}, LAST=null;
+async function getEngine(file){
+  if(!ENGINES[file]) ENGINES[file]=await SimCore.loadGame(file);
+  return ENGINES[file];
+}
+async function boot(){
+  try{
+    const eng=await getEngine($("gameFile").value.trim());
+    $("status").textContent="Engine loaded: v"+eng.version+" · "+eng.WORDS.size.toLocaleString()+" dictionary words · "+eng.MAX_HEARTS+" hearts · "+eng.DISCARDS_PER_LEVEL+" discards";
+  }catch(e){ $("status").textContent="Load failed: "+e.message+" (serve this folder over http, e.g. GitHub Pages or a local server)"; }
+}
+function fmtFail(f,N){ return Object.keys(f).sort((a,b)=>a-b).map(k=>"R"+k+": "+(100*f[k]/N).toFixed(0)+"%").join(" · ")||"none"; }
+function renderResults(a,b){
+  $("results").style.display="block";
+  const line=(x,tag)=>`<div style="margin:4px 0"><span class="tag">${tag}</span> <b class="${x.winPct>=60?'good':x.winPct<35?'bad':''}">${x.winPct}%</b> win · hearts left ${x.avgHearts} · v${x.version} · ${x.cfg.level}/${x.cfg.style} · N=${x.N}</div>`;
+  $("summary").innerHTML=line(a,"A")+(b?line(b,"B"):"");
+  const failRows=(x)=>`<tr><td>${x.version}</td><td colspan=9 style="text-align:left">${fmtFail(x.failAt,x.N)}</td></tr>`;
+  $("failTable").innerHTML=`<table><tr><th>Build</th><th colspan=9>Fail distribution</th></tr>${failRows(a)}${b?failRows(b):""}</table>`;
+  const rr=(x)=>"<tr><td>"+x.version+"</td>"+x.ratio.slice(1).map(v=>"<td>"+(v.n?(v.s/v.n).toFixed(2):"–")+"</td>").join("")+"</tr>";
+  $("ratioTable").innerHTML=`<table><tr><th>Build</th>${Array.from({length:10},(_,i)=>"<th>R"+(i+1)+"</th>").join("")}</tr>${rr(a)}${b?rr(b):""}</table>`;
+  const keys=Object.keys(a.buys).sort((x,y)=>a.buys[y]-a.buys[x]);
+  const overall=a.winPct;
+  let rows=keys.map(k=>{
+    const n=a.buys[k], w=a.buyWins[k]||0;
+    const withRate=100*w/n, without=(a.wins-w)/Math.max(1,(a.N-n))*100;
+    const corr=withRate-without;
+    return `<tr><td>${k}</td><td>${(100*n/a.N).toFixed(0)}%</td><td>${withRate.toFixed(0)}%</td><td class="${corr>3?'good':corr<-3?'bad':''}">${corr>0?"+":""}${corr.toFixed(1)}</td></tr>`;
+  }).join("");
+  $("perkTable").innerHTML=`<table><tr><th>Item</th><th>Bought in</th><th>Win% when bought</th><th>Δ vs not bought</th></tr>${rows}</table><div class="note">Baseline win rate ${overall}%. Small purchase counts make Δ noisy; trust items bought in 10%+ of runs.</div>`;
+}
+$("runBtn").addEventListener("click",async()=>{
+  $("runBtn").disabled=true; $("prog").style.display="block"; $("progFill").style.width="0%";
+  try{
+    const cfg={N:+$("numRuns").value, seedPrefix:$("seedPrefix").value||"sim", level:$("level").value, style:$("style").value};
+    const engA=await getEngine($("gameFile").value.trim());
+    $("status").textContent="Simulating A (v"+engA.version+")…";
+    const a=await SimCore.runBatch(engA,cfg,p=>{$("progFill").style.width=(p*100).toFixed(0)+"%";});
+    let b=null;
+    const fB=$("gameFileB").value.trim();
+    if(fB){ const engB=await getEngine(fB); $("status").textContent="Simulating B (v"+engB.version+")…";
+      b=await SimCore.runBatch(engB,cfg,p=>{$("progFill").style.width=(p*100).toFixed(0)+"%";}); }
+    LAST={a,b}; renderResults(a,b); $("exportBtn").disabled=false;
+    $("status").textContent="Done.";
+  }catch(e){ $("status").textContent="Error: "+e.message; console.error(e); }
+  $("runBtn").disabled=false; $("prog").style.display="none";
+});
+$("suiteBtn").addEventListener("click",async()=>{
+  $("suiteBtn").disabled=true; $("prog").style.display="block";
+  try{
+    const eng=await getEngine($("gameFile").value.trim());
+    const N=Math.max(50,Math.floor(+$("numRuns").value/2));
+    const combos=[["rookie","generalist"],["casual","generalist"],["skilled","generalist"],["skilled","longform"],["skilled","shortking"],["skilled","fusion"],["skilled","hoarder"],["skilled","variety"]];
+    let html="<table><tr><th>Player</th><th>Style</th><th>Win%</th><th>Hearts left</th></tr>";
+    for(const [lv,styl] of combos){
+      $("status").textContent="Suite: "+lv+" / "+styl+"…";
+      const r=await SimCore.runBatch(eng,{N,seedPrefix:$("seedPrefix").value||"sim",level:lv,style:styl},p=>{$("progFill").style.width=(p*100).toFixed(0)+"%";});
+      html+=`<tr><td>${lv}</td><td>${styl}</td><td class="${r.winPct>=60?'good':r.winPct<35?'bad':''}">${r.winPct}%</td><td>${r.avgHearts}</td></tr>`;
+    }
+    html+="</table>";
+    $("results").style.display="block"; $("summary").innerHTML=html;
+    $("failTable").innerHTML=""; $("ratioTable").innerHTML=""; $("perkTable").innerHTML="";
+    $("status").textContent="Suite done (N="+N+" per row).";
+  }catch(e){ $("status").textContent="Error: "+e.message; console.error(e); }
+  $("suiteBtn").disabled=false; $("prog").style.display="none";
+});
+$("exportBtn").addEventListener("click",()=>{
+  const blob=new Blob([JSON.stringify(LAST,null,1)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="letterati-sim-results.json"; a.click();
+});
+boot();
+</script>
+</body>
+</html>
