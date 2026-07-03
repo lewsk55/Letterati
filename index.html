@@ -1087,7 +1087,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "46g";
+const VERSION = "47a";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1976,6 +1976,11 @@ function tileBadges(t,c){
   if(c.encore) add("encore","↻");
   if(c.foil) add("foil"+((G.foilUsed||[]).includes(c.id)?" spent":""),"✦");
   if(c.watermark) add("wm","◊");
+  if(c.boldface) add("bold","2L");
+  if(c.dropcap) add("dcap","1st");
+  if(c.serif) add("serif","⇥");
+  if(c.ditto) add("ditto","〃");
+  if(c.inkwell) add("ink","$");
   if(rail.childNodes.length) t.appendChild(rail);
 }
 function buildTile(c,where){
@@ -2247,18 +2252,28 @@ function wordValid(){
 }
 function scoreOf(res){
   let sum=0;
-  res.forEach((r)=>{
+  const vals=res.map((r)=>{
     let v=r.value*(r.mult||1);
     if(G.perks.vowelPower && VOWELS.has(r.letter)) v+=(+G.perks.vowelPower||0);   // v42a: +1 per vowel per stack
     if(r.card && r.card.foil && !(G.foilUsed||[]).includes(r.card.id)) v*=2;       // v42b: Foil Stamp, once per round
+    return v;
+  });
+  // Ditto Mark: this tile copies the highest value among the OTHER tiles in the word
+  res.forEach((r,i)=>{ if(r.card&&r.card.ditto){ let mx=0; res.forEach((o,j)=>{ if(j!==i && !(o.card&&o.card.ditto) && vals[j]>mx) mx=vals[j]; }); if(mx>0) vals[i]=mx; } });
+  res.forEach((r,i)=>{
+    let v=vals[i];
+    if(r.card&&r.card.dropcap && i===0) v*=3;                        // Drop Cap: triple as the first letter
+    if(r.card&&r.card.serif && (i===0||i===res.length-1)) v*=2;      // Serif Stamp: double at either end
     sum+=v;
   });
-  let m=lenMult(res.length);
+  const boldCount=res.reduce((n,r)=>n+((r.card&&r.card.boldface)?1:0),0);
+  const effLen=res.length+boldCount;                                  // Bold Face: each counts as 2 letters for length
+  let m=lenMult(effLen);
   if(G.perks.bigWords) m=1+(m-1)*2;             // double the length bonus above ×1
   m=Math.round(m*100)/100;
   let total=sum*m;
   let bingo=false;
-  if(res.length>=G.handSize){ total*=1.5; bingo=true; }
+  if(effLen>=G.handSize){ total*=1.5; bingo=true; }
   // First-up / Finale: stackable. A letter with s stacks multiplies the whole
   // word by (1 + 0.5*s) when the word starts (first-up) / ends (finale) with it. (v41a: +50% per stack, was +100%)
   const fuStacks = res.length>0 ? (G.perks.firstUp[res[0].letter]||0) : 0;
@@ -2275,9 +2290,9 @@ function scoreOf(res){
   if(pairHit) total*=1.5;
   // Short King: tiered boost for short words — 2L ×4, 3L ×3, 4L ×2.5, 5L ×2
   let shortHit=false, shortMult=1;
-  if(G.perks.shortKing && res.length>=2 && res.length<=5){
+  if(G.perks.shortKing && effLen>=2 && effLen<=5){
     shortHit=true;
-    shortMult={2:4, 3:3, 4:2.5, 5:2}[res.length];
+    shortMult={2:4, 3:3, 4:2.5, 5:2}[effLen];
     total*=shortMult;
   }
   // Kerning (v42a): words with no repeated letter → +25%
@@ -2285,7 +2300,7 @@ function scoreOf(res){
   if(G.perks.kerning && res.length>=2){ const seen={}; let rep=false; for(const r of res){ if(r.letter){ if(seen[r.letter]){ rep=true; break; } seen[r.letter]=1; } } if(!rep){ kernHit=true; total*=1.25; } }
   // Five Timer (v42a): exactly-5-letter words → ×1.5
   let fiveHit=false;
-  if(G.perks.fiveTimer && res.length===5){ fiveHit=true; total*=1.5; }
+  if(G.perks.fiveTimer && effLen===5){ fiveHit=true; total*=1.5; }
   // Mirror (v42a): palindromes → ×3
   let mirrorHit=false;
   if(G.perks.mirror && res.length>=2){ const w=res.map(r=>r.letter).join(""); if(w===w.split("").reverse().join("")){ mirrorHit=true; total*=3; } }
@@ -2306,8 +2321,37 @@ function scoreOf(res){
     const w=res.map(r=>r.letter.toLowerCase()).join("");
     if(VERBS.has(w)){ verbHit=true; total*=1.5; }
   }
+  // v47a perk wave
+  let ligHit=false;
+  if(G.perks.ligature && res.some(r=>r.letter&&"QXZJ".includes(r.letter))){ ligHit=true; total*=1.75; }
+  let crossHit=false;
+  if(G.perks.crossword && Array.isArray(G.lastWordLetters) && G.lastWordLetters.length){
+    const prev=new Set(G.lastWordLetters);
+    if(res.some(r=>r.letter&&prev.has(r.letter))){ crossHit=true; total*=1.25; }
+  }
+  let alphaHit=false;
+  if(G.perks.alphabetizer && res.length>=2 && res.every(r=>r.letter)){
+    let okA=true; for(let i=1;i<res.length;i++){ if(res[i].letter<res[i-1].letter){ okA=false; break; } }
+    if(okA){ alphaHit=true; total*=3; }
+  }
+  let coloHit=false;
+  if(G.perks.colophon && G.handsLeft===1){ coloHit=true; total*=2; }
+  let movableHit=false;
+  if(G.perks.movableType && res.length>=2 && res.every(r=>r.letter)){
+    const mw=res.map(r=>r.letter.toLowerCase()).join(""); const sig=mw.split("").sort().join("");
+    const seenW=(G.anagramSigs&&G.anagramSigs[sig])||[];
+    if(seenW.some(x=>x!==mw)){ movableHit=true; total*=2; }
+  }
+  let anthMult=1;
+  if(G.perks.anthology && (G.anthologyCount||0)>0){ anthMult=1+0.005*G.anthologyCount; total*=anthMult; }
+  let vanityHit=false;
+  if(G.perks.vanityPress){ vanityHit=true; total*=1.25; }
   total*=(G.scoreMult||1);
-  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,twinHit,pairHit,shortHit,shortMult,kernHit,fiveHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit};
+  let pulpAdd=0;
+  if(G.perks.pulpMill && (G.pulpPending||0)>0){ pulpAdd=G.pulpPending; total+=pulpAdd; }
+  let commissionAdd=0;
+  if(G.perks.commission && (G.coins||0)>0){ commissionAdd=G.coins; total+=commissionAdd; }
+  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,twinHit,pairHit,shortHit,shortMult,kernHit,fiveHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit,effLen,ligHit,crossHit,alphaHit,coloHit,movableHit,anthMult,vanityHit,pulpAdd,commissionAdd};
 }
 function updateLive(){
   const res=resolvedCanvas();
@@ -2343,6 +2387,15 @@ function updateLive(){
   if(sc.trioHit) parts.push(`×2 trio`);
   if(sc.verbHit) parts.push(`×1.5 verb`);
   if(sc.repeatHit>0) parts.push(`×${(sc.repeatMult||1).toFixed(1)} replay`);
+  if(sc.ligHit) parts.push(`×1.75 ligature`);
+  if(sc.crossHit) parts.push(`×1.25 crossword`);
+  if(sc.alphaHit) parts.push(`×3 a to z`);
+  if(sc.coloHit) parts.push(`×2 colophon`);
+  if(sc.movableHit) parts.push(`×2 anagram`);
+  if(sc.anthMult>1) parts.push(`×${sc.anthMult.toFixed(2)} anthology`);
+  if(sc.vanityHit) parts.push(`×1.25 vanity`);
+  if(sc.pulpAdd) parts.push(`+${sc.pulpAdd} pulp`);
+  if(sc.commissionAdd) parts.push(`+${sc.commissionAdd} commission`);
   ls.innerHTML = `${sc.total} <span class="mult">${parts.join(" ")}${label?" • "+label:""}</span>`;
   updateChallengeBlockHint();
   updateButtons();
@@ -2861,6 +2914,7 @@ function startLevel(){
   G.reshuffleCount=0;
   G.pileReshuffles=0;
   G._rescues=0;
+  G.lastWordLetters=null; G.pulpPending=0;
   G.levelStats={bestWord:"",bestScore:0,words:0};
   const rng=makeRng("lvl:"+G.level+":"+G.attempt);
   // Locked challenge: pull the banned letters out of the deck for this level only,
@@ -2917,6 +2971,15 @@ function submitWord(){
   const sc=scoreOf(res);
   const w=res.map(r=>r.letter.toLowerCase()).join("");
   if(!isJazz){ if(!G.wordPlays) G.wordPlays={}; G.wordPlays[w]=(G.wordPlays[w]||0)+1; }   // v43a: Repeater history (after scoreOf read the prior count)
+  if(!isJazz){
+    if(!G.anagramSigs) G.anagramSigs={};                                   // Movable Type history (after scoreOf read it)
+    const sig=w.split("").sort().join("");
+    if(!G.anagramSigs[sig]) G.anagramSigs[sig]=[];
+    if(!G.anagramSigs[sig].includes(w)) G.anagramSigs[sig].push(w);
+    if(G.perks.anthology && G.wordPlays[w]===1){ G.anthologyCount=(G.anthologyCount||0)+1; }   // Anthology: first-ever play
+  }
+  G.lastWordLetters=[...new Set(res.map(r=>r.letter).filter(Boolean))];    // Crossword chain
+  G.pulpPending=0;                                                          // Pulp Mill bonus is consumed by this word
   if(isJazz){ G.canvas.forEach(c=>{ if(c.kind==="jazz" && (c.jazzLeft||0)>0) c.jazzLeft--; }); }
   // highlights
   G.wordsPlayed=(G.wordsPlayed||0)+1;
@@ -2926,7 +2989,7 @@ function submitWord(){
   if(res.length>=6 && (G.pressGrowth||0)>0){
     G.scoreMult=Math.round(((G.scoreMult||1)+G.pressGrowth)*1000)/1000;
     pressGrew=true;
-  } else if(G.perks.shortKing && res.length>=2 && res.length<=5){
+  } else if(G.perks.shortKing && sc.effLen>=2 && sc.effLen<=5){
     // Short King mini-press: short words are their own scaling engine
     G.scoreMult=Math.round(((G.scoreMult||1)+0.025)*1000)/1000;
     pressGrew=true;
@@ -2942,6 +3005,12 @@ function submitWord(){
   // by round so early words can actually earn: $1 per 50 pts in rounds 1 to 5,
   // per 100 in rounds 6 to 10, per 150 beyond that.
   let cash=Math.floor(sc.total/wordCashDivisor(G.level));
+  if(G.perks.footnote && !isJazz && res.length>=2 && res.length<=3) cash+=1;               // Footnote
+  cash+=res.reduce((n,r)=>n+((r.card&&r.card.inkwell)?1:0),0);                             // Ink Well tiles
+  if(G.perks.abcs && !isJazz){                                                              // ABCs: first sighting of each letter
+    if(!G.abcSeen) G.abcSeen={};
+    res.forEach(r=>{ if(r.letter && !G.abcSeen[r.letter]){ G.abcSeen[r.letter]=true; cash+=1; } });
+  }
   if(challengeDoublePay()) cash*=2;   // v3a double-payout reward
   if(cash>0){ G.coins=Math.min(999,G.coins+cash); }
   renderHud();
@@ -3005,6 +3074,8 @@ function discardCanvas(){
   if(G.canvas.length===0||G.discardsLeft<=0) return;
   clearUndo();   // a discard is a hard boundary like setting a word: no undo across it
   G.discardsLeft--;
+  if(G.perks.pulpMill) G.pulpPending=3*G.canvas.length;                                     // next word: +3 per discarded tile
+  if(G.perks.recycledStock){ G.scoreMult=Math.round(((G.scoreMult||1)+0.01)*1000)/1000; toast("Press ×"+Number(G.scoreMult).toFixed(3)); }
   const tiles=[...$("canvas").querySelectorAll(".tile")];
   tiles.forEach((t,i)=>{ setTimeout(()=>t.classList.add("fly-out"),i*40); });
   returnCanvasToPile();
@@ -3208,7 +3279,7 @@ function levelFailed(){
 function priceMult(){ return 1; }   // shop inflation removed
 function px(base){
   const infl=Math.pow(1.1, Math.max(0,(G.level||1)-1));   // +10% per round, compounding
-  return Math.max(1,Math.round(base*0.65*SHOP_PRICE_SCALE*(G.perks.fireSale?0.75:1)*infl));
+  return Math.max(1,Math.round(base*0.65*SHOP_PRICE_SCALE*(G.perks.fireSale?0.75:1)*(G.perks.vanityPress?1.25:1)*infl));
 }   // 35% off base, then 20% off (v3a); Fire sale = 25% more off
 
 function buildShopPool(){
@@ -3279,6 +3350,24 @@ function perkPool(rng){
   if(!G.perks.mirror)            e.push({make:()=>mirrorOffer(),      weight:0.8});
   if(!G.perks.verbose)           e.push({make:()=>verboseOffer(),     weight:1.2});
   if(!G.perks.verbizer)          e.push({make:()=>verbizerOffer(),    weight:0.8});
+  if(!G.perks.abridged)          e.push({make:()=>abridgedOffer(),    weight:0.6});
+  if(!G.perks.movableType)       e.push({make:()=>movableTypeOffer(), weight:0.9});
+  if(!G.perks.footnote)          e.push({make:()=>footnoteOffer(),    weight:1.2});
+  if(!G.perks.anthology)         e.push({make:()=>anthologyOffer(),   weight:0.6});
+  if(!G.perks.abcs)              e.push({make:()=>abcsOffer(),        weight:0.9});
+  if(!G.perks.ligature)          e.push({make:()=>ligatureOffer(),    weight:0.9});
+  if(!G.perks.crossword)         e.push({make:()=>crosswordOffer(),   weight:0.9});
+  if(!G.perks.recycledStock)     e.push({make:()=>recycledStockOffer(),weight:0.6});
+  if(!G.perks.pulpMill)          e.push({make:()=>pulpMillOffer(),    weight:1.2});
+  if(!G.perks.colophon)          e.push({make:()=>colophonOffer(),    weight:0.9});
+  if(!G.perks.alphabetizer)      e.push({make:()=>alphabetizerOffer(),weight:0.6});
+  if(!G.perks.commission)        e.push({make:()=>commissionOffer(),  weight:0.6});
+  if(!G.perks.vanityPress)       e.push({make:()=>vanityPressOffer(), weight:0.9});
+  e.push({make:()=>boldFaceOffer(),  weight:0.5});
+  e.push({make:()=>dropCapOffer(),   weight:0.6});
+  e.push({make:()=>serifStampOffer(),weight:0.6});
+  e.push({make:()=>dittoMarkOffer(), weight:0.5});
+  e.push({make:()=>inkWellOffer(),   weight:0.7});
   if(!G.perks.reprint)           e.push({make:()=>reprintOffer(),     weight:1.1});
   if(!G.perks.repeater)          e.push({make:()=>repeaterOffer(),    weight:1.4});
   if(!G.perks.powerTrio)         e.push({make:()=>powerTrioOffer(),   weight:1.3});
@@ -3391,6 +3480,19 @@ function applyOffer(o){
     case "mirror":       G.perks.mirror=true; break;
     case "verbose":      G.perks.verbose=true; break;
     case "verbizer":     G.perks.verbizer=true; break;
+    case "abridged":     G.perks.abridged=true; break;
+    case "movableType":  G.perks.movableType=true; break;
+    case "footnote":     G.perks.footnote=true; break;
+    case "anthology":    G.perks.anthology=true; break;
+    case "abcs":         G.perks.abcs=true; break;
+    case "ligature":     G.perks.ligature=true; break;
+    case "crossword":    G.perks.crossword=true; break;
+    case "recycledStock":G.perks.recycledStock=true; break;
+    case "pulpMill":     G.perks.pulpMill=true; break;
+    case "colophon":     G.perks.colophon=true; break;
+    case "alphabetizer": G.perks.alphabetizer=true; break;
+    case "commission":   G.perks.commission=true; break;
+    case "vanityPress":  G.perks.vanityPress=true; break;
     case "reprint":      G.perks.reprint=true; break;
     case "repeater":     G.perks.repeater=true; break;
     case "powerTrio":    G.perks.powerTrio=true; break;
@@ -3453,6 +3555,78 @@ function mirrorOffer(){
 function reprintOffer(){
   return {kind:"Perk",rarity:"epic",name:"Reprint",desc:"Lose your last heart and gain one more. One time.",
     price:px(12), art:"📋", d:{type:"reprint"}};
+}
+function abridgedOffer(){
+  return {kind:"Perk",rarity:"epic",name:"Abridged",desc:"After every shop, cut one tile of your choice from your deck for $1.",
+    price:px(9), art:"✂️", d:{type:"abridged"}};
+}
+function movableTypeOffer(){
+  return {kind:"Perk",rarity:"rare",name:"Movable Type",desc:"Playing the same set of letters as a different word scores ×2.",
+    price:px(7), art:"🔠", d:{type:"movableType"}};
+}
+function footnoteOffer(){
+  return {kind:"Perk",rarity:"common",name:"Footnote",desc:"Words of 2 or 3 letters earn $1 when played.",
+    price:px(4), art:"†", d:{type:"footnote"}};
+}
+function anthologyOffer(){
+  return {kind:"Perk",rarity:"epic",name:"Anthology",desc:"Every unique word you play this run permanently adds 0.5% to your multiplier.",
+    price:px(11), art:"📚", d:{type:"anthology"}};
+}
+function abcsOffer(){
+  return {kind:"Perk",rarity:"rare",name:"ABCs",desc:"The first time each letter appears in one of your words this run, earn $1.",
+    price:px(7), art:"🔤", d:{type:"abcs"}};
+}
+function ligatureOffer(){
+  return {kind:"Perk",rarity:"rare",name:"Ligature",desc:"Words containing Q, X, Z, or J score ×1.75.",
+    price:px(8), art:"Æ", d:{type:"ligature"}};
+}
+function crosswordOffer(){
+  return {kind:"Perk",rarity:"rare",name:"Crossword",desc:"Words sharing at least one letter with your previous word score +25%.",
+    price:px(7), art:"🧩", d:{type:"crossword"}};
+}
+function recycledStockOffer(){
+  return {kind:"Perk",rarity:"epic",name:"Recycled Stock",desc:"Every discard you spend grows your Press by 0.01.",
+    price:px(10), art:"♻️", d:{type:"recycledStock"}};
+}
+function pulpMillOffer(){
+  return {kind:"Perk",rarity:"common",name:"Pulp Mill",desc:"Your next word after a discard gains 3 points per discarded tile.",
+    price:px(4), art:"🏭", d:{type:"pulpMill"}};
+}
+function colophonOffer(){
+  return {kind:"Perk",rarity:"rare",name:"Colophon",desc:"Your final word each round scores ×2.",
+    price:px(8), art:"🖋", d:{type:"colophon"}};
+}
+function alphabetizerOffer(){
+  return {kind:"Perk",rarity:"epic",name:"Alphabetizer",desc:"Words with letters in alphabetical order score ×3.",
+    price:px(11), art:"🔡", d:{type:"alphabetizer"}};
+}
+function commissionOffer(){
+  return {kind:"Perk",rarity:"epic",name:"Commission",desc:"Words gain 1 point for every coin in your bank.",
+    price:px(12), art:"💼", d:{type:"commission"}};
+}
+function vanityPressOffer(){
+  return {kind:"Perk",rarity:"rare",name:"Vanity Press",desc:"Shop prices rise 25%, and every word scores 25% higher.",
+    price:px(7), art:"🎩", d:{type:"vanityPress"}};
+}
+function boldFaceOffer(){
+  return {kind:"Upgrade",rarity:"epic",name:"Bold Face",desc:"Pick a letter. It counts as two letters toward word length.",
+    price:px(10), art:"𝐁", needsTarget:"boldface", d:{type:"boldfaceStamp"}};
+}
+function dropCapOffer(){
+  return {kind:"Upgrade",rarity:"rare",name:"Drop Cap",desc:"Pick a letter. It scores triple as the first letter of a word.",
+    price:px(8), art:"𝔻", needsTarget:"dropcap", d:{type:"dropcapStamp"}};
+}
+function serifStampOffer(){
+  return {kind:"Upgrade",rarity:"rare",name:"Serif Stamp",desc:"Pick a letter. Its value doubles as the first or last letter of a word.",
+    price:px(7), art:"⇥", needsTarget:"serif", d:{type:"serifStamp"}};
+}
+function dittoMarkOffer(){
+  return {kind:"Upgrade",rarity:"epic",name:"Ditto Mark",desc:"Pick a letter. It copies the highest value of the other tiles in the word.",
+    price:px(10), art:"〃", needsTarget:"ditto", d:{type:"dittoStamp"}};
+}
+function inkWellOffer(){
+  return {kind:"Upgrade",rarity:"common",name:"Ink Well",desc:"Pick a letter. Earn $1 every time you play it.",
+    price:px(5), art:"🪙", needsTarget:"inkwell", d:{type:"inkwellStamp"}};
 }
 function verbizerOffer(){
   return {kind:"Perk",rarity:"epic",name:"Verbizer",desc:"Add er or ing to any valid word to make it a verb, even if the result is not in the dictionary.",
@@ -3553,6 +3727,11 @@ function setShopHeader(){
 function openShop(){
   G.freeRerollUsed=false;         // reset BEFORE building so the shop opens un-rerolled and the free reroll varies the seed
   G.shopOffers=buildShopPool();   // reroll count persists for the whole run
+  if(G.perks.abridged){
+    // Appended AFTER the seeded pool roll so it never disturbs seeded offer picks.
+    G.shopOffers.push({kind:"Upgrade",rarity:"epic",name:"Abridged",desc:"Cut one tile from your deck.",
+      price:1, art:"✂️", needsTarget:"remove", d:{type:"eraser"}});
+  }
   statShopOpen(G.shopOffers);
   G.shopUndo=[];                  // fresh undo history per shop visit
   setShopHeader();
@@ -3734,6 +3913,11 @@ function openDeck(mode){
   else if(mode==="gild"){ hint.textContent="Tap a letter to gild it. Re-gilding the same letter costs double each time."; hint.className="select-hint gild"; }
   else if(mode==="growth"){ hint.textContent="Tap a letter. It gains +1 point every time you play it."; hint.className="select-hint"; }
   else if(mode==="encore"){ hint.textContent="Tap any tile. After you play it, it returns to the top of your pile."; hint.className="select-hint"; }
+  else if(mode==="boldface"){ hint.textContent="Tap a letter. It will count as two letters toward word length."; hint.className="select-hint"; }
+  else if(mode==="dropcap"){ hint.textContent="Tap a letter. It scores triple as the first letter of a word."; hint.className="select-hint"; }
+  else if(mode==="serif"){ hint.textContent="Tap a letter. Its value doubles as the first or last letter of a word."; hint.className="select-hint"; }
+  else if(mode==="ditto"){ hint.textContent="Tap a letter. It will copy the highest value of the other tiles in the word."; hint.className="select-hint"; }
+  else if(mode==="inkwell"){ hint.textContent="Tap a letter. You earn $1 every time you play it."; hint.className="select-hint"; }
   else if(mode==="foil"){ hint.textContent="Tap a letter. Its value is doubled the first time you play it each round."; hint.className="select-hint"; }
   else if(mode==="watermark"){ hint.textContent="Tap a letter. It is always in your opening hand each round."; hint.className="select-hint"; }
   else if(mode==="fuse"){ hint.textContent="Tap two letters to fuse into one tile. Pick the first."; hint.className="select-hint gild"; }
@@ -3752,6 +3936,9 @@ function deckTileEl(c){
   if(G.selectMode==="encore"    && c.kind!=="lucky7" && !c.encore){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"encore")); }
   if(G.selectMode==="foil"      && upgradable && !c.foil){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"foil")); }
   if(G.selectMode==="watermark" && upgradable && !c.watermark){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"watermark")); }
+  ["boldface","dropcap","serif","ditto","inkwell"].forEach(k=>{
+    if(G.selectMode===k && c.kind==="letter" && !c[k]){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,k)); }
+  });
   if(G.selectMode==="fuse" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); if(G.fusePending===c.id) wrap.classList.add("fuse-pending"); wrap.addEventListener("click",()=>tapFuse(c.id)); }
   return wrap;
 }
@@ -3916,14 +4103,21 @@ function doTileUpgrade(id,kind){
   const c=G.deck.find(x=>x.id===id); if(!c) return;
   // Encore now works on ANY playable tile (letters, combos, fused, wilds, free jazz...);
   // the other stamps still target letters and fused tiles only.
+  const NEW_STAMPS=["boldface","dropcap","serif","ditto","inkwell"];
   if(kind==="encore"){ if(c.kind==="lucky7") return; }
+  else if(NEW_STAMPS.includes(kind)){ if(c.kind!=="letter") return; }
   else if(c.kind!=="letter" && c.kind!=="fused") return;
   if(kind==="growth"){ if(typeof c.growth!=="number") c.growth=0; }
   else if(kind==="encore"){ c.encore=true; }
   else if(kind==="foil"){ c.foil=true; }
   else if(kind==="watermark"){ c.watermark=true; }
+  else if(kind==="boldface"){ c.boldface=true; }
+  else if(kind==="dropcap"){ c.dropcap=true; }
+  else if(kind==="serif"){ c.serif=true; }
+  else if(kind==="ditto"){ c.ditto=true; }
+  else if(kind==="inkwell"){ c.inkwell=true; }
   G.selectMode=null;
-  const label={growth:"Growth Mindset",encore:"Encore",foil:"Foil Stamp",watermark:"Watermark"}[kind];
+  const label={growth:"Growth Mindset",encore:"Encore",foil:"Foil Stamp",watermark:"Watermark",boldface:"Bold Face",dropcap:"Drop Cap",serif:"Serif Stamp",ditto:"Ditto Mark",inkwell:"Ink Well"}[kind];
   toast(label+" applied to "+tileShortName(c));
   haptic(20);
   closeDeck(); save();
@@ -4380,6 +4574,19 @@ function ownedPerksList(){
   if(G.perks.mirror)     out.push("Mirror · ×3 palindromes");
   if(G.perks.verbose)    out.push("Verbose · ×1.5 verbs");
   if(G.perks.verbizer)   out.push("Verbizer · add er/ing to any word");
+  if(G.perks.abridged)   out.push("Abridged · cut a tile each shop for $1");
+  if(G.perks.movableType)out.push("Movable Type · same letters, new word ×2");
+  if(G.perks.footnote)   out.push("Footnote · 2 to 3 letter words earn $1");
+  if(G.perks.anthology)  out.push("Anthology · +0.5% per unique word ("+(G.anthologyCount||0)+")");
+  if(G.perks.abcs)       out.push("ABCs · $1 per new letter used");
+  if(G.perks.ligature)   out.push("Ligature · Q X Z J words ×1.75");
+  if(G.perks.crossword)  out.push("Crossword · chain a letter for +25%");
+  if(G.perks.recycledStock) out.push("Recycled Stock · discards grow Press");
+  if(G.perks.pulpMill)   out.push("Pulp Mill · +3 per discarded tile next word");
+  if(G.perks.colophon)   out.push("Colophon · final word ×2");
+  if(G.perks.alphabetizer) out.push("Alphabetizer · a to z order ×3");
+  if(G.perks.commission) out.push("Commission · +1 point per coin banked");
+  if(G.perks.vanityPress)out.push("Vanity Press · prices +25%, scores +25%");
   if(G.perks.repeater)   out.push("Repeater · replays score higher");
   if(G.perks.powerTrio)  out.push("Power Trio · ×2 for three of a letter");
   if(G.perks.reprint)    out.push("Reprint · spare the first lost heart"+(G.reprintUsed?" (used)":""));
@@ -4410,6 +4617,19 @@ function ownedPerkCards(){
   if(P.mirror)     push("🪞","Mirror","×3 on palindromes.");
   if(P.verbose)    push("🅥","Verbose","×1.5 on verbs, in any form.");
   if(P.verbizer)   push("🪄","Verbizer","Add er or ing to any valid word to make it a verb.");
+  if(P.abridged)   push("✂️","Abridged","After every shop, cut one tile from your deck for $1.");
+  if(P.movableType)push("🔠","Movable Type","Playing the same set of letters as a different word scores ×2.");
+  if(P.footnote)   push("†","Footnote","Words of 2 or 3 letters earn $1 when played.");
+  if(P.anthology)  push("📚","Anthology","Every unique word adds 0.5% to your multiplier. Now "+(G.anthologyCount||0)+" words.");
+  if(P.abcs)       push("🔤","ABCs","The first time each letter appears in a word this run, earn $1.");
+  if(P.ligature)   push("Æ","Ligature","Words containing Q, X, Z, or J score ×1.75.");
+  if(P.crossword)  push("🧩","Crossword","Words sharing a letter with your previous word score +25%.");
+  if(P.recycledStock) push("♻️","Recycled Stock","Every discard you spend grows your Press by 0.01.");
+  if(P.pulpMill)   push("🏭","Pulp Mill","Your next word after a discard gains 3 points per discarded tile.");
+  if(P.colophon)   push("🖋","Colophon","Your final word each round scores ×2.");
+  if(P.alphabetizer) push("🔡","Alphabetizer","Words with letters in alphabetical order score ×3.");
+  if(P.commission) push("💼","Commission","Words gain 1 point for every coin in your bank.");
+  if(P.vanityPress)push("🎩","Vanity Press","Shop prices rise 25%, and every word scores 25% higher.");
   if(P.repeater)   push("🔁","Repeater","Replaying a word you've used scores higher.");
   if(P.powerTrio)  push("🎯","Power Trio","×2 when a letter appears three or more times.");
   if(P.reprint)    push("📋","Reprint","Spare the first heart you would lose."+(G.reprintUsed?" Used.":""));
@@ -4524,7 +4744,7 @@ function save(){
       perks:G.perks, scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, reprintUsed:G.reprintUsed, foilUsed:G.foilUsed, challenge:G.challenge, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, jazzCharges:G.jazzCharges, runMs:G.runMs, stats:G.stats,
       wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, wordPlays:G.wordPlays, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
       attempt:G.attempt, target:G.target, score:G.score, handsLeft:G.handsLeft, discardsLeft:G.discardsLeft,
-      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]),
+      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0,
       rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
     };
     localStorage.setItem(SAVE_KEY,JSON.stringify(data));
@@ -4545,6 +4765,7 @@ function continueRun(){
   G.scoreMult=d.scoreMult||1; G.pressGrowth=d.pressGrowth||0; G.extraDiscards=d.extraDiscards||0; G.extraTurns=d.extraTurns||0;
   G.challenge=d.challenge||null;
   G.lucky7Stash=Array.isArray(d.lucky7Stash)?d.lucky7Stash:[];
+  G.anagramSigs=d.anagramSigs||{}; G.anthologyCount=d.anthologyCount||0; G.abcSeen=d.abcSeen||{}; G.lastWordLetters=d.lastWordLetters||null; G.pulpPending=d.pulpPending||0;
   G.jazzCharges=(typeof d.jazzCharges==="number")?d.jazzCharges:0;
   G.wordsPlayed=d.wordsPlayed||0; G.runScore=d.runScore||0; G.runBestWord=d.runBestWord||""; G.runBestScore=d.runBestScore||0; G.wordPlays=d.wordPlays||{};
   G.levelStats=d.levelStats||{bestWord:"",bestScore:0,words:0};
@@ -4619,6 +4840,7 @@ function newRun(seed){
   G.attempt=0; G.best=1; G.shopOffers=[]; G.runMs=0;
   G.challenge=null; G.challengePending=null; G._rescues=0;   // never carry a challenge into a fresh run
   G.lucky7Stash=[];
+  G.anagramSigs={}; G.anthologyCount=0; G.abcSeen={}; G.lastWordLetters=null; G.pulpPending=0;
   G.deck=rollStartingDeck();
   statInit(G.seed);
   { const ds=$("defStrip"); if(ds){ ds.classList.add("hidden"); ds.innerHTML=""; } }
