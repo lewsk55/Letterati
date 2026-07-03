@@ -1087,7 +1087,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "46e";
+const VERSION = "46g";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1156,7 +1156,7 @@ const HANDS_PER_LEVEL = 4;     // "turns" — words you may set
 const DISCARDS_PER_LEVEL = 4;
 const PRICE_MULTIPLIER = 1.22; // per-round shop inflation (GGW used ~1.46)
 const SHOP_PRICE_SCALE = 0.8;  // v3a: 20% cheaper across the board (stacks on the base 35% off)
-const MAX_HEARTS = 4;
+const MAX_HEARTS = 3;
 const COIN_CAP = 12;           // economy guard rail (caps base payout only)
 const INTEREST_CAP = 10;       // max compound-interest payout per round
 
@@ -1415,17 +1415,64 @@ function predRoll(seed){
 }
 let _predLevel=1;
 function predPx(base,fire){ const infl=Math.pow(1.1,Math.max(0,(_predLevel||1)-1)); return Math.max(1,Math.round(base*0.65*SHOP_PRICE_SCALE*(fire?0.75:1)*infl)); }
-function predCV(c){ return c.base*Math.pow(2,c.up||0); }
+function predCV(c){ const base=c.fusedA?(c.fusedA.base+c.fusedB.base):c.base; return base*Math.pow(2,c.up||0); }
 function predScore(t,P){
-  let s=0; t.forEach(x=>{let v=predCV(x)*(x.mult||1); if(P.vowelPower&&VOWELS.has(x.letter))v+=(+P.vowelPower||0); s+=v;});
-  let m=lenMult(t.length); if(P.bigWords)m=1+(m-1)*2;
-  let tot=s*m; if(t.length>=P.handSize)tot*=1.5; tot*=P.scoreMult||1; return Math.round(tot);
+  // t entries are letter tiles OR resolved parts {g:"er",v:5} from fused-tile modes.
+  let s=0,len=0;
+  t.forEach(x=>{
+    const g=(x.g!==undefined)?x.g:(x.letter?x.letter.toLowerCase():"");
+    let v=(x.v!==undefined)?x.v:predCV(x)*(x.mult||1);
+    if(P.vowelPower){ for(const ch of g){ if(VOWELS.has(ch.toUpperCase())) v+=(+P.vowelPower||0); } }
+    s+=v; len+=g.length;
+  });
+  let m=lenMult(len); if(P.bigWords)m=1+(m-1)*2;
+  let tot=s*m; if(len>=P.handSize)tot*=1.5;
+  if(P.shortKing && len>=2 && len<=5){ tot*={2:4,3:3,4:2.5,5:2}[len]; }   // live Short King tiers
+  tot*=P.scoreMult||1; return Math.round(tot);
 }
 function predBest(hand,P,opts){
   opts=opts||{}; const banned=opts.banned||null, minLen=opts.minLen||0;
-  const cand = banned ? hand.filter(t=>!banned.has(t.letter)) : hand;   // locked: drop banned letters from play
-  const A=anaSet(),n=cand.length,lim=1<<n; let b=0,bt=null;
-  for(let mask=1;mask<lim;mask++){let c=0;for(let i=0;i<n;i++)if(mask&(1<<i))c++;if(c<2||c<minLen)continue;const sub=[];for(let i=0;i<n;i++)if(mask&(1<<i))sub.push(cand[i]);const k=sub.map(x=>x.letter.toLowerCase()).sort().join("");if(!A.has(k))continue;const sc=predScore(sub,P);if(sc>b){b=sc;bt=sub;}}
+  const hasFused=hand.some(t=>t.fusedA);
+  if(!hasFused){
+    const cand = banned ? hand.filter(t=>!banned.has(t.letter)) : hand;   // locked: drop banned letters from play
+    const A=anaSet(),n=cand.length,lim=1<<n; let b=0,bt=null;
+    for(let mask=1;mask<lim;mask++){let c=0;for(let i=0;i<n;i++)if(mask&(1<<i))c++;if(c<2||c<minLen)continue;const sub=[];for(let i=0;i<n;i++)if(mask&(1<<i))sub.push(cand[i]);const k=sub.map(x=>x.letter.toLowerCase()).sort().join("");if(!A.has(k))continue;const sc=predScore(sub,P);if(sc>b){b=sc;bt=sub;}}
+    return {score:b,tiles:bt};
+  }
+  // fused-aware search: each fused tile plays as side A, side B, or the pair.
+  const modesOf=t=>{
+    if(!t.fusedA){
+      if(banned && banned.has(t.letter)) return [];
+      return [{g:t.letter.toLowerCase(), v:predCV(t)*(t.mult||1)}];
+    }
+    const up=Math.pow(2,t.up||0), out=[];
+    const aOk=!(banned&&banned.has(t.fusedA.letter)), bOk=!(banned&&banned.has(t.fusedB.letter));
+    if(aOk) out.push({g:t.fusedA.letter.toLowerCase(), v:t.fusedA.base*up});
+    if(bOk) out.push({g:t.fusedB.letter.toLowerCase(), v:t.fusedB.base*up});
+    if(aOk&&bOk) out.push({g:(t.fusedA.letter+t.fusedB.letter).toLowerCase(), v:(t.fusedA.base+t.fusedB.base)*up});
+    return out;
+  };
+  const cand=hand.map(t=>({t,modes:modesOf(t)})).filter(x=>x.modes.length);
+  const A=anaSet(), n=Math.min(cand.length,12), lim=1<<n; let b=0,bt=null;
+  for(let mask=1;mask<lim;mask++){
+    const idx=[]; for(let i=0;i<n;i++) if(mask&(1<<i)) idx.push(i);
+    if(idx.length<2 && minLen<=2 && idx.length<2){ if(idx.length<1) continue; }
+    // cartesian product over each included tile's modes (letters have exactly 1)
+    const combos=[[]];
+    for(const i of idx){
+      const next=[];
+      for(const base of combos){ for(const m of cand[i].modes){ next.push(base.concat([m])); if(next.length>243) break; } if(next.length>243) break; }
+      combos.length=0; combos.push(...next);
+    }
+    for(const parts of combos){
+      let len=0; for(const pdt of parts) len+=pdt.g.length;
+      if(len<2||len<minLen||len>12) continue;
+      const k=parts.map(x=>x.g).join("").split("").sort().join("");
+      if(!A.has(k)) continue;
+      const sc=predScore(parts,P);
+      if(sc>b){ b=sc; bt=idx.map(i=>cand[i].t); }
+    }
+  }
   return {score:b,tiles:bt};
 }
 function predLevel(P,seed,opts){
@@ -1437,12 +1484,33 @@ function predLevel(P,seed,opts){
   const src = banned ? P.deck.filter(c=>!banned.has(c.letter)) : P.deck;   // locked: banned letters not in the pile
   let pile=shuffle(src,rng).slice(); let hand=[]; const draw=()=>{while(hand.length<P.handSize&&pile.length)hand.push(pile.shift());}; draw();
   let score=0,cash=0,hl=4+(P.extraTurns||0);
+  const smart=!!opts.smart; let disc=smart?DISCARDS_PER_LEVEL:0;
   while(true){
-    if(score>=target) return {res:"clear",hl,score,cash};
-    if(hl<=0){ P.hearts--; if(P.hearts<=0) return {res:"fail",score}; hl=1; }
+    if(score>=target) return {res:"clear",hl,score,cash,discardsLeft:disc};
+    if(hl<=0){ P.hearts--; if(P.hearts<=0) return {res:"fail",score,discardsLeft:disc}; hl=1; }
+    if(smart){
+      // discard policy: if the best playable word is weak vs the pace we need
+      // (score per remaining turn), spend a discard to swap out up to 4 junk
+      // tiles. Held discards keep their 20%-each payout value, so the bot only
+      // spends when the hand genuinely lags the target.
+      let guard=0;
+      while(disc>0 && guard++<6){
+        const probe=predBest(hand,P,{banned,minLen});
+        const need=(target-score)/Math.max(1,hl);
+        if(probe.tiles && probe.score>=need*0.55) break;
+        const keep=new Set(probe.tiles||[]);
+        const junk=hand.filter(t=>!keep.has(t)).sort((x,y)=>predCV(x)-predCV(y)).slice(0,4);
+        if(!junk.length || !pile.length) break;
+        disc--; junk.forEach(t=>{hand.splice(hand.indexOf(t),1); pile.push(t);}); draw();
+      }
+    }
     const {score:s,tiles}=predBest(hand,P,{banned,minLen});
     if(!tiles){ hl--; if(hand.length){pile.push(hand.shift());draw();} continue; }
-    score+=s; cash+=Math.floor(s/100); if(tiles.length>=6 && (P.pressGrowth||0)>0){ P.scoreMult=Math.round(((P.scoreMult||1)+P.pressGrowth)*1000)/1000; } const used=new Set(tiles); hand=hand.filter(t=>!used.has(t)); pile.push(...tiles); draw(); hl--;
+    score+=s; cash+=Math.floor(s/wordCashDivisor(P.level));
+    { const wl=tiles.reduce((n,t)=>n+(t.fusedA?2:1),0);
+      if(wl>=6 && (P.pressGrowth||0)>0){ P.scoreMult=Math.round(((P.scoreMult||1)+P.pressGrowth)*1000)/1000; }
+      else if(P.shortKing && wl>=2 && wl<=5){ P.scoreMult=Math.round(((P.scoreMult||1)+0.025)*1000)/1000; } }   // Short King mini-press
+    const used=new Set(tiles); hand=hand.filter(t=>!used.has(t)); pile.push(...tiles); draw(); hl--;
   }
 }
 /* ---- challenge-aware bot helpers (v3b) ---- */
@@ -1463,18 +1531,43 @@ function predWildLetter(seed,level){
   const rng=mulberry32(xfnv1a(String(seed)+"::"+label));
   return (rng()<0.5) ? "S" : "E";   // wild consonant -> S, wild vowel -> E
 }
-function predShop(P){
-  _predLevel=P.level;
+function predShop(P,style){
+  _predLevel=P.level; style=style||"standard";
   const fire=false, reserve=1; let buys=0; const maxBuys=99;   // skilled spender for the "played well" bar
   const buy=(p,f)=>{ if(buys>=maxBuys||P.coins-p<reserve) return false; P.coins-=p; f(); buys++; return true; };
-  if(!P.vowelPower) buy(predPx(5,fire),()=>P.vowelPower=true);
-  if(!P.bigWords)   buy(predPx(12,fire),()=>P.bigWords=true);
-  buy(predPx(10,fire),()=>{ P.pressGrowth=Math.round(((P.pressGrowth||0)+0.025)*1000)/1000; });
-  { let best=null; P.deck.forEach(c=>{ if((c.up||0)<3 && (!best||predCV(c)>predCV(best))) best=c; });
-    if(best){ const cost=predPx((GILD_BASE/2+predCV(best))*Math.pow(2,best.up||0),fire); buy(cost,()=>best.up=(best.up||0)+1); } }
-  { const added=Math.max(0,P.handSize-START_HAND); buy(predPx(9*Math.pow(2,added),fire),()=>P.handSize++); }
-  buy(predPx(10+3*(P.extraTurns||0),fire),()=>P.extraTurns++);
-  { const L="SRTEN"[Math.floor(((P.level*2654435761)>>>0)%5)]; buy(predPx(2+Math.ceil(LETTER_VALUES[L]/2),fire),()=>P.deck.push({letter:L,base:LETTER_VALUES[L],mult:1,up:0})); }
+  const gildBest=()=>{ let best=null; P.deck.forEach(c=>{ if((c.up||0)<3 && (!best||predCV(c)>predCV(best))) best=c; });
+    if(best){ const cost=predPx((GILD_BASE/2+predCV(best))*Math.pow(2,best.up||0),fire); buy(cost,()=>best.up=(best.up||0)+1); } };
+  const buyHand =()=>{ const added=Math.max(0,P.handSize-START_HAND); buy(predPx(9*Math.pow(2,added),fire),()=>P.handSize++); };
+  const buyTurn =()=>buy(predPx(10+3*(P.extraTurns||0),fire),()=>P.extraTurns++);
+  const buyLetter=()=>{ const L="SRTEN"[Math.floor(((P.level*2654435761)>>>0)%5)]; buy(predPx(2+Math.ceil(LETTER_VALUES[L]/2),fire),()=>P.deck.push({letter:L,base:LETTER_VALUES[L],mult:1,up:0})); };
+  if(style==="shortking"){
+    // archetype: buy Short King, then gild the top tiles hard so short words carry weight
+    if(!P.shortKing) buy(predPx(8,fire),()=>P.shortKing=true);
+    gildBest(); gildBest();
+    if(!P.vowelPower) buy(predPx(5,fire),()=>P.vowelPower=true);
+    buyTurn(); buyLetter();
+  } else if(style==="fusion"){
+    // archetype: fuse the two highest-value letters (up to 3 fused tiles), then the standard engine
+    const fusedCount=P.deck.filter(c=>c.fusedA).length;
+    if(fusedCount<3){
+      const ls=P.deck.filter(c=>!c.fusedA&&c.letter).sort((x,y)=>predCV(y)-predCV(x));
+      if(ls.length>=2){
+        const fa=ls[0], fb=ls[1], cost=predPx(4+fa.base+fb.base,fire);
+        buy(cost,()=>{ P.deck=P.deck.filter(c=>c!==fa&&c!==fb);
+          P.deck.push({fusedA:{letter:fa.letter,base:fa.base},fusedB:{letter:fb.letter,base:fb.base},up:Math.max(fa.up||0,fb.up||0),mult:1}); });
+      }
+    }
+    if(!P.vowelPower) buy(predPx(5,fire),()=>P.vowelPower=true);
+    if(!P.bigWords)   buy(predPx(12,fire),()=>P.bigWords=true);
+    buy(predPx(10,fire),()=>{ P.pressGrowth=Math.round(((P.pressGrowth||0)+0.025)*1000)/1000; });
+    gildBest(); buyHand(); buyTurn();
+  } else {
+    // standard: the pinned baseline chain, unchanged
+    if(!P.vowelPower) buy(predPx(5,fire),()=>P.vowelPower=true);
+    if(!P.bigWords)   buy(predPx(12,fire),()=>P.bigWords=true);
+    buy(predPx(10,fire),()=>{ P.pressGrowth=Math.round(((P.pressGrowth||0)+0.025)*1000)/1000; });
+    gildBest(); buyHand(); buyTurn(); buyLetter();
+  }
 }
 function predictSeed(seed,opts){
   opts=opts||{};
@@ -1487,9 +1580,9 @@ function predictSeed(seed,opts){
       chType=predChallengeType(seed,P.level);
       const banned = chType==="locked" ? new Set(predDeckTop(P.deck,CHALLENGE_BAN_COUNT)) : null;
       const chTarget = chType==="steep" ? Math.round(target*CHALLENGE_TARGET_MULT) : target;
-      const chOpts={ target:chTarget, banned, minLen: chType==="longform"?CHALLENGE_MIN_LEN:0 };
+      const chOpts={ target:chTarget, banned, minLen: chType==="longform"?CHALLENGE_MIN_LEN:0, smart:opts.smart };
       // probe both branches on copies (predLevel only mutates .hearts on the copy)
-      const probeStd={...P}; const stdR=predLevel(probeStd,seed,{});
+      const probeStd={...P}; const stdR=predLevel(probeStd,seed,{smart:opts.smart});
       const probeCh ={...P}; const chR =predLevel(probeCh ,seed,chOpts);
       const stdCost=P.hearts-probeStd.hearts, chCost=P.hearts-probeCh.hearts;
       // skilled rule: only take a challenge you can ace, i.e. it clears AND costs no
@@ -1498,11 +1591,12 @@ function predictSeed(seed,opts){
       if(took){ P.hearts=probeCh.hearts; result=chR; target=chTarget; }
       else { P.hearts=probeStd.hearts; result=stdR; }
     } else {
-      result=predLevel(P,seed,{});   // commits hearts directly to P
+      result=predLevel(P,seed,{smart:opts.smart});   // commits hearts directly to P
     }
     if(result.res==="fail") return {winnable:false,round:P.level,stats};
     let b=4; const o=result.score-target; b+=Math.min(5,Math.floor(o/Math.max(8,target*0.4))); b+=Math.max(0,result.hl); b=Math.max(2,Math.min(COIN_CAP,b));
-    let payout=Math.round(b*(1+0.20*DISCARDS_PER_LEVEL))+(result.cash||0);   // v46e economy: 20%/held discard + $1/100pts word cash
+    const heldDisc = opts.smart ? Math.max(0,(result.discardsLeft!=null?result.discardsLeft:DISCARDS_PER_LEVEL)) : DISCARDS_PER_LEVEL;
+    let payout=Math.round(b*(1+0.10*heldDisc))+(result.cash||0);   // v46g economy: 10%/held discard + tiered word cash
     if(took){
       // pick the reward a skilled player would: invest in the deck on a comfy clear,
       // otherwise grab the bigger coin boost (double the purse vs a flat +10).
@@ -1514,9 +1608,17 @@ function predictSeed(seed,opts){
       stats.taken.push({level:P.level,type:chType,reward});
     }
     P.coins+=payout;
-    if(P.level<WIN_LEVEL) predShop(P);
+    if(P.level<WIN_LEVEL) predShop(P,opts.style);
   }
   return {winnable:true,round:WIN_LEVEL,heartsLeft:P.hearts,stats};
+}
+/* Analysis suite: run one seed through the legacy pinned bot plus each playstyle
+   archetype with smart discards on. NOT used by seed validation (that stays on
+   the pinned default path). Console: predictStyles("SEED"). */
+function predictStyles(seed){
+  const out={ legacy: predictSeed(seed,{}) };
+  ["standard","shortking","fusion"].forEach(st=>{ out[st]=predictSeed(seed,{smart:true,style:st}); });
+  return out;
 }
 function generateValidatedSeed(){
   for(let i=0;i<40;i++){ const s=randomSeed(); try{ if(predictSeed(s).winnable) return s; }catch(e){ return s; } }
@@ -2824,6 +2926,10 @@ function submitWord(){
   if(res.length>=6 && (G.pressGrowth||0)>0){
     G.scoreMult=Math.round(((G.scoreMult||1)+G.pressGrowth)*1000)/1000;
     pressGrew=true;
+  } else if(G.perks.shortKing && res.length>=2 && res.length<=5){
+    // Short King mini-press: short words are their own scaling engine
+    G.scoreMult=Math.round(((G.scoreMult||1)+0.025)*1000)/1000;
+    pressGrew=true;
   }
   G.runScore=(G.runScore||0)+sc.total;
   G.levelStats.words++;
@@ -2832,10 +2938,10 @@ function submitWord(){
   if(sc.total>G.levelStats.bestScore){ G.levelStats.bestScore=sc.total; G.levelStats.bestWord=w.toUpperCase(); }
   if(sc.total>(G.runBestScore||0)){ G.runBestScore=sc.total; G.runBestWord=w.toUpperCase(); }
   G.handsLeft--;
-  // high-score cash bonus, paid straight into the bank: $1 per 100 word points
-  // (v46d: score-keyed; replaces the length-keyed bigWordCash so short-word
-  // builds with Short King / Five Timer earn on equal footing)
-  let cash=Math.floor(sc.total/100);
+  // high-score cash bonus, paid straight into the bank. Score-keyed and tiered
+  // by round so early words can actually earn: $1 per 50 pts in rounds 1 to 5,
+  // per 100 in rounds 6 to 10, per 150 beyond that.
+  let cash=Math.floor(sc.total/wordCashDivisor(G.level));
   if(challengeDoublePay()) cash*=2;   // v3a double-payout reward
   if(cash>0){ G.coins=Math.min(999,G.coins+cash); }
   renderHud();
@@ -2910,6 +3016,10 @@ function discardCanvas(){
 /* ---------- level resolution ---------- */
 function levelCleared(){
   const rw=computeReward();
+  if(G.stats){ if(!G.stats.rounds) G.stats.rounds=[];
+    G.stats.rounds.push({round:G.level, target:G.target, score:G.score, margin:G.score-G.target, cleared:true,
+      heartsLeft:G.hearts, discardsLeft:G.discardsLeft, discardsSpent:(DISCARDS_PER_LEVEL+(G.extraDiscards||0))-G.discardsLeft,
+      wordsLeft:G.handsLeft, payout:rw.total}); }
   // v3a: fold the chosen challenge reward into this cleared round
   if(challengeActive()){
     if(G.challenge.reward==="cash"){ rw.bonus=10; rw.total+=10; }
@@ -2938,22 +3048,25 @@ function levelCleared(){
   }
   setTimeout(()=>{ showLevelSummary(info); }, 600);   // summary first → shop on tap
 }
+function wordCashDivisor(level){ return level<=5?50 : level<=10?100 : 150; }
 function computeReward(){
-  let base=4;                                              // base purse
   const over=G.score-G.target;
-  base+=Math.min(5,Math.floor(over/Math.max(8,G.target*0.4)));  // beat-target bonus
-  base+=G.handsLeft;                                       // unused turns
-  base=Math.max(2,Math.min(COIN_CAP,base));
-  // v46e economy: leftover discards no longer pay $1 each; instead they multiply
-  // the round purse by +20% apiece (hold 3 discards -> +60%). Interest stays on
-  // the bank alone (it's a savings rate, not round income).
+  const coreRaw=4+Math.min(5,Math.floor(over/Math.max(8,G.target*0.4)));   // base purse + beat-target bonus
+  const core=Math.max(2,Math.min(COIN_CAP,coreRaw));
+  const base=Math.max(2,Math.min(COIN_CAP,coreRaw+G.handsLeft));           // unused words ride on top, same cap
+  const turnsBonus=base-core;                                              // what the leftover words actually added
+  // v46g economy: leftover discards multiply the round purse by +10% apiece
+  // (hold 3 discards -> +30%). Interest stays on the bank alone.
   let interest=G.perks.interest?Math.min(INTEREST_CAP,Math.ceil(G.coins*0.10)):0;  // 10% on the bank
   let marginalia=G.perks.marginalia?Math.floor(Math.max(0,over)/15):0;   // v42a: 1 coin per 15 pts past target
-  const discardBonus=0.20*Math.max(0,G.discardsLeft||0);
-  let total=Math.round((base+marginalia)*(1+discardBonus))+interest;
+  const discardCount=Math.max(0,G.discardsLeft||0);
+  const discardBonus=0.10*discardCount;
+  const preBonus=base+marginalia;
+  let total=Math.round(preBonus*(1+discardBonus))+interest;
+  const discardAmt=total-interest-preBonus;                                // the actual coins the bonus added
   let doubled=challengeDoublePay();
   if(doubled) total*=2;   // v3a double-payout reward doubles the round purse
-  return {base,interest,marginalia,discardBonus,total,doubled};
+  return {base,core,turnsBonus,wordsLeft:G.handsLeft,preBonus,discardCount,discardBonus,discardAmt,interest,marginalia,total,doubled};
 }
 function renderRankLadder(round){
   const head=$("sumRankEarned"), lad=$("sumRankLadder");
@@ -2984,9 +3097,10 @@ function showLevelSummary(info){
   $("sumScore").textContent=info.score+" / "+info.target+" pts";
   $("sumWords").textContent=info.words;
   $("sumBest").innerHTML = info.bestWord ? `<b>${info.bestWord}</b> · ${info.bestScore}` : "—";
-  const bits=["base "+rw.base];
-  if(rw.discardBonus) bits.push("discards +"+Math.round(rw.discardBonus*100)+"%");
-  if(rw.interest)   bits.push("interest "+rw.interest);
+  const bits=["base $"+rw.core];
+  if(rw.turnsBonus) bits.push(rw.wordsLeft+" word"+(rw.wordsLeft>1?"s":"")+" left: +$"+rw.turnsBonus);
+  if(rw.discardCount) bits.push(rw.discardCount+" discard"+(rw.discardCount>1?"s":"")+" left: +"+Math.round(rw.discardBonus*100)+"% on $"+rw.preBonus+" = +$"+rw.discardAmt);
+  if(rw.interest)   bits.push("interest +$"+rw.interest);
   if(rw.marginalia) bits.push("overflow +"+rw.marginalia);
   if(rw.bonus)      bits.push("challenge +"+rw.bonus);
   if(rw.doubled)    bits.push("×2 challenge");
@@ -3057,6 +3171,10 @@ function heartBreakBurst(el){
 }
 function levelFailed(){
   G.hearts--;
+  if(G.stats){ if(!G.stats.rounds) G.stats.rounds=[];
+    G.stats.rounds.push({round:G.level, target:G.target, score:G.score, margin:G.score-G.target, cleared:false,
+      heartsLeft:G.hearts, discardsLeft:G.discardsLeft, discardsSpent:(DISCARDS_PER_LEVEL+(G.extraDiscards||0))-G.discardsLeft,
+      wordsLeft:G.handsLeft, payout:0}); }
   const hs=[...$("hearts").querySelectorAll(".heart")];
   const lost=hs[G.hearts];
   if(lost){ lost.classList.add("breaking"); heartBreakBurst(lost); floatMinusOne(lost); }
@@ -3303,7 +3421,7 @@ function twoOfAKindOffer(){
     price:px(9), art:"🃏", d:{type:"twoOfAKind"}};
 }
 function shortKingOffer(){
-  return {kind:"Perk",rarity:"rare",name:"Short King",desc:"Short words score big: 2 letters ×4, 3 letters ×3, 4 letters ×2.5, 5 letters ×2.",
+  return {kind:"Perk",rarity:"rare",name:"Short King",desc:"Short words score big: 2 letters ×4, 3 letters ×3, 4 letters ×2.5, 5 letters ×2. Each short word also grows your Press by 0.025.",
     price:px(8), art:"👑", d:{type:"shortKing"}};
 }
 function freeJazzOffer(){
@@ -3429,7 +3547,7 @@ function freeRerollOffer(){
 function setShopHeader(){
   const rw=G.lastReward;
   $("shopRound").textContent= rw
-    ? "earned +"+rw.total+"  ·  base "+rw.base+(rw.discardBonus?" · discards +"+Math.round(rw.discardBonus*100)+"%":"")+(rw.interest?" · interest "+rw.interest:"")
+    ? "earned +"+rw.total+"  ·  base $"+rw.core+(rw.turnsBonus?" · words left +$"+rw.turnsBonus:"")+(rw.discardCount?" · "+rw.discardCount+" discards: +"+Math.round(rw.discardBonus*100)+"% = +$"+rw.discardAmt:"")+(rw.interest?" · interest +$"+rw.interest:"")
     : "after round "+(G.level-1);
 }
 function openShop(){
@@ -3954,7 +4072,7 @@ function closeBonusChooser(){ $("bonusChooser").classList.add("hidden"); }
 function statInit(seed){
   G.stats={ game:"letterati", version:VERSION, seed,
     runId:(typeof crypto!=="undefined"&&crypto.randomUUID)?crypto.randomUUID():("run-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,10)),
-    startedAt:new Date().toISOString(), words:[], shops:[], result:null,
+    startedAt:new Date().toISOString(), words:[], shops:[], rounds:[], result:null,
     finalRound:1, finalDeck:null, runMs:0, runScore:0, bestWord:"", bestScore:0 };
   G._curShop=null;
 }
@@ -4255,7 +4373,7 @@ function ownedPerksList(){
   if(G.perks.bigWords)   out.push("Big Words · ×2 length bonus");
   if(G.perks.twinsies)   out.push("Twinsies · ×2 side-by-side doubles");
   if(G.perks.twoOfAKind) out.push("Two of a Kind · ×1.5 on a repeated letter");
-  if(G.perks.shortKing)  out.push("Short King · ×4/×3/×2.5/×2 for 2–5 letters");
+  if(G.perks.shortKing)  out.push("Short King · ×4/×3/×2.5/×2 for 2–5 letters · short words grow Press");
   if(G.perks.kerning)    out.push("Kerning · +25% no repeated letter");
   if(G.perks.fiveTimer)  out.push("Five Timer · ×1.5 five-letter words");
   if(G.perks.marginalia) out.push("Marginalia · 1 coin per 15 over target");
@@ -4285,7 +4403,7 @@ function ownedPerkCards(){
   if(P.bigWords)   push("📏","Big Words","Longer words give double the length multiplier.");
   if(P.twinsies)   push("👯","Twinsies","×2 when two of the same letter sit side by side.");
   if(P.twoOfAKind) push("🃏","Two of a Kind","×1.5 on any word with a repeated letter.");
-  if(P.shortKing)  push("👑","Short King","Short words score big: ×4, ×3, ×2.5, ×2 for 2, 3, 4, 5 letters.");
+  if(P.shortKing)  push("👑","Short King","Short words score big: ×4, ×3, ×2.5, ×2 for 2, 3, 4, 5 letters. Each short word also grows your Press by 0.025.");
   if(P.kerning)    push("📐","Kerning","+25% on words with no repeated letter.");
   if(P.fiveTimer)  push("5️⃣","Five Timer","×1.5 on exactly five-letter words.");
   if(P.marginalia) push("🪙","Marginalia","1 coin for every 15 points past the target.");
