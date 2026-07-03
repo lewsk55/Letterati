@@ -1087,7 +1087,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "47a";
+const VERSION = "47b";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -3500,6 +3500,11 @@ function applyOffer(o){
     case "encore":       openDeck("encore"); break;
     case "foil":         openDeck("foil"); break;
     case "watermark":    openDeck("watermark"); break;
+    case "boldfaceStamp": openDeck("boldface"); break;
+    case "dropcapStamp":  openDeck("dropcap"); break;
+    case "serifStamp":    openDeck("serif"); break;
+    case "dittoStamp":    openDeck("ditto"); break;
+    case "inkwellStamp":  openDeck("inkwell"); break;
   }
 }
 function wildVowelOffer(){
