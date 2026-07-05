@@ -1087,7 +1087,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "47d";
+const VERSION = "47e";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -2246,7 +2246,9 @@ function wordValid(){
   if(minL && res.length<minL) return false;
   const banned=bannedLetterSet();
   if(banned && res.some(r=>banned.has(r.letter))) return false;
-  if(WORDS.has(res.map(r=>r.letter.toLowerCase()).join(""))) return true;
+  const w=res.map(r=>r.letter.toLowerCase()).join("");
+  if(WORDS.has(w)) return true;
+  if(verbizedStem(w)!==null) return true;   // Verbizer: word+ER / word+ING counts here too
   if(canvasUsableJazz()) return true;   // free jazz: anything goes while uses remain
   return false;
 }
@@ -4543,7 +4545,8 @@ function showDefinition(word, isJazz){
    once the word is cleared or fixed. */
 function updateChallengeBlockHint(){
   const el=$("defStrip"); if(!el) return;
-  const blocked = challengeActive() && isRealWord() && !wordValid();
+  const gates = challengeActive() && (challengeMinLen()>0 || !!bannedLetterSet());   // steep/double-pay cannot block words
+  const blocked = gates && isRealWord() && !wordValid();
   if(blocked){
     if(el.dataset.chalblock!=="1"){
       el.dataset.savedHtml = el.innerHTML;
