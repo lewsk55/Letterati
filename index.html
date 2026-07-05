@@ -1087,7 +1087,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "47b";
+const VERSION = "47d";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1596,7 +1596,7 @@ function predictSeed(seed,opts){
     if(result.res==="fail") return {winnable:false,round:P.level,stats};
     let b=4; const o=result.score-target; b+=Math.min(5,Math.floor(o/Math.max(8,target*0.4))); b+=Math.max(0,result.hl); b=Math.max(2,Math.min(COIN_CAP,b));
     const heldDisc = opts.smart ? Math.max(0,(result.discardsLeft!=null?result.discardsLeft:DISCARDS_PER_LEVEL)) : DISCARDS_PER_LEVEL;
-    let payout=Math.round(b*(1+0.10*heldDisc))+(result.cash||0);   // v46g economy: 10%/held discard + tiered word cash
+    let payout=Math.round(b*(1+0.10*heldDisc))+(result.cash||0)+2;   // v47d economy: 10%/held discard + tiered word cash + $2 clear stipend
     if(took){
       // pick the reward a skilled player would: invest in the deck on a comfy clear,
       // otherwise grab the bigger coin boost (double the purse vs a flat +10).
@@ -3133,11 +3133,12 @@ function computeReward(){
   const discardCount=Math.max(0,G.discardsLeft||0);
   const discardBonus=0.10*discardCount;
   const preBonus=base+marginalia;
-  let total=Math.round(preBonus*(1+discardBonus))+interest;
-  const discardAmt=total-interest-preBonus;                                // the actual coins the bonus added
+  const CLEAR_BONUS=2;                                                     // v47d: flat stipend on every cleared round
+  let total=Math.round(preBonus*(1+discardBonus))+interest+CLEAR_BONUS;
+  const discardAmt=total-interest-CLEAR_BONUS-preBonus;                    // the actual coins the discard bonus added
   let doubled=challengeDoublePay();
   if(doubled) total*=2;   // v3a double-payout reward doubles the round purse
-  return {base,core,turnsBonus,wordsLeft:G.handsLeft,preBonus,discardCount,discardBonus,discardAmt,interest,marginalia,total,doubled};
+  return {base,core,turnsBonus,wordsLeft:G.handsLeft,preBonus,discardCount,discardBonus,discardAmt,clearBonus:CLEAR_BONUS,interest,marginalia,total,doubled};
 }
 function renderRankLadder(round){
   const head=$("sumRankEarned"), lad=$("sumRankLadder");
@@ -3168,7 +3169,7 @@ function showLevelSummary(info){
   $("sumScore").textContent=info.score+" / "+info.target+" pts";
   $("sumWords").textContent=info.words;
   $("sumBest").innerHTML = info.bestWord ? `<b>${info.bestWord}</b> · ${info.bestScore}` : "—";
-  const bits=["base $"+rw.core];
+  const bits=["base $"+rw.core,"clear +$"+(rw.clearBonus||0)];
   if(rw.turnsBonus) bits.push(rw.wordsLeft+" word"+(rw.wordsLeft>1?"s":"")+" left: +$"+rw.turnsBonus);
   if(rw.discardCount) bits.push(rw.discardCount+" discard"+(rw.discardCount>1?"s":"")+" left: +"+Math.round(rw.discardBonus*100)+"% on $"+rw.preBonus+" = +$"+rw.discardAmt);
   if(rw.interest)   bits.push("interest +$"+rw.interest);
@@ -3323,9 +3324,13 @@ function perkPool(rng){
     {make:()=>growthMindOffer(),   weight:1.2},
     {make:()=>foilOffer(),         weight:1.1},
     {make:()=>fusionOffer(),       weight:1.8},
-    {make:()=>comboOffer("ing"),   weight:0.9},
+    {make:()=>comboOffer("ing"),   weight:1.5},
     {make:()=>comboOffer("ate"),   weight:1.0},
-    {make:()=>fusedEROffer(),      weight:1.2},
+    {make:()=>fusedEROffer(),      weight:1.8},
+    {make:()=>fusedDoubleOffer("T"),weight:0.5},
+    {make:()=>fusedDoubleOffer("G"),weight:0.5},
+    {make:()=>fusedDoubleOffer("P"),weight:0.5},
+    {make:()=>fusedDoubleOffer("R"),weight:0.5},
     {make:()=>lucky7Offer(),       weight:0.8},
     {make:()=>freeJazzOffer(),     weight:0.5},
   ];
@@ -3677,6 +3682,15 @@ function comboOffer(key){
     price:px(d.price),
     art:`<span class="mini-tile" style="background:linear-gradient(180deg,#F3EEFB,#E4DAF4);border-color:#C3B2E0;font-size:.78rem;font-family:var(--serif)">${d.label}<span class="mv">${val}</span></span>`,
     d:{type:"combo",key}};
+}
+function fusedDoubleOffer(L){
+  // a fused double letter (T+T, G+G, P+P, R+R): play it as one letter, or as the doubled pair
+  const v=LETTER_VALUES[L], price=4+v*2;
+  return {kind:"Tile",rarity:"rare",name:"Fused "+L+"+"+L,
+    desc:"One tile fusing two "+L+"s. Play it as a single "+L+", or as "+L+L+" together.",
+    price:px(price),
+    art:`<span class="mini-tile" style="background:linear-gradient(180deg,#EAF3EF,#D8E8E0);border-color:#A9CcBD;font-size:.74rem;font-family:var(--serif)">${L}${L}<span class="mv">${v*2}</span></span>`,
+    d:{type:"fusedPair", a:L, b:L}};
 }
 function fusedEROffer(){
   // a ready-made fused E+R tile: play it as E, R, ER or RE
