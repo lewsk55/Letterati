@@ -434,6 +434,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
   border:1px solid var(--tile-edge);box-shadow:0 2px 0 #C9B98F,0 3px 7px rgba(35,32,46,.14);
   font-family:var(--serif);font-weight:600;font-size:1.6rem;color:var(--ink);cursor:pointer}
 .clone-choice:active{transform:translateY(1px)}
+.clone-choice .cc-marks{position:absolute;left:0;right:0;top:2px;text-align:center;font-size:.5rem;font-weight:800;color:var(--brass-deep);letter-spacing:-.02em}
 .clone-choice .cc-val{position:absolute;right:5px;bottom:3px;font-family:var(--ui);font-size:.6rem;font-weight:800;color:var(--ink-soft)}
 /* locked-out letters in the wild vowel/consonant pickers */
 .clone-choice.locked,.vowel-choice.locked{opacity:.4;cursor:not-allowed;filter:grayscale(.5)}
@@ -659,6 +660,14 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
 .chal-reward .cr-desc{font-size:.78rem;color:var(--ink-soft);line-height:1.35}
 #chalBanner{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:7px;margin-top:7px;font-size:.7rem;font-weight:700;color:var(--ink-soft)}
 #chalBanner .cb-desc{flex-basis:100%;text-align:center;font-size:.66rem;font-weight:600;color:var(--ink-soft);opacity:.92;line-height:1.35;margin-top:1px}
+.seed-rate{margin-top:16px;padding-top:14px;border-top:1px dashed var(--tile-edge)}
+.seed-rate .sr-q{font-size:.72rem;font-weight:800;letter-spacing:.1em;text-transform:uppercase;color:var(--ink-soft);margin-bottom:8px}
+.seed-rate .sr-btns{display:flex;gap:10px;justify-content:center}
+.sr-btn{font-size:1.4rem;line-height:1;padding:8px 18px;border:1px solid var(--tile-edge);border-radius:12px;background:var(--paper);cursor:pointer;transition:transform .12s ease,background .12s ease}
+.sr-btn:hover{transform:translateY(-2px)}
+.sr-btn.on{background:linear-gradient(180deg,#F6EAD0,#EAD9B4);border-color:var(--brass);transform:translateY(-1px)}
+.sr-note{width:100%;max-width:340px;margin:10px auto 0;display:block;font:inherit;font-size:.82rem;padding:8px 10px;border:1px solid var(--tile-edge);border-radius:10px;background:#fff;resize:none}
+.sr-thanks{font-size:.82rem;font-style:italic;color:var(--moss);font-weight:700;margin-top:10px}
 .def-strip .dd.chal-why{font-style:normal;color:var(--oxblood);font-weight:700}
 .def-strip.chal-free .dw{color:var(--moss)}
 .def-strip .dd.chal-free-why{font-style:normal;color:var(--ink-soft);font-weight:600}
@@ -832,6 +841,16 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
   <div class="sheet sheet-center">
     <div class="over-result" id="overResult">Game Over</div>
     <div id="overStats"></div>
+    <div class="seed-rate" id="seedRate">
+      <div class="sr-q">How was this seed?</div>
+      <div class="sr-btns">
+        <button class="sr-btn" id="srUp" aria-label="Good seed">👍</button>
+        <button class="sr-btn" id="srDown" aria-label="Bad seed">👎</button>
+      </div>
+      <textarea class="sr-note hidden" id="srNote" rows="2" maxlength="280" placeholder="What made it good or bad? (optional)"></textarea>
+      <button class="menu-btn alt hidden" id="srSend" style="max-width:220px;margin:8px auto 0">Send feedback</button>
+      <div class="sr-thanks hidden" id="srThanks">Thanks, that helps.</div>
+    </div>
     <button class="menu-btn" id="overNewBtn" style="margin-top:22px">New run</button>
     <button class="menu-btn alt" id="overSeedBtn">Replay this seed</button>
     <button class="menu-btn alt" id="overQuitBtn">Quit to title</button>
@@ -843,6 +862,16 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
   <div class="sheet sheet-center">
     <div class="over-result win">You Win the Press</div>
     <div id="winStats"></div>
+    <div class="seed-rate" id="seedRateWin">
+      <div class="sr-q">How was this seed?</div>
+      <div class="sr-btns">
+        <button class="sr-btn" id="srUpW" aria-label="Good seed">👍</button>
+        <button class="sr-btn" id="srDownW" aria-label="Bad seed">👎</button>
+      </div>
+      <textarea class="sr-note hidden" id="srNoteW" rows="2" maxlength="280" placeholder="What made it good or bad? (optional)"></textarea>
+      <button class="menu-btn alt hidden" id="srSendW" style="max-width:220px;margin:8px auto 0">Send feedback</button>
+      <div class="sr-thanks hidden" id="srThanksW">Thanks, that helps.</div>
+    </div>
     <button class="menu-btn" id="winEndlessBtn" style="margin-top:22px">Keep printing — Endless →</button>
     <button class="menu-btn alt" id="winFinishBtn">Finish &amp; savor it</button>
     <button class="menu-btn alt" id="winQuitBtn">Quit to title</button>
@@ -1087,7 +1116,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "48a";
+const VERSION = "47f";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1131,7 +1160,7 @@ const CHALLENGE_EPIC_POOL = [
   {name:"Press multiplier", art:"🗜️", desc:"Each 6+ letter word raises your score multiplier by 2.5%.", d:{type:"pressMult", g:0.025}},
   {name:"Fuller case",      art:"🗄️", desc:"Hold one more tile in every hand.", d:{type:"fuller"}},
   {name:"Extra word",       art:"⏳", desc:"One more word to set each round.", d:{type:"extraTurn"}},
-  {name:"Compound interest",art:"🏦", desc:"Earn 10 percent on your coins each round.", d:{type:"interest"}},
+  {name:"Liquidity",art:"🏦", desc:"Every $5 banked adds 1 percent to your word scores, up to double.", d:{type:"interest"}},
   {name:"Kerning",          art:"📐", desc:"Words with no repeated letter score +25%.", d:{type:"kerning"}},
   {name:"Five Timer",       art:"5️⃣", desc:"Words exactly 5 letters long score 1.5 times.", d:{type:"fiveTimer"}},
   {name:"Marginalia",       art:"🪙", desc:"Earn 1 coin for every 15 points past the round target.", d:{type:"marginalia"}},
@@ -1158,7 +1187,8 @@ const PRICE_MULTIPLIER = 1.22; // per-round shop inflation (GGW used ~1.46)
 const SHOP_PRICE_SCALE = 0.8;  // v3a: 20% cheaper across the board (stacks on the base 35% off)
 const MAX_HEARTS = 3;
 const COIN_CAP = 12;           // economy guard rail (caps base payout only)
-const INTEREST_CAP = 10;       // max compound-interest payout per round
+const LIQUIDITY_CAP = 2.0;     // max score multiplier from Liquidity (wealth -> mult)
+function liquidityMult(){ return G.perks.interest ? Math.min(LIQUIDITY_CAP, 1 + 0.01*Math.floor((G.coins||0)/5)) : 1; }   // +1% per $5 banked
 
 function lenMult(n){ return n<=3?1 : n===4?1.5 : (n-3); }   // 5→2,6→3,7→4,8→5,9→6… uncapped
 // Win-rate-matched scale for the L,S,T→2 bump: the bump inflates scores ~7%, but it
@@ -1252,6 +1282,7 @@ function weightedLetter(rng,weights){
    ============================================================ */
 let cardSeq=0;
 function makeLetterCard(letter){ return {id:++cardSeq, kind:"letter", letter, base:LETTER_VALUES[letter], upLevel:0, mult:1}; }
+const CLONE_COPY_PROPS=["mult","growth","foil","watermark","encore","boldface","dropcap","serif","ditto","inkwell"];   // upgrades a clone inherits from its source tile
 function makeCloneCard(){ return {id:++cardSeq, kind:"clone", letter:null, base:0, upLevel:0, mult:1, cloneLetter:null, cloneBase:null, cloneUp:0}; }
 function makeJazzCard(){ return {id:++cardSeq, kind:"jazz", letter:null, base:0, upLevel:0, mult:1, jazzLeft:3}; }
 const JAZZ_USES=3;
@@ -1332,7 +1363,7 @@ const G = {
   wordsPlayed:0, runScore:0, runBestWord:"", runBestScore:0, wordPlays:{}, levelStats:{bestWord:"",bestScore:0,words:0},
   // per-level
   attempt:0, target:0, score:0, handsLeft:0, discardsLeft:0,
-  drawPile:[], hand:[], canvas:[], played:[], lucky7Stash:[],
+  drawPile:[], hand:[], canvas:[], played:[], lucky7Stash:[], shopSeen:[],
   // win / endless
   infinite:false, wonRun:false,
   // ui transient
@@ -2194,8 +2225,8 @@ function resolvedCanvas(){
     if(c.kind==="jazz"){ continue; }   // marker, not a scored letter
     if(c.kind==="clone"){
       const L=c.cloneLetter;
-      const val = (c.cloneBase!=null) ? (c.cloneBase*Math.pow(2,c.cloneUp||0)) : (LETTER_VALUES[L]||0);
-      out.push(L?{letter:L,value:val,mult:1,clone:true,card:c}:{letter:null,value:0,mult:1,clone:true,card:c});
+      const val = ((c.cloneBase!=null) ? (c.cloneBase*Math.pow(2,c.cloneUp||0)) : (LETTER_VALUES[L]||0)) + (c.growth||0);
+      out.push(L?{letter:L,value:val,mult:(c.mult||1),clone:true,card:c}:{letter:null,value:0,mult:1,clone:true,card:c});
     } else if(c.kind==="wildvowel"){
       const L=c.vowel;
       out.push(L?{letter:L,value:LETTER_VALUES[L]||0,mult:1,wild:true,card:c}:{letter:null,value:0,mult:1,wild:true,card:c});
@@ -2348,12 +2379,14 @@ function scoreOf(res){
   if(G.perks.anthology && (G.anthologyCount||0)>0){ anthMult=1+0.005*G.anthologyCount; total*=anthMult; }
   let vanityHit=false;
   if(G.perks.vanityPress){ vanityHit=true; total*=1.25; }
+  const liqMult=liquidityMult();
+  if(liqMult>1) total*=liqMult;   // Liquidity: the fuller your bank, the harder every word hits
   total*=(G.scoreMult||1);
   let pulpAdd=0;
   if(G.perks.pulpMill && (G.pulpPending||0)>0){ pulpAdd=G.pulpPending; total+=pulpAdd; }
   let commissionAdd=0;
   if(G.perks.commission && (G.coins||0)>0){ commissionAdd=G.coins; total+=commissionAdd; }
-  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,twinHit,pairHit,shortHit,shortMult,kernHit,fiveHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit,effLen,ligHit,crossHit,alphaHit,coloHit,movableHit,anthMult,vanityHit,pulpAdd,commissionAdd};
+  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,twinHit,pairHit,shortHit,shortMult,kernHit,fiveHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit,effLen,ligHit,crossHit,alphaHit,coloHit,movableHit,anthMult,vanityHit,liqMult,pulpAdd,commissionAdd};
 }
 function updateLive(){
   const res=resolvedCanvas();
@@ -2396,6 +2429,7 @@ function updateLive(){
   if(sc.movableHit) parts.push(`×2 anagram`);
   if(sc.anthMult>1) parts.push(`×${sc.anthMult.toFixed(2)} anthology`);
   if(sc.vanityHit) parts.push(`×1.25 vanity`);
+  if(sc.liqMult>1) parts.push(`×${sc.liqMult.toFixed(2)} liquidity`);
   if(sc.pulpAdd) parts.push(`+${sc.pulpAdd} pulp`);
   if(sc.commissionAdd) parts.push(`+${sc.commissionAdd} commission`);
   ls.innerHTML = `${sc.total} <span class="mult">${parts.join(" ")}${label?" • "+label:""}</span>`;
@@ -2670,7 +2704,8 @@ let clonePending=null;
 let fusedSelCard=null;
 function openCloneChooser(card,idx){
   const best={};   // letter -> source tile with the highest value (copies its gild)
-  G.hand.concat(G.canvas).forEach(c=>{ if(c.kind==="letter"){ const cur=best[c.letter]; if(!cur || cardValue(c)>cardValue(cur)) best[c.letter]=c; } });
+  const rank=c=>cardValue(c)*10 + CLONE_COPY_PROPS.reduce((n,k)=>n+((c[k]!==undefined&&c[k]!==false&&c[k]!==1)?1:0),0);
+  G.hand.concat(G.canvas).forEach(c=>{ if(c.kind==="letter"){ const cur=best[c.letter]; if(!cur || rank(c)>rank(cur)) best[c.letter]=c; } });
   const letters=Object.keys(best);
   if(letters.length===0){ toast("No letters to copy yet"); return; }
   clonePending={cardId:card.id, idx};
@@ -2678,7 +2713,12 @@ function openCloneChooser(card,idx){
   letters.sort().forEach(L=>{
     const src=best[L], g=gildLevel(src);
     const b=document.createElement("button"); b.className="clone-choice"+(g>0?" upgraded":"");
-    b.innerHTML=`${L}<span class="cc-val">${cardValue(src)}${g>0?'<i class="up-sup">'+g+'</i>':''}</span>`;
+    const marks=[]; if(src.mult&&src.mult!==1) marks.push("★"); if(src.growth!=null) marks.push("↑");
+    if(src.foil) marks.push("✦"); if(src.watermark) marks.push("◊"); if(src.encore) marks.push("↻");
+    if(src.boldface) marks.push("2L"); if(src.dropcap) marks.push("1st"); if(src.serif) marks.push("⇥");
+    if(src.ditto) marks.push("〃"); if(src.inkwell) marks.push("$");
+    b.innerHTML=`${L}<span class="cc-val">${cardValue(src)}${g>0?'<i class="up-sup">'+g+'</i>':''}</span>`+
+      (marks.length?`<span class="cc-marks">${marks.join("")}</span>`:"");
     b.addEventListener("click",()=>pickClone(L));
     wrap.appendChild(b);
   });
@@ -2690,10 +2730,16 @@ function pickClone(L){
   $("cloneChooser").classList.add("hidden");
   const c=G.hand.find(x=>x.id===cardId); if(!c) return;
   let src=null;   // re-find the best source tile of this letter to copy its gild
-  G.hand.concat(G.canvas).forEach(x=>{ if(x.kind==="letter"&&x.letter===L){ if(!src||cardValue(x)>cardValue(src)) src=x; } });
+  const rankS=c=>cardValue(c)*10 + CLONE_COPY_PROPS.reduce((n,k)=>n+((c[k]!==undefined&&c[k]!==false&&c[k]!==1)?1:0),0);
+  G.hand.concat(G.canvas).forEach(x=>{ if(x.kind==="letter"&&x.letter===L){ if(!src||rankS(x)>rankS(src)) src=x; } });
   c.cloneLetter=L;
   c.cloneBase = src ? src.base : LETTER_VALUES[L];
   c.cloneUp   = src ? (src.upLevel||0) : 0;
+  // v47f: a clone copies EVERY upgrade on the chosen tile (golden slug, growth, and
+  // all stamps), not just letter and gild. Cleared first so a re-picked clone never
+  // keeps a previous source's stamps.
+  CLONE_COPY_PROPS.forEach(k=>{ delete c[k]; });
+  if(src) CLONE_COPY_PROPS.forEach(k=>{ if(src[k]!==undefined && src[k]!==false && src[k]!==null) c[k]=src[k]; });
   placeFromHand(cardId,idx);
 }
 function cancelClone(){ clonePending=null; $("cloneChooser").classList.add("hidden"); }
@@ -3130,7 +3176,7 @@ function computeReward(){
   const turnsBonus=base-core;                                              // what the leftover words actually added
   // v46g economy: leftover discards multiply the round purse by +10% apiece
   // (hold 3 discards -> +30%). Interest stays on the bank alone.
-  let interest=G.perks.interest?Math.min(INTEREST_CAP,Math.ceil(G.coins*0.10)):0;  // 10% on the bank
+  let interest=0;   // v47f: Compound Interest is retired; wealth now feeds a score multiplier (Liquidity), not the purse
   let marginalia=G.perks.marginalia?Math.floor(Math.max(0,over)/15):0;   // v42a: 1 coin per 15 pts past target
   const discardCount=Math.max(0,G.discardsLeft||0);
   const discardBonus=0.10*discardCount;
@@ -3174,7 +3220,7 @@ function showLevelSummary(info){
   const bits=["base $"+rw.core,"clear +$"+(rw.clearBonus||0)];
   if(rw.turnsBonus) bits.push(rw.wordsLeft+" word"+(rw.wordsLeft>1?"s":"")+" left: +$"+rw.turnsBonus);
   if(rw.discardCount) bits.push(rw.discardCount+" discard"+(rw.discardCount>1?"s":"")+" left: +"+Math.round(rw.discardBonus*100)+"% on $"+rw.preBonus+" = +$"+rw.discardAmt);
-  if(rw.interest)   bits.push("interest +$"+rw.interest);
+
   if(rw.marginalia) bits.push("overflow +"+rw.marginalia);
   if(rw.bonus)      bits.push("challenge +"+rw.bonus);
   if(rw.doubled)    bits.push("×2 challenge");
@@ -3201,6 +3247,7 @@ function showWin(info){
     ${G.runBestWord?`<div class="stat-line">Best word: <b>${G.runBestWord}</b> · ${G.runBestScore}</div>`:""}
     <div class="stat-line">Hearts left: <b>${G.hearts}</b> ♥ &nbsp;·&nbsp; Coins: <b>${G.coins}</b> ◉</div>
     <div class="stat-line" style="margin-top:8px;color:var(--ink-soft);font-size:.8rem">Seed <b>${G.seed}</b></div>`;
+  resetSeedRating();
   $("winScreen").classList.remove("hidden");
 }
 // "Keep printing" → flip on endless and rejoin the normal post-clear flow (shop, then round 9+)
@@ -3285,75 +3332,40 @@ function px(base){
   return Math.max(1,Math.round(base*0.65*SHOP_PRICE_SCALE*(G.perks.fireSale?0.75:1)*(G.perks.vanityPress?1.25:1)*infl));
 }   // 35% off base, then 20% off (v3a); Fire sale = 25% more off
 
-/* ---------- v48a: seeded perk draft ---------- */
-/* Each run drafts a sub-pool of the identity perks so builds can converge instead of
-   diluting across the full catalog. Deterministic from the run seed alone: every player
-   on a daily seed gets the same draft, and it is recomputed on load (nothing saved). */
-const PERK_DRAFT_GROUPS = [
-  { pick:4, types:["anthology","movableType","vanityPress","crossword","recycledStock","bigWords","powerTrio","fiveTimer","abridged"] },   // engines
-  { pick:3, types:["interest","marginalia","pulpMill","footnote","commission","abcs"] },                                                   // economy
-  { pick:5, types:["twoOfAKind","twinsies","shortKing","kerning","mirror","verbose","verbizer","repeater","ligature","alphabetizer","colophon"] } // conditionals
-];
-const ENGINE_TYPES = PERK_DRAFT_GROUPS[0].types;
-let _perkDraftCache=null;
-function perkDrafted(type){
-  if(!_perkDraftCache || _perkDraftCache.seed!==G.seed){
-    const rng=makeRng("perkdraft");
-    const set=new Set();
-    PERK_DRAFT_GROUPS.forEach(grp=>{
-      const pool=grp.types.slice();
-      for(let i=0;i<grp.pick && pool.length;i++) set.add(pool.splice(Math.floor(rng()*pool.length),1)[0]);
-    });
-    _perkDraftCache={seed:G.seed,set};
-  }
-  return _perkDraftCache.set.has(type);
-}
-/* v48a: engine checkpoints. Shops entering these rounds guarantee one premium engine offer. */
-const CHECKPOINT_ROUNDS=new Set([3,6,9]);
-function enginePool(){
-  const mk={anthology:anthologyOffer,movableType:movableTypeOffer,vanityPress:vanityPressOffer,
-            crossword:crosswordOffer,recycledStock:recycledStockOffer,bigWords:bigWordsOffer,
-            powerTrio:powerTrioOffer,fiveTimer:fiveTimerOffer,abridged:abridgedOffer};
-  const e=[];
-  ENGINE_TYPES.forEach(t=>{ if(perkDrafted(t) && !G.perks[t]) e.push({make:()=>mk[t](),weight:1}); });
-  return e;
-}
-/* v48a: offer decay. A Perk the player could afford but left behind gets rarer (floor 25%). */
-function decayW(type){
-  const n=(G.passedPerks&&G.passedPerks[type])||0;
-  return n?Math.max(0.25,Math.pow(0.5,n)):1;
-}
-function recordShopPasses(){
-  if(!G.shopOffers) return;
-  G.passedPerks=G.passedPerks||{};
-  G.shopOffers.forEach(o=>{
-    if(o.sold || o.kind!=="Perk") return;
-    if((o.price||0)>G.coins) return;          // couldn't afford it: not a true pass
-    const t=o.d&&o.d.type; if(!t) return;
-    G.passedPerks[t]=(G.passedPerks[t]||0)+1;
-  });
-}
 function buildShopPool(){
   const rng=makeRng("shop:"+G.level+":"+G.rerollCount+":"+(G.freeRerollUsed?1:0));
   const offers=[];
-  const seen=new Set();
+  // v47f: dedupe ACROSS rerolls at this shop, not just within one shelf. Names
+  // already offered this visit live in G.shopSeen and are skipped, so a reroll
+  // always shows fresh stock. G.shopSeen resets each time a new shop opens.
+  const seen=new Set(G.shopSeen||[]);
   const commonPool={E:12,A:9,I:9,O:8,N:6,R:6,T:6,L:4,S:4,U:4,D:4,G:3};
   const rarePool={B:2,C:2,M:2,P:2,F:2,H:2,V:2,W:2,Y:2,K:1,J:1,X:1,Q:1,Z:1};
   // every offer (letters AND perks/cards) passes through here so no name appears twice
+  const shelf=new Set();
   const add=(make)=>{
-    for(let tries=0;tries<12;tries++){ const o=make(); if(!seen.has(o.name)){ seen.add(o.name); offers.push(o); return; } }
-    const o=make(); offers.push(o);   // give up after 12 tries (rare); keep the shop full
+    for(let tries=0;tries<24;tries++){
+      const o=make();
+      if(!seen.has(o.name)){ seen.add(o.name); shelf.add(o.name); offers.push(o); return; }
+    }
+    // Visit pool exhausted: fall back to "not on THIS shelf" so the shop never
+    // renders short after many rerolls.
+    for(let tries=0;tries<24;tries++){
+      const o=make();
+      if(!shelf.has(o.name)){ shelf.add(o.name); offers.push(o); return; }
+    }
+    const o=make(); offers.push(o);
   };
   add(()=>letterOffer(weightedLetter(rng,commonPool)));
   add(()=> rng()<0.22 ? pregildedLetterOffer(rng) : letterOffer(weightedLetter(rng,rarePool)));   // v42a: rare pre-gilded letter
-  add(()=>{ // v48a: engine checkpoint — shops entering R3/R6/R9 guarantee a premium engine offer
-    if(CHECKPOINT_ROUNDS.has(G.level)){ const ep=enginePool(); if(ep.length) return pickWeighted(rng,ep); }
-    return pickWeighted(rng,perkPool(rng)); });
+  add(()=>pickWeighted(rng,perkPool(rng)));
   add(()=>pickWeighted(rng,utilPool()));
   // round out to 6: a mix of letters and perks/cards
   add(()=> rng()<0.5 ? letterOffer(weightedLetter(rng,Object.assign({},commonPool,rarePool))) : pickWeighted(rng,perkPool(rng)) );
   add(()=> rng()<0.45 ? letterOffer(weightedLetter(rng,Object.assign({},commonPool,rarePool))) : pickWeighted(rng,perkPool(rng)) );
-  return offers.slice(0,6).map(o=>({...o,sold:false}));
+  const shelfOut=offers.slice(0,6).map(o=>({...o,sold:false}));
+  G.shopSeen=[...new Set([...(G.shopSeen||[]), ...shelfOut.map(o=>o.name)])];   // remember across rerolls
+  return shelfOut;
 }
 function pickWeighted(rng,entries){
   let tot=0; entries.forEach(e=>tot+=e.weight);
@@ -3394,42 +3406,41 @@ function perkPool(rng){
   e.push({make:()=>watermarkOffer(), weight: hasEncore    ? 0.12 : 0.55});
   e.push({make:()=>vowelPowerOffer(),  weight:2.4});   // v42a: stackable, always available
   if(!G.perks.fireSale)          e.push({make:()=>fireSaleOffer(),    weight:1.4});
-  if(!G.perks.bigWords      && perkDrafted("bigWords"))      e.push({make:()=>bigWordsOffer(),    weight:1.1});
+  if(!G.perks.bigWords)          e.push({make:()=>bigWordsOffer(),    weight:1.1});
   if(!G.perks.freeRerolls)       e.push({make:()=>freeRerollOffer(),  weight:1.1});
-  if(!G.perks.interest      && perkDrafted("interest"))      e.push({make:()=>interestOffer(),    weight:1.2});
-  if(!G.perks.twinsies      && perkDrafted("twinsies"))      e.push({make:()=>twinsiesOffer(),    weight:1.3});
+  if(!G.perks.interest)          e.push({make:()=>interestOffer(),    weight:1.2});
+  if(!G.perks.twinsies)          e.push({make:()=>twinsiesOffer(),    weight:1.3});
   if(!G.perks.proofSheet)        e.push({make:()=>proofSheetOffer(),  weight:2.0});
-  if(!G.perks.twoOfAKind    && perkDrafted("twoOfAKind"))    e.push({make:()=>twoOfAKindOffer(),  weight:1.3});
-  if(!G.perks.shortKing     && perkDrafted("shortKing"))     e.push({make:()=>shortKingOffer(),   weight:1.7});
-  if(!G.perks.kerning       && perkDrafted("kerning"))       e.push({make:()=>kerningOffer(),     weight:1.4});
-  if(!G.perks.fiveTimer     && perkDrafted("fiveTimer"))     e.push({make:()=>fiveTimerOffer(),   weight:1.4});
-  if(!G.perks.marginalia    && perkDrafted("marginalia"))    e.push({make:()=>marginaliaOffer(),  weight:1.3});
-  if(!G.perks.mirror        && perkDrafted("mirror"))        e.push({make:()=>mirrorOffer(),      weight:0.8});
-  if(!G.perks.verbose       && perkDrafted("verbose"))       e.push({make:()=>verboseOffer(),     weight:1.2});
-  if(!G.perks.verbizer      && perkDrafted("verbizer"))      e.push({make:()=>verbizerOffer(),    weight:0.8});
-  if(!G.perks.abridged      && perkDrafted("abridged"))      e.push({make:()=>abridgedOffer(),    weight:0.6});
-  if(!G.perks.movableType   && perkDrafted("movableType"))   e.push({make:()=>movableTypeOffer(), weight:0.9});
-  if(!G.perks.footnote      && perkDrafted("footnote"))      e.push({make:()=>footnoteOffer(),    weight:1.2});
-  if(!G.perks.anthology     && perkDrafted("anthology"))     e.push({make:()=>anthologyOffer(),   weight:0.6});
-  if(!G.perks.abcs          && perkDrafted("abcs"))          e.push({make:()=>abcsOffer(),        weight:0.9});
-  if(!G.perks.ligature      && perkDrafted("ligature"))      e.push({make:()=>ligatureOffer(),    weight:0.9});
-  if(!G.perks.crossword     && perkDrafted("crossword"))     e.push({make:()=>crosswordOffer(),   weight:0.9});
-  if(!G.perks.recycledStock && perkDrafted("recycledStock")) e.push({make:()=>recycledStockOffer(),weight:0.6});
-  if(!G.perks.pulpMill      && perkDrafted("pulpMill"))      e.push({make:()=>pulpMillOffer(),    weight:1.2});
-  if(!G.perks.colophon      && perkDrafted("colophon"))      e.push({make:()=>colophonOffer(),    weight:0.9});
-  if(!G.perks.alphabetizer  && perkDrafted("alphabetizer"))  e.push({make:()=>alphabetizerOffer(),weight:0.6});
-  if(!G.perks.commission    && perkDrafted("commission"))    e.push({make:()=>commissionOffer(),  weight:0.6});
-  if(!G.perks.vanityPress   && perkDrafted("vanityPress"))   e.push({make:()=>vanityPressOffer(), weight:0.9});
+  if(!G.perks.twoOfAKind)        e.push({make:()=>twoOfAKindOffer(),  weight:1.3});
+  if(!G.perks.shortKing)         e.push({make:()=>shortKingOffer(),   weight:1.7});
+  if(!G.perks.kerning)           e.push({make:()=>kerningOffer(),     weight:1.4});
+  if(!G.perks.fiveTimer)         e.push({make:()=>fiveTimerOffer(),   weight:1.4});
+  if(!G.perks.marginalia)        e.push({make:()=>marginaliaOffer(),  weight:1.3});
+  if(!G.perks.mirror)            e.push({make:()=>mirrorOffer(),      weight:0.8});
+  if(!G.perks.verbose)           e.push({make:()=>verboseOffer(),     weight:1.2});
+  if(!G.perks.verbizer)          e.push({make:()=>verbizerOffer(),    weight:0.8});
+  if(!G.perks.abridged)          e.push({make:()=>abridgedOffer(),    weight:0.6});
+  if(!G.perks.movableType)       e.push({make:()=>movableTypeOffer(), weight:0.9});
+  if(!G.perks.footnote)          e.push({make:()=>footnoteOffer(),    weight:1.2});
+  if(!G.perks.anthology)         e.push({make:()=>anthologyOffer(),   weight:0.6});
+  if(!G.perks.abcs)              e.push({make:()=>abcsOffer(),        weight:0.9});
+  if(!G.perks.ligature)          e.push({make:()=>ligatureOffer(),    weight:0.9});
+  if(!G.perks.crossword)         e.push({make:()=>crosswordOffer(),   weight:0.9});
+  if(!G.perks.recycledStock)     e.push({make:()=>recycledStockOffer(),weight:0.6});
+  if(!G.perks.pulpMill)          e.push({make:()=>pulpMillOffer(),    weight:1.2});
+  if(!G.perks.colophon)          e.push({make:()=>colophonOffer(),    weight:0.9});
+  if(!G.perks.alphabetizer)      e.push({make:()=>alphabetizerOffer(),weight:0.6});
+  if(!G.perks.commission)        e.push({make:()=>commissionOffer(),  weight:0.6});
+  if(!G.perks.vanityPress)       e.push({make:()=>vanityPressOffer(), weight:0.9});
   e.push({make:()=>boldFaceOffer(),  weight:0.5});
   e.push({make:()=>dropCapOffer(),   weight:0.6});
   e.push({make:()=>serifStampOffer(),weight:0.6});
   e.push({make:()=>dittoMarkOffer(), weight:0.5});
   e.push({make:()=>inkWellOffer(),   weight:0.7});
   if(!G.perks.reprint)           e.push({make:()=>reprintOffer(),     weight:1.1});
-  if(!G.perks.repeater      && perkDrafted("repeater"))      e.push({make:()=>repeaterOffer(),    weight:1.4});
-  if(!G.perks.powerTrio     && perkDrafted("powerTrio"))     e.push({make:()=>powerTrioOffer(),   weight:1.3});
-  // v48a: offer decay — perks the player could afford but passed on get rarer for the rest of the run.
-  return e.map(en=>({make:en.make, weight:en.weight*decayW(((en.make()||{}).d||{}).type)}));
+  if(!G.perks.repeater)          e.push({make:()=>repeaterOffer(),    weight:1.4});
+  if(!G.perks.powerTrio)         e.push({make:()=>powerTrioOffer(),   weight:1.3});
+  return e;
 }
 function utilPool(){
   const e=[{make:()=>gildOffer(),weight:3},{make:()=>eraserOffer(),weight:3}];
@@ -3444,7 +3455,7 @@ function letterOffer(L){
     d:{type:"letter",L}};
 }
 function cloneOffer(){
-  return {kind:"Card",rarity:"epic",name:"Clone",desc:"Play it as a copy of any letter you're holding.",
+  return {kind:"Card",rarity:"epic",name:"Clone",desc:"Play it as a copy of any letter you're holding, along with every upgrade on it.",
     price:px(11), art:`<span class="mini-tile" style="background:linear-gradient(180deg,#EDEAF6,#DED8EE);border-color:#C3B8DD">❖</span>`,
     d:{type:"clone"}};
 }
@@ -3475,7 +3486,7 @@ function discardBoostOffer(){
     price:px(9), art:"💸", d:{type:"discardBoost"}};
 }
 function interestOffer(){
-  return {kind:"Perk",rarity:"epic",name:"Compound interest",desc:"Earn 10% of your coins each round (max "+INTEREST_CAP+").",
+  return {kind:"Perk",rarity:"epic",name:"Liquidity",desc:"Every $5 in your bank adds 1% to your word scores, up to ×2.",
     price:px(11), art:"🏦", d:{type:"interest"}};
 }
 function pressMultOffer(rng){
@@ -3513,7 +3524,6 @@ function applyOffer(o){
     case "pressMult":    G.pressGrowth=Math.round(((G.pressGrowth||0)+(d.g||0.025))*1000)/1000; break;
     case "gild":         openDeck("gild"); break;
     case "eraser":       openDeck("remove"); break;
-    case "abridgedCut":  openDeck("remove"); break;   // v48a: Abridged's $1 cut, split from Eraser for clean telemetry
     case "heart":        G.hearts=Math.min(MAX_HEARTS,G.hearts+1); break;
     case "wildVowel":    G.deck.push(makeWildVowelCard()); break;
     case "wildCons":     G.deck.push(makeWildConsCard()); break;
@@ -3799,11 +3809,12 @@ function setShopHeader(){
 }
 function openShop(){
   G.freeRerollUsed=false;         // reset BEFORE building so the shop opens un-rerolled and the free reroll varies the seed
+  G.shopSeen=[];                  // fresh shop: forget the previous shop's stock
   G.shopOffers=buildShopPool();   // reroll count persists for the whole run
   if(G.perks.abridged){
     // Appended AFTER the seeded pool roll so it never disturbs seeded offer picks.
-    G.shopOffers.push({kind:"Upgrade",rarity:"epic",name:"Abridged Cut",desc:"Cut one tile from your deck.",
-      price:1, art:"✂️", needsTarget:"remove", d:{type:"abridgedCut"}});
+    G.shopOffers.push({kind:"Upgrade",rarity:"epic",name:"Abridged",desc:"Cut one tile from your deck.",
+      price:1, art:"✂️", needsTarget:"remove", d:{type:"eraser"}});
   }
   statShopOpen(G.shopOffers);
   G.shopUndo=[];                  // fresh undo history per shop visit
@@ -3911,7 +3922,6 @@ function rerollShop(){
   save();
 }
 function nextRound(){
-  recordShopPasses();   // v48a: offer decay counts affordable, unbought perks as true passes
   statShopClose();
   $("shopScreen").classList.add("hidden");
   G.attempt=0;
@@ -4348,7 +4358,7 @@ function statWord(word, score, len, isJazz){
   if(!G.stats) return;
   G.stats.runScore=G.runScore||0;   // mirror the canonical run score (set in submitWord)
   G.stats.words.push({ round:G.level, word, score, len, jazz:!!isJazz,
-    overtime: G.handsLeft<=0, hearts: G.hearts });   // v48a: overtime = out of hands only; hearts logged per word
+    overtime: G.handsLeft<=0 || G.hearts<MAX_HEARTS });
 }
 function statShopOpen(offers){
   if(!G.stats) return;
@@ -4671,7 +4681,7 @@ function ownedPerksList(){
   if(G.handSize>START_HAND) out.push("Fuller Case · hand of "+G.handSize);
   if(G.extraTurns>0)     out.push("+"+G.extraTurns+" word"+(G.extraTurns>1?"s":"")+" / round");
   if(G.extraDiscards>0)  out.push("+"+G.extraDiscards+" discard"+(G.extraDiscards>1?"s":"")+" / round");
-  if(G.perks.interest)   out.push("Compound Interest");
+  if(G.perks.interest)   out.push("Liquidity · ×"+liquidityMult().toFixed(2)+" from $"+(G.coins||0)+" banked");
   if(G.perks.fireSale)   out.push("Fire Sale · cheaper shop");
   if(G.perks.freeRerolls) out.push("Free Re-roll · first reroll each shop");
   Object.keys(G.perks.firstUp||{}).forEach(L=>{ const s=G.perks.firstUp[L]; if(s>0) out.push("First-up "+L+" · ×"+(1+0.5*s)); });
@@ -4714,7 +4724,7 @@ function ownedPerkCards(){
   if(G.handSize>START_HAND) push("🗄️","Fuller Case","Hold "+G.handSize+" tiles in every hand.");
   if(G.extraTurns>0)    push("⏳","Extra Word","+"+G.extraTurns+" word"+(G.extraTurns>1?"s":"")+" to set each round.");
   if(G.extraDiscards>0) push("♻️","Extra Discard","+"+G.extraDiscards+" discard"+(G.extraDiscards>1?"s":"")+" each round.");
-  if(P.interest)   push("🏦","Compound Interest","Earn 10% of your coins each round.");
+  if(P.interest)   push("🏦","Liquidity","Every $5 banked adds 1% to your word scores, up to ×2. Now ×"+liquidityMult().toFixed(2)+".");
   if(P.fireSale)   push("🔥","Fire Sale","All shop prices 25% cheaper.");
   if(P.freeRerolls) push("♻️","Free Re-roll","Your first re-roll each shop is free.");
   Object.keys(P.firstUp||{}).forEach(L=>{ const s=P.firstUp[L]; if(s>0) push("⭐","First-up "+L,"Words starting with "+L+" score ×"+(1+0.5*s)+"."); });
@@ -4777,6 +4787,7 @@ function hideGame(){ $("hud").classList.add("hidden"); $("play").classList.add("
 
 function gameOver(won){
   tickFlush(); runTicking=false;   // freeze run time
+  resetSeedRating();
   statFinish((won||G.wonRun) ? "win" : "lose");
   clearSave();
   hideGame();
@@ -4819,8 +4830,8 @@ function save(){
       perks:G.perks, scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, reprintUsed:G.reprintUsed, foilUsed:G.foilUsed, challenge:G.challenge, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, jazzCharges:G.jazzCharges, runMs:G.runMs, stats:G.stats,
       wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, wordPlays:G.wordPlays, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
       attempt:G.attempt, target:G.target, score:G.score, handsLeft:G.handsLeft, discardsLeft:G.discardsLeft,
-      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0,
-      rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed, passedPerks:G.passedPerks||{}, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
+      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0,
+      rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
     };
     localStorage.setItem(SAVE_KEY,JSON.stringify(data));
   }catch(e){}
@@ -4840,6 +4851,7 @@ function continueRun(){
   G.scoreMult=d.scoreMult||1; G.pressGrowth=d.pressGrowth||0; G.extraDiscards=d.extraDiscards||0; G.extraTurns=d.extraTurns||0;
   G.challenge=d.challenge||null;
   G.lucky7Stash=Array.isArray(d.lucky7Stash)?d.lucky7Stash:[];
+  G.shopSeen=Array.isArray(d.shopSeen)?d.shopSeen:[];
   G.anagramSigs=d.anagramSigs||{}; G.anthologyCount=d.anthologyCount||0; G.abcSeen=d.abcSeen||{}; G.lastWordLetters=d.lastWordLetters||null; G.pulpPending=d.pulpPending||0;
   G.jazzCharges=(typeof d.jazzCharges==="number")?d.jazzCharges:0;
   G.wordsPlayed=d.wordsPlayed||0; G.runScore=d.runScore||0; G.runBestWord=d.runBestWord||""; G.runBestScore=d.runBestScore||0; G.wordPlays=d.wordPlays||{};
@@ -4856,7 +4868,6 @@ function continueRun(){
   G.attempt=d.attempt||0; G.target=d.target||targetFor(G.level);
   G.score=d.score||0; G.handsLeft=d.handsLeft||0; G.discardsLeft=d.discardsLeft||0;
   G.drawPile=map(d.drawPile); G.hand=map(d.hand); G.canvas=map(d.canvas); G.played=map(d.played); G.pileReshuffles=d.pileReshuffles||0;
-  G.passedPerks=d.passedPerks||{};   // v48a: offer-decay counts; pre-48a saves default to no decay
   $("titleScreen").classList.add("hidden"); $("overScreen").classList.add("hidden");
   if(d.phase==="summary" && d.summaryInfo){
     hideGame();
@@ -4912,10 +4923,10 @@ function newRun(seed){
   G.scoreMult=1; G.pressGrowth=0; G.extraDiscards=0; G.extraTurns=0; G.jazzCharges=0; G.lastReward=null;
   G.infinite=false; G.wonRun=false;
   G.rerollCount=0; G.freeRerollUsed=false;   // reroll-price ladder resets each run
-  G.passedPerks={};                          // v48a: offer-decay pass counts reset each run
   G.wordsPlayed=0; G.runScore=0; G.runBestWord=""; G.runBestScore=0; G.wordPlays={}; G.levelStats={bestWord:"",bestScore:0,words:0};
   G.attempt=0; G.best=1; G.shopOffers=[]; G.runMs=0;
   G.challenge=null; G.challengePending=null; G._rescues=0;   // never carry a challenge into a fresh run
+  G.shopSeen=[];
   G.lucky7Stash=[];
   G.anagramSigs={}; G.anthologyCount=0; G.abcSeen={}; G.lastWordLetters=null; G.pulpPending=0;
   G.deck=rollStartingDeck();
@@ -4928,6 +4939,58 @@ function newRun(seed){
 function randomSeed(){ return Math.random().toString(36).slice(2,7).toUpperCase(); }
 
 /* ---------- wire up ---------- */
+/* ---------- seed rating: thumbs + optional comment, sent with telemetry ---------- */
+let seedRating={vote:null, sent:false};
+function wireSeedRating(sfx){
+  const up=$("srUp"+sfx), down=$("srDown"+sfx), note=$("srNote"+sfx), send=$("srSend"+sfx), thanks=$("srThanks"+sfx);
+  if(!up||!down) return;
+  const choose=(v)=>{
+    if(seedRating.sent) return;
+    seedRating.vote=v;
+    up.classList.toggle("on", v==="up"); down.classList.toggle("on", v==="down");
+    note.classList.remove("hidden"); send.classList.remove("hidden");
+    note.placeholder = v==="up" ? "What made this seed good? (optional)" : "What made this seed frustrating? (optional)";
+  };
+  up.addEventListener("click",()=>{ choose("up"); haptic(12); });
+  down.addEventListener("click",()=>{ choose("down"); haptic(12); });
+  send.addEventListener("click",()=>{
+    if(!seedRating.vote || seedRating.sent) return;
+    submitSeedRating(seedRating.vote, (note.value||"").trim());
+    seedRating.sent=true;
+    note.classList.add("hidden"); send.classList.add("hidden"); thanks.classList.remove("hidden");
+    up.disabled=true; down.disabled=true; haptic(20);
+  });
+}
+// Rides the existing telemetry queue: its own row, tagged as a rating, keyed by run.
+function submitSeedRating(vote, comment){
+  try{
+    const row={
+      run_id: (G.stats&&G.stats.runId ? G.stats.runId : ("rate-"+Date.now().toString(36)))+"-rating",
+      install_id: getInstallId(), version: VERSION, seed: G.seed||null,
+      outcome: "seed_rating", final_round: G.level|0, run_score: G.runScore|0,
+      best_score: G.runBestScore|0, won_run: !!G.wonRun,
+      payload: { kind:"seed_rating", vote, comment: comment||"", seed:G.seed||null,
+                 round:G.level|0, wonRun:!!G.wonRun, runScore:G.runScore|0,
+                 version:VERSION, at:new Date().toISOString() }
+    };
+    const q=_telemetryReadQueue();
+    if(!q.some(r=>r&&r.run_id===row.run_id)) q.push(row);
+    _telemetryWriteQueue(q);
+  }catch(e){}
+  flushTelemetry();
+}
+function resetSeedRating(){
+  seedRating={vote:null,sent:false};
+  ["","W"].forEach(sfx=>{
+    const up=$("srUp"+sfx), down=$("srDown"+sfx), note=$("srNote"+sfx), send=$("srSend"+sfx), thanks=$("srThanks"+sfx);
+    if(!up) return;
+    up.classList.remove("on"); down.classList.remove("on"); up.disabled=false; down.disabled=false;
+    if(note){ note.value=""; note.classList.add("hidden"); }
+    if(send) send.classList.add("hidden");
+    if(thanks) thanks.classList.add("hidden");
+  });
+}
+wireSeedRating(""); wireSeedRating("W");
 $("verTag").textContent="Prototype v"+VERSION+" · "+WORDS.size.toLocaleString()+" words";
 $("playBtn").addEventListener("click",()=>newRun(generateValidatedSeed()));
 $("continueBtn").addEventListener("click",continueRun);
