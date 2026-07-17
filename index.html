@@ -1116,7 +1116,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "47f";
+const VERSION = "47h";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1126,7 +1126,7 @@ const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterward
    Everything here rolls off the seeded stream so the daily stays replay-valid. */
 const CHALLENGE_LEVELS = new Set([3,5,7]);
 const CHALLENGE_TARGET_MULT = 1.75;  // "steep target" challenge: +75% over the round's base goal
-const CHALLENGE_BAN_COUNT  = 3;      // "letters locked": ban your 3 most-used deck letters
+const CHALLENGE_BAN_COUNT  = 1;      // "letters locked": lock exactly one vowel (never all)
 const CHALLENGE_MIN_LEN    = 5;      // "long form": no words under 5 letters
 const CHALLENGE_TYPES = {
   steep:  { name:"Steep Target", badge:"+75% target",
@@ -1231,11 +1231,19 @@ function challengeTypeFor(level){
 // The N most-used letters in the current deck (letter cards only). Ties broken
 // alphabetically so it is deterministic across machines.
 function deckTopLetters(n){
+  // Locked challenge: lock a single vowel. We pick the player's most-common vowel
+  // (so it bites) but never lock more than one, and never a vowel the deck barely
+  // has, so at least the other four vowels remain playable. Falls back to any
+  // present vowel, then to nothing rather than locking consonants.
   const counts={};
   G.deck.forEach(c=>{ if(c.kind==="letter") counts[c.letter]=(counts[c.letter]||0)+1; });
-  return Object.keys(counts)
-    .sort((a,b)=> counts[b]-counts[a] || (a<b?-1:1))
-    .slice(0,n);
+  const vowels=["A","E","I","O","U"].filter(V=>counts[V]>0);
+  if(!vowels.length) return [];
+  // don't lock a vowel that is the ONLY vowel in the deck
+  const distinctVowels=vowels.length;
+  if(distinctVowels<=1) return [];
+  vowels.sort((a,b)=> counts[b]-counts[a] || (a<b?-1:1));
+  return [vowels[0]];
 }
 function challengeActive(){ return !!(G.challenge && G.challenge.active); }
 function bannedLetterSet(){
@@ -1552,6 +1560,13 @@ function predChallengeType(seed,level){
 }
 // Most-used letters in the bot's deck (mirrors deckTopLetters; predictor tiles are all letters).
 function predDeckTop(deck,n){
+  // mirror deckTopLetters: lock a single most-common vowel, never all vowels
+  const vc={}; deck.forEach(c=>{ if(c.letter) vc[c.letter]=(vc[c.letter]||0)+1; });
+  const vw=["A","E","I","O","U"].filter(V=>vc[V]>0);
+  if(vw.length>1){ vw.sort((a,b)=>vc[b]-vc[a]||(a<b?-1:1)); return [vw[0]]; }
+  return [];
+}
+function predDeckTop_LEGACY(deck,n){
   const counts={}; deck.forEach(c=>{ if(c.letter) counts[c.letter]=(counts[c.letter]||0)+1; });
   return Object.keys(counts).sort((a,b)=>counts[b]-counts[a]||(a<b?-1:1)).slice(0,n);
 }
@@ -2365,7 +2380,7 @@ function scoreOf(res){
   let alphaHit=false;
   if(G.perks.alphabetizer && res.length>=2 && res.every(r=>r.letter)){
     let okA=true; for(let i=1;i<res.length;i++){ if(res[i].letter<res[i-1].letter){ okA=false; break; } }
-    if(okA){ alphaHit=true; total*=3; }
+    if(okA){ alphaHit=true; total*=4; }
   }
   let coloHit=false;
   if(G.perks.colophon && G.handsLeft===1){ coloHit=true; total*=2; }
@@ -2424,7 +2439,7 @@ function updateLive(){
   if(sc.repeatHit>0) parts.push(`×${(sc.repeatMult||1).toFixed(1)} replay`);
   if(sc.ligHit) parts.push(`×1.75 ligature`);
   if(sc.crossHit) parts.push(`×1.25 crossword`);
-  if(sc.alphaHit) parts.push(`×3 a to z`);
+  if(sc.alphaHit) parts.push(`×4 a to z`);
   if(sc.coloHit) parts.push(`×2 colophon`);
   if(sc.movableHit) parts.push(`×2 anagram`);
   if(sc.anthMult>1) parts.push(`×${sc.anthMult.toFixed(2)} anthology`);
@@ -2906,7 +2921,12 @@ function dealUpToHand(animate){
   // discards, clear the whole hand for free and deal a fresh one. Deterministic
   // (pure function of seed/state), capped to avoid a runaway.
   let freeRedeals=0;
-  while(challengeActive() && challengeMinLen() && G.discardsLeft===0 && G.handsLeft>0
+  // Long Form guarantee: at deal time, confirm at least one word of the required
+  // length is reachable from the hand. If not, redeal (like the no-vowel rescue)
+  // BEFORE the player wastes turns. This runs regardless of discards left, so a
+  // fresh hand is never dead on arrival. The out-of-discards clause below is kept
+  // as the mid-round safety net.
+  while(challengeActive() && challengeMinLen() && G.handsLeft>0
         && (G._rescues||0)<MAX_FREE_REDEALS && handIsDeadForChallenge()){
     G._rescues=(G._rescues||0)+1; freeRedeals++;
     if(!G.played) G.played=[];
@@ -3040,6 +3060,11 @@ function submitWord(){
   } else if(G.perks.shortKing && sc.effLen>=2 && sc.effLen<=5){
     // Short King mini-press: short words are their own scaling engine
     G.scoreMult=Math.round(((G.scoreMult||1)+0.025)*1000)/1000;
+    pressGrew=true;
+  }
+  // Heavy Press: score-threshold engine, stacks on top of the above
+  if((G.heavyPress||0)>0 && sc.total>=100){
+    G.scoreMult=Math.round(((G.scoreMult||1)+G.heavyPress)*1000)/1000;
     pressGrew=true;
   }
   G.runScore=(G.runScore||0)+sc.total;
@@ -3385,6 +3410,7 @@ function perkPool(rng){
     {make:()=>extraDiscardOffer(), weight:1.8},
     {make:()=>extraTurnOffer(),    weight:1.8},
     {make:()=>pressMultOffer(rng), weight:1.3},
+    {make:()=>heavyPressOffer(rng), weight:1.1},
     {make:()=>growthMindOffer(),   weight:1.2},
     {make:()=>foilOffer(),         weight:1.1},
     {make:()=>fusionOffer(),       weight:1.8},
@@ -3497,6 +3523,14 @@ function pressMultOffer(rng){
     desc:"Every word of 6+ letters raises your score multiplier by 2.5% (stacks).",
     price:px(10), art:"✖️", d:{type:"pressMult",g}};
 }
+function heavyPressOffer(rng){
+  // score-threshold sibling of Press: grows on any word that clears 100 points,
+  // regardless of length — rewards big multiplier plays and short-word builds.
+  const g=0.03;
+  return {kind:"Perk",rarity:"epic",name:"Heavy Press",
+    desc:"Every word that scores 100 or more raises your score multiplier by 3% (stacks).",
+    price:px(10), art:"⚙️", d:{type:"heavyPress",g}};
+}
 function gildOffer(){
   return {kind:"Upgrade",rarity:"rare",name:"Gilded Letter",desc:"Double a letter's points. Re-gilding the same letter costs double each time.",
     price:px(GILD_BASE), art:"✨", needsTarget:"gild", d:{type:"gild"}};
@@ -3522,6 +3556,7 @@ function applyOffer(o){
     case "discardBoost": G.perks.discardMoneyBoost=true; break;
     case "interest":     G.perks.interest=true; break;
     case "pressMult":    G.pressGrowth=Math.round(((G.pressGrowth||0)+(d.g||0.025))*1000)/1000; break;
+    case "heavyPress":   G.heavyPress=Math.round(((G.heavyPress||0)+(d.g||0.03))*1000)/1000; break;
     case "gild":         openDeck("gild"); break;
     case "eraser":       openDeck("remove"); break;
     case "heart":        G.hearts=Math.min(MAX_HEARTS,G.hearts+1); break;
@@ -3671,8 +3706,8 @@ function colophonOffer(){
     price:px(8), art:"🖋", d:{type:"colophon"}};
 }
 function alphabetizerOffer(){
-  return {kind:"Perk",rarity:"epic",name:"Alphabetizer",desc:"Words with letters in alphabetical order score ×3.",
-    price:px(11), art:"🔡", d:{type:"alphabetizer"}};
+  return {kind:"Perk",rarity:"epic",name:"Alphabetizer",desc:"Words with letters in alphabetical order score ×4.",
+    price:px(12), art:"🔡", d:{type:"alphabetizer"}};
 }
 function commissionOffer(){
   return {kind:"Perk",rarity:"epic",name:"Commission",desc:"Words gain 1 point for every coin in your bank.",
@@ -3828,7 +3863,7 @@ function openShop(){
 function shopSnapshot(){
   return {
     coins:G.coins, handSize:G.handSize, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns,
-    scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, jazzCharges:G.jazzCharges, hearts:G.hearts, rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed,
+    scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, heavyPress:G.heavyPress||0, jazzCharges:G.jazzCharges, hearts:G.hearts, rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed,
     gildOfferIdx:G.gildOfferIdx, fuseOfferIdx:G.fuseOfferIdx,
     perks:JSON.parse(JSON.stringify(G.perks)),
     deck:G.deck.map(c=>({...c})),
@@ -3840,7 +3875,7 @@ function shopUndo(){
   if(!G.shopUndo.length) return;
   const s=G.shopUndo.pop();
   G.coins=s.coins; G.handSize=s.handSize; G.extraDiscards=s.extraDiscards; G.extraTurns=s.extraTurns;
-  G.scoreMult=s.scoreMult; G.pressGrowth=s.pressGrowth||0; G.jazzCharges=s.jazzCharges; G.hearts=s.hearts; G.rerollCount=s.rerollCount; G.freeRerollUsed=s.freeRerollUsed;
+  G.scoreMult=s.scoreMult; G.pressGrowth=s.pressGrowth||0; G.heavyPress=s.heavyPress||0; G.jazzCharges=s.jazzCharges; G.hearts=s.hearts; G.rerollCount=s.rerollCount; G.freeRerollUsed=s.freeRerollUsed;
   G.gildOfferIdx=s.gildOfferIdx; G.fuseOfferIdx=(s.fuseOfferIdx!=null?s.fuseOfferIdx:null); G.fusePending=null; G.perks=s.perks; G.deck=s.deck; G.shopOffers=s.offers;
   haptic(12); toast("Undone");
   renderShop(); save();
@@ -4519,7 +4554,8 @@ const DEF_BLOCKLIST=new Set([
   "poofter","poofters","poof","poofs","poofy",
   "shemale","shemales","ladyboy","ladyboys",
   "transvestite","transvestites","crossdresser","crossdressers",
-  "catamite","catamites","ponce","ponces"
+  "catamite","catamites","ponce","ponces",
+  "tit","tits","titty","titties","tittie","titties","boob","boobs","boobies"
 ]);
 function escHtml(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 /* Family-safety filter on definitions (PBS). Full Wiktionary includes explicit and
@@ -4669,7 +4705,7 @@ function ownedPerksList(){
   if(G.perks.recycledStock) out.push("Recycled Stock · discards grow Press");
   if(G.perks.pulpMill)   out.push("Pulp Mill · +3 per discarded tile next word");
   if(G.perks.colophon)   out.push("Colophon · final word ×2");
-  if(G.perks.alphabetizer) out.push("Alphabetizer · a to z order ×3");
+  if(G.perks.alphabetizer) out.push("Alphabetizer · a to z order ×4");
   if(G.perks.commission) out.push("Commission · +1 point per coin banked");
   if(G.perks.vanityPress)out.push("Vanity Press · prices +25%, scores +25%");
   if(G.perks.repeater)   out.push("Repeater · replays score higher");
@@ -4712,7 +4748,7 @@ function ownedPerkCards(){
   if(P.recycledStock) push("♻️","Recycled Stock","Every discard you spend grows your Press by 0.01.");
   if(P.pulpMill)   push("🏭","Pulp Mill","Your next word after a discard gains 3 points per discarded tile.");
   if(P.colophon)   push("🖋","Colophon","Your final word each round scores ×2.");
-  if(P.alphabetizer) push("🔡","Alphabetizer","Words with letters in alphabetical order score ×3.");
+  if(P.alphabetizer) push("🔡","Alphabetizer","Words with letters in alphabetical order score ×4.");
   if(P.commission) push("💼","Commission","Words gain 1 point for every coin in your bank.");
   if(P.vanityPress)push("🎩","Vanity Press","Shop prices rise 25%, and every word scores 25% higher.");
   if(P.repeater)   push("🔁","Repeater","Replaying a word you've used scores higher.");
@@ -4848,7 +4884,7 @@ function continueRun(){
   if(G.perks.vowelPower===true) G.perks.vowelPower=1;   // v42a: legacy boolean -> 1 stack
   G.reprintUsed=!!d.reprintUsed;
   G.foilUsed=Array.isArray(d.foilUsed)?d.foilUsed.slice():[];
-  G.scoreMult=d.scoreMult||1; G.pressGrowth=d.pressGrowth||0; G.extraDiscards=d.extraDiscards||0; G.extraTurns=d.extraTurns||0;
+  G.scoreMult=d.scoreMult||1; G.pressGrowth=d.pressGrowth||0; G.heavyPress=d.heavyPress||0; G.extraDiscards=d.extraDiscards||0; G.extraTurns=d.extraTurns||0;
   G.challenge=d.challenge||null;
   G.lucky7Stash=Array.isArray(d.lucky7Stash)?d.lucky7Stash:[];
   G.shopSeen=Array.isArray(d.shopSeen)?d.shopSeen:[];
@@ -4920,7 +4956,7 @@ function newRun(seed){
   G.level=1; G.hearts=MAX_HEARTS; G.coins=0; G.handSize=START_HAND;
   G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false};
   G.reprintUsed=false;
-  G.scoreMult=1; G.pressGrowth=0; G.extraDiscards=0; G.extraTurns=0; G.jazzCharges=0; G.lastReward=null;
+  G.scoreMult=1; G.pressGrowth=0; G.heavyPress=0; G.extraDiscards=0; G.extraTurns=0; G.jazzCharges=0; G.lastReward=null;
   G.infinite=false; G.wonRun=false;
   G.rerollCount=0; G.freeRerollUsed=false;   // reroll-price ladder resets each run
   G.wordsPlayed=0; G.runScore=0; G.runBestWord=""; G.runBestScore=0; G.wordPlays={}; G.levelStats={bestWord:"",bestScore:0,words:0};
