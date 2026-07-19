@@ -1116,7 +1116,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "47h";
+const VERSION = "47i";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1126,7 +1126,7 @@ const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterward
    Everything here rolls off the seeded stream so the daily stays replay-valid. */
 const CHALLENGE_LEVELS = new Set([3,5,7]);
 const CHALLENGE_TARGET_MULT = 1.75;  // "steep target" challenge: +75% over the round's base goal
-const CHALLENGE_BAN_COUNT  = 1;      // "letters locked": lock exactly one vowel (never all)
+const CHALLENGE_BAN_COUNT  = 3;      // "letters locked": one vowel + two most-used consonants
 const CHALLENGE_MIN_LEN    = 5;      // "long form": no words under 5 letters
 const CHALLENGE_TYPES = {
   steep:  { name:"Steep Target", badge:"+75% target",
@@ -1231,19 +1231,20 @@ function challengeTypeFor(level){
 // The N most-used letters in the current deck (letter cards only). Ties broken
 // alphabetically so it is deterministic across machines.
 function deckTopLetters(n){
-  // Locked challenge: lock a single vowel. We pick the player's most-common vowel
-  // (so it bites) but never lock more than one, and never a vowel the deck barely
-  // has, so at least the other four vowels remain playable. Falls back to any
-  // present vowel, then to nothing rather than locking consonants.
+  // Locked challenge: lock the player's most-common vowel plus their two most-used
+  // consonants. This bites (it targets their staples) but is survivable: it never
+  // takes a second vowel, and it skips the vowel entirely when the deck has only
+  // one vowel type, so a legible word is always still reachable.
   const counts={};
   G.deck.forEach(c=>{ if(c.kind==="letter") counts[c.letter]=(counts[c.letter]||0)+1; });
-  const vowels=["A","E","I","O","U"].filter(V=>counts[V]>0);
-  if(!vowels.length) return [];
-  // don't lock a vowel that is the ONLY vowel in the deck
-  const distinctVowels=vowels.length;
-  if(distinctVowels<=1) return [];
-  vowels.sort((a,b)=> counts[b]-counts[a] || (a<b?-1:1));
-  return [vowels[0]];
+  const byUse=(a,b)=> counts[b]-counts[a] || (a<b?-1:1);
+  const VOWELS_=["A","E","I","O","U"];
+  const vowels=Object.keys(counts).filter(L=>VOWELS_.includes(L)).sort(byUse);
+  const cons  =Object.keys(counts).filter(L=>!VOWELS_.includes(L)).sort(byUse);
+  const out=[];
+  if(vowels.length>1) out.push(vowels[0]);   // one vowel, but never the deck's only vowel type
+  for(const c of cons){ if(out.length>=3) break; out.push(c); }   // up to two most-used consonants
+  return out.slice(0,3);
 }
 function challengeActive(){ return !!(G.challenge && G.challenge.active); }
 function bannedLetterSet(){
@@ -1560,11 +1561,13 @@ function predChallengeType(seed,level){
 }
 // Most-used letters in the bot's deck (mirrors deckTopLetters; predictor tiles are all letters).
 function predDeckTop(deck,n){
-  // mirror deckTopLetters: lock a single most-common vowel, never all vowels
-  const vc={}; deck.forEach(c=>{ if(c.letter) vc[c.letter]=(vc[c.letter]||0)+1; });
-  const vw=["A","E","I","O","U"].filter(V=>vc[V]>0);
-  if(vw.length>1){ vw.sort((a,b)=>vc[b]-vc[a]||(a<b?-1:1)); return [vw[0]]; }
-  return [];
+  // mirror deckTopLetters: one most-common vowel (never the only vowel) + two most-used consonants
+  const c={}; deck.forEach(x=>{ if(x.letter) c[x.letter]=(c[x.letter]||0)+1; });
+  const by=(a,b)=>c[b]-c[a]||(a<b?-1:1); const V=["A","E","I","O","U"];
+  const vw=Object.keys(c).filter(L=>V.includes(L)).sort(by);
+  const cs=Object.keys(c).filter(L=>!V.includes(L)).sort(by);
+  const out=[]; if(vw.length>1) out.push(vw[0]); for(const x of cs){ if(out.length>=3) break; out.push(x); }
+  return out.slice(0,3);
 }
 function predDeckTop_LEGACY(deck,n){
   const counts={}; deck.forEach(c=>{ if(c.letter) counts[c.letter]=(counts[c.letter]||0)+1; });
