@@ -1116,7 +1116,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "48b";
+const VERSION = "48c";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1424,11 +1424,11 @@ function rollStartingDeck(){
     const rng2=makeRng("deck2");
     cards=drawCapped(rng2).letters.map(makeLetterCard);   // still capped at 3
   }
-  // three starting golden slugs (1.5×), only on letters worth more than 1 point
-  // (v48b: trimmed from four; gold now compounds on the whole word, so each slug
-  // carries far more weight than under the old per-tile rules)
+  // four starting golden slugs (1.25×), only on letters worth more than 1 point
+  // (v48c: gold compounds on the whole word, so the rate dropped from 1.5 to 1.25
+  // and the count went back up to four: more gold moments, gentler each)
   const eligible=shuffle(cards.filter(c=>c.base>1),rng);
-  eligible.slice(0,3).forEach(c=>{ c.mult=1.5; });
+  eligible.slice(0,4).forEach(c=>{ c.mult=1.25; });
   return cards;
 }
 
@@ -1451,7 +1451,7 @@ function predRoll(seed){
   for(let t=0;t<400;t++){const{L,c}=draw(rng);const v=L.filter(x=>VOWELS.has(x)).length,hi=L.filter(x=>LETTER_VALUES[x]>1).length,face=L.reduce((a,x)=>a+LETTER_VALUES[x],0),mx=Math.max(...Object.values(c));if(v>=DECK_VOWEL_MIN&&v<=DECK_VOWEL_MAX&&hi>=DECK_HI_MIN&&face>=DECK_FACE_MIN&&mx<=MAX){ls=L;break;}}
   if(!ls) ls=draw(mulberry32(xfnv1a(String(seed)+"::deck2"))).L;
   const cards=ls.map(L=>({letter:L,base:LETTER_VALUES[L],mult:1,up:0}));
-  const el=shuffle(cards.filter(c=>c.base>1),rng); el.slice(0,3).forEach(c=>c.mult=1.5);
+  const el=shuffle(cards.filter(c=>c.base>1),rng); el.slice(0,4).forEach(c=>c.mult=1.25);
   return cards;
 }
 let _predLevel=1;
@@ -2307,8 +2307,8 @@ function wordValid(){
 function scoreOf(res){
   let sum=0;
   // v48a: golden letters no longer boost their own tile value. Each golden tile's
-  // multiplier now multiplies the WHOLE word score, fully compounding (two 1.5×
-  // golds = ×2.25 on the word). Collected here, applied after the other mults.
+  // multiplier now multiplies the WHOLE word score, fully compounding (two 1.25×
+  // golds = ×1.56 on the word). Collected here, applied after the other mults.
   let goldMult=1;
   const vals=res.map((r)=>{
     goldMult*= (r.mult||1);
@@ -3383,15 +3383,20 @@ function buildShopPool(){
       const o=make();
       if(!seen.has(o.name)){ seen.add(o.name); shelf.add(o.name); offers.push(o); return; }
     }
-    // Visit pool exhausted: fall back to "not on THIS shelf" so the shop never
-    // renders short after many rerolls.
+    // Category exhausted: widen to unseen letter stock (26+ names deep) before
+    // ever repeating, so rerolls stay repeat-free far longer.
+    for(let tries=0;tries<24;tries++){
+      const o=(tries%3===0)?goldenLetterOffer(rng):letterOffer(weightedLetter(rng,Object.assign({},commonPool,rarePool)));
+      if(!seen.has(o.name)){ seen.add(o.name); shelf.add(o.name); offers.push(o); return; }
+    }
+    // Truly exhausted: allow "not on THIS shelf" as the last resort.
     for(let tries=0;tries<24;tries++){
       const o=make();
       if(!shelf.has(o.name)){ shelf.add(o.name); offers.push(o); return; }
     }
     const o=make(); offers.push(o);
   };
-  add(()=>letterOffer(weightedLetter(rng,commonPool)));
+  add(()=> rng()<0.30 ? goldenLetterOffer(rng) : letterOffer(weightedLetter(rng,commonPool)));   // v48c: golden letters get a real seat
   add(()=> rng()<0.22 ? pregildedLetterOffer(rng) : letterOffer(weightedLetter(rng,rarePool)));   // v42a: rare pre-gilded letter
   add(()=>pickWeighted(rng,perkPool(rng)));
   add(()=>pickWeighted(rng,utilPool()));
@@ -3421,7 +3426,7 @@ function perkPool(rng){
     {make:()=>extraTurnOffer(),    weight:1.8},
     {make:()=>pressMultOffer(rng), weight:1.3},
     {make:()=>heavyPressOffer(rng), weight:1.1},
-    {make:()=>goldenLetterOffer(rng), weight:0.9},
+    {make:()=>goldenLetterOffer(rng), weight:2.2},
     {make:()=>growthMindOffer(),   weight:1.2},
     {make:()=>foilOffer(),         weight:1.1},
     {make:()=>fusionOffer(),       weight:1.8},
@@ -3540,8 +3545,8 @@ function goldenLetterOffer(rng){
   // onto one favourite.
   const pool={E:3,A:2,S:3,R:3,T:3,N:2,L:2,D:2,M:2,P:2,H:2,C:2,B:1,W:1,Y:1,K:1};
   const L=weightedLetter(rng,pool), v=LETTER_VALUES[L];
-  return {kind:"Letter",rarity:"epic",name:"Golden "+L,
-    desc:"A new "+v+"-point "+L+", already golden. Its 1.5× multiplies your whole word score.",
+  return {kind:"Letter",rarity:"rare",name:"Golden "+L,
+    desc:"A new "+v+"-point "+L+", already golden. Its 1.25× multiplies your whole word score.",
     price:px(6+Math.ceil(v/2)),
     art:`<span class="mini-tile" style="background:linear-gradient(180deg,#F6E7B7,#EAD292);border-color:#C9A94E">${L}<span class="mv">${v}</span></span>`,
     d:{type:"goldenLetter",L}};
@@ -3580,7 +3585,7 @@ function applyOffer(o){
     case "interest":     G.perks.interest=true; break;
     case "pressMult":    G.pressGrowth=Math.round(((G.pressGrowth||0)+(d.g||0.025))*1000)/1000; break;
     case "heavyPress":   G.heavyPress=Math.round(((G.heavyPress||0)+(d.g||0.03))*1000)/1000; break;
-    case "goldenLetter": { const gc=makeLetterCard(d.L); gc.mult=1.5; G.deck.push(gc); } break;
+    case "goldenLetter": { const gc=makeLetterCard(d.L); gc.mult=1.25; G.deck.push(gc); } break;
     case "gild":         openDeck("gild"); break;
     case "eraser":       openDeck("remove"); break;
     case "heart":        G.hearts=Math.min(MAX_HEARTS,G.hearts+1); break;
