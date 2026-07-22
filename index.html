@@ -53,6 +53,42 @@
     var(--page);
 }
 :root[data-theme="dark"] body::before{ opacity:.25; }   /* soften the paper grain */
+/* ---------- Dark mode: surfaces that used hardcoded light colors ---------- */
+:root[data-theme="dark"] #hud{
+  background:linear-gradient(180deg, rgba(30,27,38,.97), rgba(30,27,38,.86));
+  border-bottom-color:var(--tile-edge);
+}
+:root[data-theme="dark"] .tile,
+:root[data-theme="dark"] .clone-choice,
+:root[data-theme="dark"] .vowel-choice{
+  background:linear-gradient(180deg,#3D3949,var(--tile));
+}
+:root[data-theme="dark"] .tile.upgraded{
+  background:linear-gradient(180deg,#5E4B1F,#4A3A15);border-color:#B3892F;
+  box-shadow:0 2px 0 #8A6418,0 4px 10px rgba(216,170,78,.25);
+}
+:root[data-theme="dark"] .tile.fused,
+:root[data-theme="dark"] .clone-choice.fused-duo{
+  background:linear-gradient(180deg,#28443C,#1E352E);border-color:#4C7A6C;
+}
+:root[data-theme="dark"] .tile.combo{background:linear-gradient(180deg,#3B3054,#2E2542);border-color:#6A5793}
+:root[data-theme="dark"] .tile.lucky7{background:linear-gradient(180deg,#2E4629,#233620);border-color:#557B4A}
+:root[data-theme="dark"] .tile.clone{background:linear-gradient(180deg,#39344E,#2C283E);border-color:#5C548A}
+:root[data-theme="dark"] .tile.copycat{background:linear-gradient(180deg,#443B28,#352E1E);border-color:#7A683F}
+:root[data-theme="dark"] .pause-fab{background:var(--paper);}
+:root[data-theme="dark"] .offer.r-legendary{background:linear-gradient(180deg,#3B3320,#332B18);box-shadow:0 0 20px rgba(226,161,43,.25)}
+:root[data-theme="dark"] .offer.r-epic{box-shadow:0 0 16px rgba(176,91,192,.22)}
+:root[data-theme="dark"] .perk-card .pc-art{background:var(--page-deep)}
+:root[data-theme="dark"] .sum-best,
+:root[data-theme="dark"] .rank-row.current{background:linear-gradient(180deg,#3E3623,var(--paper))}
+:root[data-theme="dark"] .chal-reward.is-epic{background:linear-gradient(180deg,#3B3054,#31284A);border-color:#6A5793}
+:root[data-theme="dark"] .sr-btn.on{background:linear-gradient(180deg,#5E4B1F,#4A3A15)}
+:root[data-theme="dark"] .offer .o-art .mini-tile{box-shadow:0 2px 0 #191621}
+:root[data-theme="dark"] .btn-primary:disabled{background:#332F40;color:#8B8499;border:1px solid var(--tile-edge)}
+:root[data-theme="dark"] .bar{background:#332F40}
+/* shop art thumbnails keep their inline identity colors on purpose (they read as
+   miniature product art); their dark ink stays legible on those light chips */
+:root[data-theme="dark"] .offer .o-art .mini-tile{color:#23202E}
 /* theme toggle control */
 .opt-row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:14px 0 2px;padding:2px 2px}
 .opt-row .opt-label{font-weight:800;font-size:.95rem;color:var(--ink)}
@@ -1153,7 +1189,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "48d";
+const VERSION = "48e";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
