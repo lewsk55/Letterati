@@ -341,10 +341,12 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
   color:#5A3E00;background:linear-gradient(180deg,#FBE08A,#E2B64B);border:1px solid #C8972E;border-radius:4px;
   padding:0 3px;line-height:1.25;z-index:3;box-shadow:0 1px 2px rgba(120,80,0,.3)}
 .tile.clone .glyph-sub{font-size:.5rem;letter-spacing:.05em;position:absolute;bottom:4px;left:0;right:0;text-align:center;font-family:var(--ui);font-weight:800;color:#7A6CA8}
-.tile .fu-star{position:absolute;right:1px;top:0;font-size:.62em;line-height:1;z-index:3;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25))}
+.tile .fu-star{position:absolute;right:1px;top:1px;font-size:.44em;line-height:1;z-index:3;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25))}
 .tile .lu-end{position:absolute;left:1px;bottom:0;font-size:.55em;line-height:1;z-index:3;filter:drop-shadow(0 1px 1px rgba(0,0,0,.25))}
 /* v42b tile-upgrade badges */
-.tile .up-rail{position:absolute;top:1px;left:50%;transform:translateX(-50%);display:flex;gap:2px;justify-content:center;flex-wrap:wrap;max-width:calc(100% - 14px);z-index:4;pointer-events:none}
+.tile .up-rail{position:absolute;top:15px;bottom:13px;display:flex;flex-direction:column;gap:2px;align-items:center;justify-content:flex-start;z-index:4;pointer-events:none;width:11px}
+.tile .up-rail.left{left:1px}
+.tile .up-rail.right{right:1px;bottom:17px}
 .tile .up-badge{font-size:.5em;line-height:1;font-weight:900;filter:drop-shadow(0 1px 1px rgba(0,0,0,.3))}
 .tile .up-badge.grow{color:#2F7D4F}
 .tile .up-badge.encore{color:#2D6E8E}
@@ -1189,7 +1191,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "48e";
+const VERSION = "48g";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1211,8 +1213,8 @@ const CHALLENGE_TYPES = {
 };
 const CHALLENGE_ORDER = ["steep","locked","longform"];
 const CHALLENGE_REWARDS = {
-  double: { name:"Double payouts", badge:"2x coins",
-            desc:"Every coin you earn this round counts double." },
+  double: { name:"Bonus payouts", badge:"+50% coins",
+            desc:"Every coin you earn this round pays 50% extra." },
   epic:   { name:"Featured epic", badge:"EPIC",
             desc:"A standout card or perk, revealed before you choose." },
   cash:   { name:"Ten coin bonus", badge:"+$10",
@@ -1236,7 +1238,7 @@ const CHALLENGE_EPIC_POOL = [
   {name:"Liquidity",art:"🏦", desc:"Every $5 banked adds 1 percent to your word scores, up to double.", d:{type:"interest"}},
   {name:"Kerning",          art:"📐", desc:"Words with no repeated letter score +25%.", d:{type:"kerning"}},
   {name:"Five Timer",       art:"5️⃣", desc:"Words exactly 5 letters long score 1.5 times.", d:{type:"fiveTimer"}},
-  {name:"Marginalia",       art:"🪙", desc:"Earn 1 coin for every 15 points past the round target.", d:{type:"marginalia"}},
+  {name:"Marginalia",       art:"🪙", desc:"Earn 1 coin for every 15 points past the round target, up to 15 coins.", d:{type:"marginalia"}},
   {name:"Mirror",           art:"🪞", desc:"Palindromes score 3 times.", d:{type:"mirror"}},
   {name:"Verbose",          art:"🅥", desc:"Verbs score 1.5 times.", d:{type:"verbose"}},
   {name:"Reprint",          art:"📋", desc:"Lose your last heart and gain one more. Once per run.", d:{type:"reprint"}}
@@ -1269,7 +1271,7 @@ function lenMult(n){ return n<=3?1 : n===4?1.5 : (n-3); }   // 5→2,6→3,7→4
 // casual win rate at its pre-bump level (skilled ~96%, casual ~14%) — the small remainder
 // is a deliberate floor-raise that helps weaker seeds. Set to 1 to disable.
 const TARGET_SCALE = 1.04;
-const GOAL_SCALE = 1.38;   // v3d +15%, then v41a +20% more (1.15*1.20) point goal across every level
+const GOAL_SCALE = 1.656;  // v3d +15%, v41a +20%, v48g +20% more (1.15*1.20*1.20) point goal across every level
 function targetFor(level){ return Math.round((20 + 8*(level-1)) * Math.pow(1.28, level-1) * TARGET_SCALE * GOAL_SCALE); }
 
 /* ---- Victory ranks (v4a) -------------------------------------------------
@@ -1731,7 +1733,7 @@ function predictSeed(seed,opts){
       // otherwise grab the bigger coin boost (double the purse vs a flat +10).
       const comfy = result.hl>=1 && P.hearts>=3;
       reward = comfy ? "epic" : ((b+DISCARDS_PER_LEVEL)>10 ? "double" : "cash");
-      if(reward==="double") payout*=2;
+      if(reward==="double") payout=Math.round(payout*1.5);
       else if(reward==="cash") payout+=10;
       else if(reward==="epic"){ const w=predWildLetter(seed,P.level); P.deck.push({letter:w,base:LETTER_VALUES[w],mult:1,up:0}); }   // epic modeled conservatively as a strong added letter
       stats.taken.push({level:P.level,type:chType,reward});
@@ -2098,19 +2100,27 @@ function tileBadges(t,c){
   if(isFirstUp(c)){ const s=document.createElement("span"); s.className="fu-star"; s.textContent="⭐"; t.appendChild(s); }
   if(isLastUp(c)){ const e=document.createElement("span"); e.className="lu-end"; e.textContent="🔚"; t.appendChild(e); }
   if(cardMult(c)!==1){ const m=document.createElement("span"); m.className="mult-badge"; m.textContent=cardMult(c)+"×"; t.appendChild(m); }
-  // Upgrade symbols share one top rail so they never overlap each other or the value.
-  const rail=document.createElement("span"); rail.className="up-rail";
-  const add=(cls,txt)=>{ const s=document.createElement("span"); s.className="up-badge "+cls; s.textContent=txt; rail.appendChild(s); };
-  if(typeof c.growth==="number") add("grow","↑"+(c.growth>0?c.growth:""));
-  if(c.encore) add("encore","↻");
-  if(c.foil) add("foil"+((G.foilUsed||[]).includes(c.id)?" spent":""),"✦");
-  if(c.watermark) add("wm","◊");
-  if(c.boldface) add("bold","2L");
-  if(c.dropcap) add("dcap","1st");
-  if(c.serif) add("serif","⇥");
-  if(c.ditto) add("ditto","〃");
-  if(c.inkwell) add("ink","$");
-  if(rail.childNodes.length) t.appendChild(rail);
+  // Upgrade symbols live on two vertical rails flanking the letter: economy and
+  // recurring marks on the left, scoring stamps on the right. Nothing sits over
+  // the glyph, the mult chip, the star, or the value number.
+  const railL=document.createElement("span"); railL.className="up-rail left";
+  const railR=document.createElement("span"); railR.className="up-rail right";
+  const add=(rail,cls,txt)=>{ const s=document.createElement("span"); s.className="up-badge "+cls; s.textContent=txt; rail.appendChild(s); };
+  if(typeof c.growth==="number") add(railL,"grow","↑"+(c.growth>0?c.growth:""));
+  if(c.encore) add(railL,"encore","↻");
+  if(c.inkwell) add(railL,"ink","$");
+  if(c.foil) add(railR,"foil"+((G.foilUsed||[]).includes(c.id)?" spent":""),"✦");
+  if(c.watermark) add(railR,"wm","◊");
+  if(c.boldface) add(railR,"bold","2L");
+  if(c.dropcap) add(railR,"dcap","1st");
+  if(c.serif) add(railR,"serif","⇥");
+  if(c.ditto) add(railR,"ditto","〃");
+  // balance: if one side is empty and the other is crowded, move the overflow across
+  if(!railL.childNodes.length && railR.childNodes.length>3){
+    while(railR.childNodes.length>3) railL.appendChild(railR.childNodes[railR.childNodes.length-1]);
+  }
+  if(railL.childNodes.length) t.appendChild(railL);
+  if(railR.childNodes.length) t.appendChild(railR);
 }
 function buildTile(c,where){
   const t=document.createElement("button");
@@ -3182,7 +3192,7 @@ function submitWord(){
     if(!G.abcSeen) G.abcSeen={};
     res.forEach(r=>{ if(r.letter && !G.abcSeen[r.letter]){ G.abcSeen[r.letter]=true; cash+=1; } });
   }
-  if(challengeDoublePay()) cash*=2;   // v3a double-payout reward
+  if(challengeDoublePay()) cash=Math.round(cash*1.5);   // v48g: payout challenge reward is +50%
   if(cash>0){ G.coins=Math.min(999,G.coins+cash); }
   renderHud();
   // juice — scaled by BOTH word length and score, ramping harder for big plays
@@ -3300,7 +3310,7 @@ function computeReward(){
   // v46g economy: leftover discards multiply the round purse by +10% apiece
   // (hold 3 discards -> +30%). Interest stays on the bank alone.
   let interest=0;   // v47f: Compound Interest is retired; wealth now feeds a score multiplier (Liquidity), not the purse
-  let marginalia=G.perks.marginalia?Math.floor(Math.max(0,over)/15):0;   // v42a: 1 coin per 15 pts past target
+  let marginalia=G.perks.marginalia?Math.min(15,Math.floor(Math.max(0,over)/15)):0;   // v48g: 1 coin per 15 pts past target, capped at 15
   const discardCount=Math.max(0,G.discardsLeft||0);
   const discardBonus=0.10*discardCount;
   const preBonus=base+marginalia;
@@ -3308,7 +3318,7 @@ function computeReward(){
   let total=Math.round(preBonus*(1+discardBonus))+interest+CLEAR_BONUS;
   const discardAmt=total-interest-CLEAR_BONUS-preBonus;                    // the actual coins the discard bonus added
   let doubled=challengeDoublePay();
-  if(doubled) total*=2;   // v3a double-payout reward doubles the round purse
+  if(doubled) total=Math.round(total*1.5);   // v48g: payout challenge reward is +50% on the round purse
   return {base,core,turnsBonus,wordsLeft:G.handsLeft,preBonus,discardCount,discardBonus,discardAmt,clearBonus:CLEAR_BONUS,interest,marginalia,total,doubled};
 }
 function renderRankLadder(round){
@@ -3346,7 +3356,7 @@ function showLevelSummary(info){
 
   if(rw.marginalia) bits.push("overflow +"+rw.marginalia);
   if(rw.bonus)      bits.push("challenge +"+rw.bonus);
-  if(rw.doubled)    bits.push("×2 challenge");
+  if(rw.doubled)    bits.push("×1.5 challenge");
   $("sumBreakdown").textContent=bits.join("  ·  ");
   const coinEl=$("sumCoins"); coinEl.textContent=info.fromCoins;
   $("summaryScreen").classList.remove("hidden");
@@ -3771,7 +3781,7 @@ function fiveTimerOffer(){
     price:px(8), art:"5️⃣", d:{type:"fiveTimer"}};
 }
 function marginaliaOffer(){
-  return {kind:"Perk",rarity:"rare",name:"Marginalia",desc:"Earn 1 coin for every 15 points you score past the round target.",
+  return {kind:"Perk",rarity:"rare",name:"Marginalia",desc:"Earn 1 coin for every 15 points you score past the round target, up to 15 coins.",
     price:px(9), art:"🪙", d:{type:"marginalia"}};
 }
 function mirrorOffer(){
@@ -4808,7 +4818,7 @@ function ownedPerksList(){
   if(G.perks.shortKing)  out.push("Short King · ×4/×3/×2.5/×2 for 2–5 letters");
   if(G.perks.kerning)    out.push("Kerning · +25% no repeated letter");
   if(G.perks.fiveTimer)  out.push("Five Timer · ×1.5 five-letter words");
-  if(G.perks.marginalia) out.push("Marginalia · 1 coin per 15 over target");
+  if(G.perks.marginalia) out.push("Marginalia · 1 coin per 15 over target, max 15");
   if(G.perks.mirror)     out.push("Mirror · ×3 palindromes");
   if(G.perks.verbose)    out.push("Verbose · ×1.5 verbs");
   if(G.perks.verbizer)   out.push("Verbizer · add er/ing to any word");
@@ -4851,7 +4861,7 @@ function ownedPerkCards(){
   if(P.shortKing)  push("👑","Short King","Short words score big: ×4, ×3, ×2.5, ×2 for 2, 3, 4, 5 letters.");
   if(P.kerning)    push("📐","Kerning","+25% on words with no repeated letter.");
   if(P.fiveTimer)  push("5️⃣","Five Timer","×1.5 on exactly five-letter words.");
-  if(P.marginalia) push("🪙","Marginalia","1 coin for every 15 points past the target.");
+  if(P.marginalia) push("🪙","Marginalia","1 coin for every 15 points past the target, up to 15 coins.");
   if(P.mirror)     push("🪞","Mirror","×3 on palindromes.");
   if(P.verbose)    push("🅥","Verbose","×1.5 on verbs, in any form.");
   if(P.verbizer)   push("🪄","Verbizer","Add er or ing to any valid word to make it a verb.");
