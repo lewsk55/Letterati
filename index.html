@@ -6,7 +6,7 @@
 <meta name="robots" content="noindex, nofollow" />
 <meta name="theme-color" content="#23202E" />
 <meta name="color-scheme" content="light only" />
-<title>Letterati — a letter-forging roguelike</title>
+<title>Letterati: A Wordlike Deckbuilder</title>
 <link rel="preconnect" href="https://fonts.googleapis.com" />
 <link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&display=swap" rel="stylesheet" />
@@ -32,8 +32,37 @@
   --serif:"Fraunces", Georgia, "Times New Roman", serif;
   --ui:"Helvetica Neue", Arial, sans-serif;
 }
+
+/* ---------- Dark mode: overrides the shared design tokens ---------- */
+:root[data-theme="dark"]{
+  --ink:#ECE4D4;          /* warm off-white ink */
+  --ink-soft:#9A93A6;
+  --page:#211E29;         /* deep ink-blue night */
+  --page-deep:#191621;
+  --tile:#33303E;         /* slug face in the dark */
+  --tile-edge:#4A4557;
+  --brass:#D8AA4E;        /* brighter gold so it still reads as highlight */
+  --brass-deep:#B3892F;
+  --oxblood:#D06A5C;      /* lifted so hearts/danger stay legible on dark */
+  --moss:#6FB7A3;         /* lifted success ink */
+  --paper:#2B2836;        /* cards / sheets */
+}
+:root[data-theme="dark"] body{
+  background:
+    radial-gradient(120% 80% at 50% -10%, #2C2740, transparent 60%),
+    var(--page);
+}
+:root[data-theme="dark"] body::before{ opacity:.25; }   /* soften the paper grain */
+/* theme toggle control */
+.opt-row{display:flex;align-items:center;justify-content:space-between;gap:14px;margin:14px 0 2px;padding:2px 2px}
+.opt-row .opt-label{font-weight:800;font-size:.95rem;color:var(--ink)}
+.theme-switch{position:relative;width:58px;height:32px;border-radius:20px;border:1px solid var(--tile-edge);background:var(--page-deep);cursor:pointer;transition:background .2s ease;flex:none}
+.theme-switch .knob{position:absolute;top:2px;left:2px;width:26px;height:26px;border-radius:50%;background:var(--tile);box-shadow:0 1px 3px rgba(0,0,0,.3);transition:transform .2s ease;display:flex;align-items:center;justify-content:center;font-size:.85rem}
+:root[data-theme="dark"] .theme-switch{background:var(--brass-deep)}
+:root[data-theme="dark"] .theme-switch .knob{transform:translateX(26px)}
+
 *{box-sizing:border-box}
-html{color-scheme:light only;-webkit-text-size-adjust:100%;forced-color-adjust:none}
+html{color-scheme:light dark;-webkit-text-size-adjust:100%}
 html,body{margin:0;padding:0;height:100%}
 html{touch-action:manipulation}
 body{
@@ -957,6 +986,10 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
     <div class="over-result">Paused</div>
     <div id="pauseStats" style="color:var(--ink-soft);font-size:.85rem;margin:6px 0 4px"></div>
     <button class="menu-btn" id="pauseResumeBtn" style="margin-top:18px">Resume</button>
+    <div class="opt-row">
+      <span class="opt-label">Dark mode</span>
+      <button class="theme-switch" id="themeSwitchP" role="switch" aria-label="Toggle dark mode"><span class="knob" id="themeKnobP">☀️</span></button>
+    </div>
     <button class="menu-btn alt" id="pauseHowtoBtn">How to Play</button>
     <button class="menu-btn alt" id="pauseExportBtn">Export this run's stats</button>
     <button class="menu-btn alt" id="pauseQuitBtn">Quit to title</button>
@@ -985,6 +1018,10 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
 <div class="overlay hidden" id="optionsScreen">
   <div class="sheet sheet-center">
     <div class="over-result">Options</div>
+    <div class="opt-row">
+      <span class="opt-label">Dark mode</span>
+      <button class="theme-switch" id="themeSwitch" role="switch" aria-label="Toggle dark mode"><span class="knob" id="themeKnob">☀️</span></button>
+    </div>
     <div style="color:var(--ink-soft);font-size:.85rem;margin:6px 0 4px">Run data is recorded locally and can be exported as JSON. Online sync is coming later.</div>
     <button class="menu-btn" id="optExportBtn" style="margin-top:18px">Export last run's stats</button>
     <button class="menu-btn alt" id="optBackBtn">Back</button>
@@ -1116,7 +1153,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "48c";
+const VERSION = "48d";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1304,8 +1341,12 @@ function makeCopyCatCard(){ return {id:++cardSeq, kind:"copycat", letter:null, b
    it resolves to its picked side (auto-picks the higher value, switchable). */
 function fusedSideValue(s){ return (s.base|0)*Math.pow(2, s.upLevel||0); }
 // mode: 0 = solo side0, 1 = solo side1, 2 = duo [0,1], 3 = duo [1,0]
+// upgrades that live on a letter and now survive fusion, attached to their own side
+const FUSE_KEEP_PROPS=["mult","growth","foil","watermark","encore","boldface","dropcap","serif","ditto","inkwell"];
 function makeFusedCard(a,b){
-  const side=c=>({letter:c.letter, base:c.base, upLevel:c.upLevel||0});
+  const side=c=>{ const o={letter:c.letter, base:c.base, upLevel:c.upLevel||0};
+    FUSE_KEEP_PROPS.forEach(k=>{ if(c[k]!==undefined && c[k]!==false && c[k]!==null) o[k]=c[k]; });
+    return o; };
   const sides=[side(a),side(b)];
   return {id:++cardSeq, kind:"fused", letter:null, base:0, upLevel:0, mult:1, sides, mode:2};   // defaults to the duo
 }
@@ -1313,7 +1354,7 @@ function fusedMode(c){ return (c.mode!=null) ? c.mode : (c.pick?1:0); }   // mig
 function fusedIsDuo(c){ return fusedMode(c)>=2; }
 function fusedEntries(c){   // resolved letter(s): one for a solo, two for a duo
   const m=fusedMode(c), s0=c.sides[0], s1=c.sides[1];
-  const e=s=>({letter:s.letter, value:fusedSideValue(s)});
+  const e=s=>({letter:s.letter, value:fusedSideValue(s), side:s});
   if(m===0) return [e(s0)];
   if(m===1) return [e(s1)];
   if(m===3) return [e(s1),e(s0)];
@@ -2259,8 +2300,19 @@ function resolvedCanvas(){
       out.push(left&&left.letter?{letter:left.letter,value:left.value,mult:left.mult||1,copycat:true,card:c}
                                  :{letter:null,value:0,mult:1,copycat:true,card:c});
     } else if(c.kind==="fused"){
-      const g=(typeof c.growth==="number")?c.growth:0;   // v45a: growth rides on the first letter
-      fusedEntries(c).forEach((e,i)=>out.push({letter:e.letter,value:e.value+(i===0?g:0),mult:1,fused:true,fusedPart:i,card:c}));
+      const g=(typeof c.growth==="number")?c.growth:0;   // v45a: whole-tile growth still rides on the first slot
+      fusedEntries(c).forEach((e,i)=>{
+        const sd=e.side||{};
+        // build a lightweight per-side "card" so scoreOf applies the stamps that
+        // belong to THIS letter (a golden A fused with a plain E gilds only the A)
+        const sideCard={ id:c.id+":"+i, kind:"letter", letter:e.letter,
+          foil:sd.foil, watermark:sd.watermark, encore:sd.encore,
+          boldface:sd.boldface, dropcap:sd.dropcap, serif:sd.serif, ditto:sd.ditto, inkwell:sd.inkwell, _fusedParent:c };
+        out.push({ letter:e.letter,
+          value:e.value+(i===0?g:0)+(sd.growth||0),
+          mult:(sd.mult||1),
+          fused:true, fusedPart:i, card:sideCard });
+      });
     } else if(c.kind==="combo"){
       const g=(typeof c.growth==="number")?c.growth:0;
       comboEntries(c).forEach((e,i)=>out.push({letter:e.letter,value:e.value+(i===0?g:0),mult:1,combo:true,comboPart:i,card:c}));
@@ -5106,6 +5158,20 @@ $("pauseExportBtn").addEventListener("click",()=>exportStats(G.stats));
 $("pauseQuitBtn").addEventListener("click",pauseQuit);
 $("pauseEndBtn").addEventListener("click",endRun);
 // options menu
+/* ---------- theme (light/dark), persisted, toggleable anytime ---------- */
+const THEME_KEY="letterati_theme";
+function currentTheme(){ return document.documentElement.getAttribute("data-theme")==="dark" ? "dark" : "light"; }
+function applyTheme(t){
+  if(t==="dark") document.documentElement.setAttribute("data-theme","dark");
+  else document.documentElement.removeAttribute("data-theme");
+  const dark=(t==="dark");
+  ["themeKnob","themeKnobP"].forEach(id=>{ const k=$(id); if(k) k.textContent=dark?"🌙":"☀️"; });
+  ["themeSwitch","themeSwitchP"].forEach(id=>{ const b=$(id); if(b) b.setAttribute("aria-checked", dark?"true":"false"); });
+  try{ localStorage.setItem(THEME_KEY, t); }catch(e){}
+}
+function toggleTheme(){ applyTheme(currentTheme()==="dark"?"light":"dark"); haptic(12); }
+(function initTheme(){ let t="light"; try{ t=localStorage.getItem(THEME_KEY)||"light"; }catch(e){} applyTheme(t); })();
+["themeSwitch","themeSwitchP"].forEach(id=>{ const b=$(id); if(b) b.addEventListener("click",toggleTheme); });
 $("optionsBtn").addEventListener("click",openOptions);
 $("optBackBtn").addEventListener("click",closeOptions);
 $("optExportBtn").addEventListener("click",exportAllRuns);
