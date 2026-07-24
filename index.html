@@ -361,6 +361,27 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
 .tile.fused.domino .dom-letter{font-family:var(--serif);font-weight:700;font-size:var(--tfs,1.5rem);color:var(--ink);line-height:1}
 .tile.fused.domino .dom-val{font-family:var(--ui);font-size:.5rem;font-weight:800;color:var(--ink-soft);margin-top:2px}
 .tile.fused.domino .dom-div{flex:0 0 2px;align-self:stretch;margin:6px 0;background:#7FB0A2;border-radius:1px}
+.boss-sheet{border-color:var(--oxblood)!important;box-shadow:0 0 0 2px rgba(142,59,59,.25),0 12px 40px rgba(0,0,0,.35)}
+.boss-kicker{font-size:.62rem;font-weight:900;letter-spacing:.22em;color:var(--oxblood);text-transform:uppercase;margin-bottom:6px}
+.boss-art{font-size:3rem;line-height:1;margin:6px 0}
+.boss-name{font-family:var(--serif);font-weight:800;font-size:1.5rem;color:var(--ink)}
+.boss-badge{display:inline-block;font-size:.62rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;color:#fff;background:var(--oxblood);border-radius:99px;padding:3px 10px;margin:6px 0 10px}
+.boss-intro{font-style:italic;color:var(--ink-soft);font-size:.9rem;line-height:1.5;max-width:300px;margin:0 auto 10px}
+.boss-desc{font-weight:700;font-size:.86rem;color:var(--ink);max-width:300px;margin:0 auto}
+.cb-tag.boss{background:var(--oxblood);color:#fff}
+body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
+.tile.smudged .glyph{opacity:.32;filter:blur(.4px)}
+.tile.smudged::after{content:"●";position:absolute;left:50%;top:42%;transform:translate(-50%,-50%) scale(1.6);color:rgba(35,32,46,.35);pointer-events:none}
+:root[data-theme="dark"] .tile.smudged::after{color:rgba(236,228,212,.3)}
+.tile.fused.goldside{border-color:#C9A94E;box-shadow:0 0 0 2px rgba(201,169,78,.4),0 2px 0 var(--tile-edge),0 3px 8px rgba(35,32,46,.10)}
+.tile.fused.domino .dom-cell.goldcell .dom-letter{color:#8A6418}
+.tile.fused.domino .dom-cell.goldcell{background:linear-gradient(180deg,rgba(251,224,138,.55),rgba(226,182,75,.35));border-radius:8px}
+:root[data-theme="dark"] .tile.smudged .glyph{opacity:.32;filter:blur(.4px)}
+.tile.smudged::after{content:"●";position:absolute;left:50%;top:42%;transform:translate(-50%,-50%) scale(1.6);color:rgba(35,32,46,.35);pointer-events:none}
+:root[data-theme="dark"] .tile.smudged::after{color:rgba(236,228,212,.3)}
+.tile.fused.goldside{border-color:#D8AA4E;box-shadow:0 0 0 2px rgba(216,170,78,.45),0 2px 0 #191621}
+:root[data-theme="dark"] .tile.fused.domino .dom-cell.goldcell{background:linear-gradient(180deg,rgba(216,170,78,.30),rgba(179,137,47,.20))}
+:root[data-theme="dark"] .tile.fused.domino .dom-cell.goldcell .dom-letter{color:#F0C868}
 /* locked letters this round: crossed out on the tile itself */
 .tile.locked-letter .glyph{opacity:.5}
 .tile.locked-letter::after,.tile.fused.domino .dom-cell.locked::after{content:"";position:absolute;left:14%;right:14%;top:48%;height:3px;background:var(--oxblood);transform:rotate(-13deg);border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,.45);pointer-events:none;z-index:4}
@@ -733,7 +754,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
 .sr-btn{font-size:1.4rem;line-height:1;padding:8px 18px;border:1px solid var(--tile-edge);border-radius:12px;background:var(--paper);cursor:pointer;transition:transform .12s ease,background .12s ease}
 .sr-btn:hover{transform:translateY(-2px)}
 .sr-btn.on{background:linear-gradient(180deg,#F6EAD0,#EAD9B4);border-color:var(--brass);transform:translateY(-1px)}
-.sr-note{width:100%;max-width:340px;margin:10px auto 0;display:block;font:inherit;font-size:.82rem;padding:8px 10px;border:1px solid var(--tile-edge);border-radius:10px;background:#fff;resize:none}
+.sr-note{width:100%;max-width:340px;margin:10px auto 0;display:block;font:inherit;font-size:.82rem;padding:8px 10px;border:1px solid var(--tile-edge);border-radius:10px;background:var(--paper);color:var(--ink);resize:none}
 .sr-thanks{font-size:.82rem;font-style:italic;color:var(--moss);font-weight:700;margin-top:10px}
 .def-strip .dd.chal-why{font-style:normal;color:var(--oxblood);font-weight:700}
 .def-strip.chal-free .dw{color:var(--moss)}
@@ -904,6 +925,17 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
 </div>
 
 <!-- ===== Game over / win ===== -->
+<div class="overlay hidden" id="bossScreen">
+  <div class="sheet sheet-center boss-sheet">
+    <div class="boss-kicker">ROUND 10 · THE FINAL PROOF</div>
+    <div class="boss-art" id="bossArt">🖋️</div>
+    <div class="boss-name" id="bossName">The Editor</div>
+    <div class="boss-badge" id="bossBadge">letters struck</div>
+    <div class="boss-intro" id="bossIntroLine"></div>
+    <div class="boss-desc" id="bossDesc"></div>
+    <button class="menu-btn" id="bossGoBtn" style="margin-top:20px">Go to press</button>
+  </div>
+</div>
 <div class="overlay hidden" id="overScreen">
   <div class="sheet sheet-center">
     <div class="over-result" id="overResult">Game Over</div>
@@ -916,7 +948,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
       </div>
       <textarea class="sr-note hidden" id="srNote" rows="2" maxlength="280" placeholder="What made it good or bad? (optional)"></textarea>
       <button class="menu-btn alt hidden" id="srSend" style="max-width:220px;margin:8px auto 0">Send feedback</button>
-      <div class="sr-thanks hidden" id="srThanks">Thanks, that helps.</div>
+      <div class="sr-thanks hidden" id="srThanks">Thanks!</div>
     </div>
     <button class="menu-btn" id="overNewBtn" style="margin-top:22px">New run</button>
     <button class="menu-btn alt" id="overSeedBtn">Replay this seed</button>
@@ -937,7 +969,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
       </div>
       <textarea class="sr-note hidden" id="srNoteW" rows="2" maxlength="280" placeholder="What made it good or bad? (optional)"></textarea>
       <button class="menu-btn alt hidden" id="srSendW" style="max-width:220px;margin:8px auto 0">Send feedback</button>
-      <div class="sr-thanks hidden" id="srThanksW">Thanks, that helps.</div>
+      <div class="sr-thanks hidden" id="srThanksW">Thanks!</div>
     </div>
     <button class="menu-btn" id="winEndlessBtn" style="margin-top:22px">Keep printing — Endless →</button>
     <button class="menu-btn alt" id="winFinishBtn">Finish &amp; savor it</button>
@@ -1191,7 +1223,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "48g";
+const VERSION = "49b";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1204,23 +1236,98 @@ const CHALLENGE_TARGET_MULT = 1.75;  // "steep target" challenge: +75% over the 
 const CHALLENGE_BAN_COUNT  = 3;      // "letters locked": one vowel + two most-used consonants
 const CHALLENGE_MIN_LEN    = 5;      // "long form": no words under 5 letters
 const CHALLENGE_TYPES = {
-  steep:  { name:"Steep Target", badge:"+75% target",
+  steep:  { name:"Steep Target", badge:"+75% target", diff:2,
             desc:"Clear a target that is 75 percent higher this round." },
-  locked: { name:"Letters Locked", badge:"3 letters out",
+  locked: { name:"Letters Locked", badge:"3 letters out", diff:2,
             desc:"Your three most-used letters are off the board this round." },
-  longform:{ name:"Long Form", badge:"5+ letters only",
-            desc:"Only words of five letters or more will count this round." }
+  longform:{ name:"Long Form", badge:"5+ letters only", diff:3,
+            desc:"Only words of five letters or more will count this round." },
+  smudged:{ name:"Smudged Ink", badge:"1 tile smudged", diff:2,
+            desc:"One tile in every hand is smudged and scores zero." },
+  rush:   { name:"Rush Order", badge:"1 fewer word", diff:1,
+            desc:"You get one fewer word this round." },
+  house:  { name:"House Style", badge:"required letter", diff:2,
+            desc:"Every word must contain the commissioned letter." },
+  margins:{ name:"Tight Margins", badge:"smaller hand", diff:2,
+            desc:"Your hand holds two fewer tiles this round." },
+  union:  { name:"Union Rules", badge:"no discards", diff:2,
+            desc:"No discards this round." },
+  heavy:  { name:"Heavy Stock", badge:"vowels worth 0", diff:3,
+            desc:"Vowels score zero this round. They still spell." },
+  reprints:{ name:"No Reprints", badge:"unique lengths", diff:1,
+            desc:"Every word this round must be a different length." },
+  standing:{ name:"Standing Type", badge:"first word locks", diff:2,
+            desc:"After your first word, its letters are locked for the round." }
 };
-const CHALLENGE_ORDER = ["steep","locked","longform"];
+const CHALLENGE_ORDER = ["steep","locked","longform","smudged","rush","house","margins","union","heavy","reprints","standing"];
+const CHALLENGE_EARLY_ONLY = new Set(["rush"]);   // only offered at the first two challenge rounds
+
+/* ---------- Round 10 bosses: THE FINAL PROOF ---------- */
+const BOSS_TYPES = {
+  editor:  { name:"The Editor", art:"🖋️", badge:"letters struck",
+             desc:"After every word, your most valuable letter in it is struck from the round.",
+             intro:"Every draft you hand him comes back thinner. He only cuts your best lines.",
+             taunt:"Struck. He never liked that letter anyway." },
+  deadline:{ name:"The Deadline", art:"⏰", badge:"target rises",
+             desc:"The target grows 10 percent after every word that does not clear it.",
+             intro:"The presses will not wait. Every hour you dawdle, the order grows.",
+             taunt:"Tick. The number climbs." },
+  errata:  { name:"The Errata", art:"📜", badge:"ever longer",
+             desc:"Each word must be longer than your last.",
+             intro:"Corrections upon corrections. Each entry must outgrow the one before.",
+             taunt:"Too short. The list demands more." },
+  critic:  { name:"The Critic", art:"🧐", badge:"perks silenced",
+             desc:"One of your perks is silenced each turn, chosen by the house.",
+             intro:"She reads everything you have built, and each turn she dismisses one of your tricks.",
+             taunt:"Predictable, she writes." },
+  perfect: { name:"Perfect Type", art:"✒️", badge:"5+, no repeats",
+             desc:"Every word needs five or more letters, none of them repeated.",
+             intro:"The master compositor accepts only flawless lines. Five letters or more, every one distinct.",
+             taunt:"A smudge. Set it again." },
+  ghost:   { name:"The Ghost Writer", art:"👻", badge:"beat the ghost",
+             desc:"A rival works your same letters. Fall short of the ghost on any word and lose a heart. Beat its total to win.",
+             intro:"Someone worked this same case before you, and the pages are still warm. Outwrite the ghost, word for word.",
+             taunt:"The ghost wrote better." },
+  ledger:  { name:"The Ledger", art:"📒", badge:"score + $10",
+             desc:"Clear the target AND bank 10 coins during the round.",
+             intro:"The house wants the page and the purse. Numbers in both columns, or nothing.",
+             taunt:"The books do not balance yet." }
+};
+const BOSS_ORDER=["editor","deadline","errata","critic","perfect","ghost","ledger"];
+function bossTypeFor(seed){ const rng=makeRng("boss:"+seed); return BOSS_ORDER[Math.floor(rng()*BOSS_ORDER.length)]; }
+function bossActive(){ return !!(G.boss && G.boss.active && G.level===WIN_LEVEL); }
 const CHALLENGE_REWARDS = {
   double: { name:"Bonus payouts", badge:"+50% coins",
             desc:"Every coin you earn this round pays 50% extra." },
   epic:   { name:"Featured epic", badge:"EPIC",
             desc:"A standout card or perk, revealed before you choose." },
   cash:   { name:"Ten coin bonus", badge:"+$10",
-            desc:"Ten coins drop straight into the bank." }
+            desc:"Ten coins drop straight into the bank." },
+  cash10: { name:"Ten coin bonus", badge:"+$10",
+            desc:"Ten coins drop straight into the bank." },
+  cash15: { name:"Fifteen coin bonus", badge:"+$15",
+            desc:"Fifteen coins drop straight into the bank." },
+  cash20: { name:"Twenty coin bonus", badge:"+$20",
+            desc:"Twenty coins drop straight into the bank." },
+  upgrade:{ name:"Gilded letter", badge:"FREE GILD",
+            desc:"A letter that arrives already gilded joins your deck." }
 };
-const CHALLENGE_REWARD_ORDER = ["double","epic","cash"];
+// The prize shelf is a seeded trio drawn from the pool, with the cash option
+// scaled to the challenge's difficulty. Harder ask, fatter purse.
+function rewardTrioFor(level,type){
+  const rng=makeRng("chreward:"+level);
+  const diff=(CHALLENGE_TYPES[type]&&CHALLENGE_TYPES[type].diff)||2;
+  const cashKey= diff>=3 ? "cash20" : diff===2 ? "cash15" : "cash10";
+  const pool=[cashKey,"double","epic","upgrade"];
+  // seeded shuffle, take three: every challenge offers a different mix
+  for(let i=pool.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  return pool.slice(0,3);
+}
+// the free gilded letter the "upgrade" reward grants, seeded per level
+function challengeUpgradeLetterFor(level){
+  const rng=makeRng("chupg:"+level);
+  return weightedLetter(rng,{E:3,A:2,S:3,R:3,T:3,N:2,L:2,D:2,M:2,H:2,P:2,C:2,B:1,W:1,Y:1});
+}
 // Pool the "featured epic" reward draws from. All grant cleanly with no extra
 // chooser popup, and stay on-brand (no free jazz). Rolled and shown up front.
 const CHALLENGE_EPIC_POOL = [
@@ -1299,9 +1406,20 @@ function rankFor(level){
 /* ---- Challenge helpers (v3a) ---- */
 // Which seeded challenge a given round offers. Pure function of seed+level so
 // every player on the daily sees the same fork.
+function houseLetterFor(level){
+  // the commissioned letter: seeded, drawn from the deck's own letters so a
+  // House Style round can always be satisfied. Prefers the deck's staples.
+  const counts={};
+  G.deck.forEach(c=>{ if(c.kind==="letter") counts[c.letter]=(counts[c.letter]||0)+1; });
+  const ls=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]||(a<b?-1:1));
+  if(!ls.length) return "E";
+  const rng=makeRng("house:"+level);
+  return ls[Math.floor(rng()*Math.min(4,ls.length))];
+}
 function challengeTypeFor(level){
   const rng=makeRng("challenge:"+level);
-  return CHALLENGE_ORDER[Math.floor(rng()*CHALLENGE_ORDER.length)];
+  const pool=CHALLENGE_ORDER.filter(t=>!(CHALLENGE_EARLY_ONLY.has(t) && level>5));
+  return pool[Math.floor(rng()*pool.length)];
 }
 // The N most-used letters in the current deck (letter cards only). Ties broken
 // alphabetically so it is deterministic across machines.
@@ -1323,10 +1441,18 @@ function deckTopLetters(n){
 }
 function challengeActive(){ return !!(G.challenge && G.challenge.active); }
 function bannedLetterSet(){
-  return (challengeActive() && G.challenge.type==="locked") ? new Set(G.challenge.banned||[]) : null;
+  if(challengeActive() && G.challenge.type==="locked") return new Set(G.challenge.banned||[]);
+  if(challengeActive() && G.challenge.type==="standing" && (G.standingBan||[]).length) return new Set(G.standingBan);
+  if(bossActive() && G.boss.type==="editor" && (G.boss.ban||[]).length) return new Set(G.boss.ban);
+  return null;
 }
 function challengeMinLen(){
-  return (challengeActive() && G.challenge.type==="longform") ? CHALLENGE_MIN_LEN : 0;
+  let m=(challengeActive() && G.challenge.type==="longform") ? CHALLENGE_MIN_LEN : 0;
+  if(bossActive()){
+    if(G.boss.type==="perfect") m=Math.max(m,5);
+    if(G.boss.type==="errata")  m=Math.max(m,(G.boss.lastLen||0)+1);
+  }
+  return m;
 }
 function challengeDoublePay(){ return challengeActive() && G.challenge.reward==="double"; }
 // True if a pool entry is an already-owned one-shot perk (cards/stackables stay offerable).
@@ -2111,6 +2237,7 @@ function tileBadges(t,c){
   if(c.inkwell) add(railL,"ink","$");
   if(c.foil) add(railR,"foil"+((G.foilUsed||[]).includes(c.id)?" spent":""),"✦");
   if(c.watermark) add(railR,"wm","◊");
+  if(c._smudged){ t.classList.add("smudged"); }
   if(c.boldface) add(railR,"bold","2L");
   if(c.dropcap) add(railR,"dcap","1st");
   if(c.serif) add(railR,"serif","⇥");
@@ -2156,10 +2283,11 @@ function buildTile(c,where){
   }
   if(c.kind==="fused"){
     t.classList.add("fused","domino");
+    if((c.sides||[]).some(sd=>(sd.mult||1)!==1)) t.classList.add("goldside");
     const cells=fusedCells(c), banLock=bannedLetterSet();
     cells.forEach((cell,i)=>{
       if(i>0){ const d=document.createElement("span"); d.className="dom-div"; t.appendChild(d); }
-      const cd=document.createElement("span"); cd.className="dom-cell"+(cell.active?"":" dim")+(banLock&&banLock.has(cell.letter)?" locked":"");
+      const cd=document.createElement("span"); cd.className="dom-cell"+(cell.active?"":" dim")+(banLock&&banLock.has(cell.letter)?" locked":"")+(((c.sides[Math.min(i,1)]||{}).mult||1)!==1?" goldcell":"");
       const g=document.createElement("span"); g.className="dom-letter"; g.textContent=cell.letter; cd.appendChild(g);
       const v=document.createElement("span"); v.className="dom-val"; v.textContent=cell.val; cd.appendChild(v);
       t.appendChild(cd);
@@ -2396,6 +2524,14 @@ function wordValid(){
   if(minL && res.length<minL) return false;
   const banned=bannedLetterSet();
   if(banned && res.some(r=>banned.has(r.letter))) return false;
+  if(challengeActive() && G.challenge.type==="house" && G.challenge.houseLetter
+     && !res.some(r=>r.letter===G.challenge.houseLetter)) return false;
+  if(challengeActive() && G.challenge.type==="reprints"
+     && (G.roundLengths||[]).includes(res.length)) return false;
+  if(bossActive() && G.boss.type==="perfect"){
+    const ls=res.map(r=>r.letter).filter(Boolean);
+    if(new Set(ls).size!==ls.length) return false;   // no repeated letters
+  }
   const w=res.map(r=>r.letter.toLowerCase()).join("");
   if(WORDS.has(w)) return true;
   if(verbizedStem(w)!==null) return true;   // Verbizer: word+ER / word+ING counts here too
@@ -2413,6 +2549,8 @@ function scoreOf(res){
     let v=r.value;
     if(G.perks.vowelPower && VOWELS.has(r.letter)) v+=(+G.perks.vowelPower||0);   // v42a: +1 per vowel per stack
     if(r.card && r.card.foil && !(G.foilUsed||[]).includes(r.card.id)) v*=2;       // v42b: Foil Stamp, once per round
+    if(challengeActive() && G.challenge.type==="heavy" && r.letter && VOWELS.has(r.letter)) v=0;   // Heavy Stock
+    if(r.card && r.card._smudged) v=0;                                              // Smudged Ink
     return v;
   });
   goldMult=Math.round(goldMult*1000)/1000;
@@ -3027,7 +3165,21 @@ function handHasValidWord(letters, minL){
   }
   return false;
 }
+function bossCriticRotate(){
+  if(!(bossActive() && G.boss.type==="critic")) return;
+  const B=G.boss;
+  if(B.stash){ G.perks[B.stash.key]=B.stash.val; B.stash=null; B.suspended=null; }
+  const keys=Object.keys(G.perks).filter(k=>k!=="firstUp"&&k!=="lastUp"&&G.perks[k]);
+  if(!keys.length) return;
+  const rng=makeRng("critic:"+G.level+":"+G.handsLeft+":"+G.seed);
+  const k=keys[Math.floor(rng()*keys.length)];
+  B.stash={key:k, val:G.perks[k]};
+  G.perks[k]=false; B.suspended=k;
+  toast(BOSS_TYPES.critic.taunt+" ("+k+" silenced this turn)");
+  renderChallengeBanner();
+}
 function dealUpToHand(animate){
+  bossCriticRotate();
   let {dealt, didReshuffle}=drawIntoHand();
   // Challenge dead-hand rescue: if no legal play exists AND the player is out of
   // discards, clear the whole hand for free and deal a fresh one. Deterministic
@@ -3044,6 +3196,23 @@ function dealUpToHand(animate){
     if(!G.played) G.played=[];
     G.played.push(...G.hand); G.hand=[];        // dead hand goes to the discard pile, no discard spent
     const r=drawIntoHand(); didReshuffle=didReshuffle||r.didReshuffle; dealt=G.hand.length;
+  }
+  // House Style guarantee: a hand with no copy of the commissioned letter is dead
+  // on arrival. Redeal like the Long Form rescue, same cap.
+  while(challengeActive() && G.challenge.type==="house" && G.challenge.houseLetter && G.handsLeft>0
+        && (G._rescues||0)<MAX_FREE_REDEALS
+        && !G.hand.some(c=>(c.kind==="letter"&&c.letter===G.challenge.houseLetter)
+                         ||(c.kind==="fused"&&c.sides.some(sd=>sd.letter===G.challenge.houseLetter)))){
+    G._rescues=(G._rescues||0)+1; freeRedeals++;
+    if(!G.played) G.played=[];
+    G.played.push(...G.hand); G.hand=[];
+    const r2=drawIntoHand(); didReshuffle=didReshuffle||r2.didReshuffle; dealt=G.hand.length;
+  }
+  // Smudged Ink: one seeded tile in every hand scores zero. Reassigned each deal.
+  if(challengeActive() && G.challenge.type==="smudged" && G.hand.length){
+    G.hand.forEach(c=>{ delete c._smudged; });
+    const rngS=makeRng("smudge:"+G.level+":"+G.handsLeft+":"+G.seed);
+    G.hand[Math.floor(rngS()*G.hand.length)]._smudged=true;
   }
   if(didReshuffle) playReshuffleAnim();
   renderHand(); renderHud();
@@ -3066,6 +3235,7 @@ function challengeDescText(type, banned, withLetters){
   const def=CHALLENGE_TYPES[type]; if(!def) return "";
   let desc=def.desc;
   if(withLetters && type==="locked" && banned && banned.length){ desc+=" ("+banned.join(", ")+")"; }
+  if(type==="house"){ const hl=(G.challengePending&&G.challengePending.houseLetter)||(G.challenge&&G.challenge.houseLetter); if(hl) desc+=" (this round: "+hl+")"; }
   return desc;
 }
 function renderChallengeBanner(){
@@ -3080,7 +3250,28 @@ function renderChallengeBanner(){
     const desc=escHtml(challengeDescText(G.challenge.type, G.challenge.banned, false));
     el.innerHTML=`<span class="cb-tag">CHALLENGE</span><span class="cb-name">${def.name}</span><span class="cb-dot">·</span><span class="cb-reward">${rwBadge}</span>${locked}<span class="cb-desc">${desc}</span>`;
     el.classList.remove("hidden");
+  } else if(bossActive()){
+    const B=G.boss, def=BOSS_TYPES[B.type];
+    let state="";
+    if(B.type==="editor" && (B.ban||[]).length) state=`<span class="cb-dot">·</span><span class="cb-locked">🔒 ${B.ban.join(" ")}</span>`;
+    if(B.type==="errata") state=`<span class="cb-dot">·</span><span class="cb-locked">next: ${(B.lastLen||0)+1}+ letters</span>`;
+    if(B.type==="ghost") state=`<span class="cb-dot">·</span><span class="cb-locked">👻 ${B.ghostPer}/word · ${B.ghostTotal} total</span>`;
+    if(B.type==="ledger") state=`<span class="cb-dot">·</span><span class="cb-locked">$${B.cash||0} of $10</span>`;
+    if(B.type==="critic" && B.suspended) state=`<span class="cb-dot">·</span><span class="cb-locked">silenced: ${B.suspended}</span>`;
+    el.innerHTML=`<span class="cb-tag boss">FINAL PROOF</span><span class="cb-name">${def.art} ${def.name}</span>${state}<span class="cb-desc">${escHtml(def.desc)}</span>`;
+    el.classList.remove("hidden");
   } else { el.classList.add("hidden"); el.innerHTML=""; }
+}
+function showBossIntro(){
+  const B=G.boss; if(!B) return;
+  const def=BOSS_TYPES[B.type];
+  $("bossArt").textContent=def.art;
+  $("bossName").textContent=def.name;
+  $("bossBadge").textContent=def.badge;
+  $("bossDesc").textContent=def.desc;
+  $("bossIntroLine").textContent=def.intro;
+  $("bossScreen").classList.remove("hidden");
+  haptic([20,80,20,80,40]);
 }
 function startLevel(){
   if(G.lucky7Stash && G.lucky7Stash.length){ G.deck.push(...G.lucky7Stash); G.lucky7Stash=[]; }   // Lucky 7 cards return next level
@@ -3090,6 +3281,39 @@ function startLevel(){
   G.score=0;
   G.handsLeft=HANDS_PER_LEVEL+G.extraTurns;
   G.discardsLeft=DISCARDS_PER_LEVEL+G.extraDiscards;
+  G.roundLengths=[]; G.standingBan=null;
+  if(G._marginsApplied){ G.handSize+=2; G._marginsApplied=false; }   // restore a prior Tight Margins
+  if(challengeActive()){
+    if(G.challenge.type==="union") G.discardsLeft=0;                                  // Union Rules
+    if(G.challenge.type==="rush")  G.handsLeft=Math.max(1,G.handsLeft-1);             // Rush Order
+    if(G.challenge.type==="margins"){ G.handSize=Math.max(3,G.handSize-2); G._marginsApplied=true; }   // Tight Margins
+  }
+  // ---- Round 10: THE FINAL PROOF ----
+  if(G.level===WIN_LEVEL && !G.endless){
+    if(!G.boss || !G.boss.active){
+      const bt=bossTypeFor(G.seed);
+      G.boss={ type:bt, active:true, ban:[], lastLen:0, cash:0, suspended:null, stash:null, introSeen:false };
+      if(bt==="ghost"){
+        let gt=0;
+        try{
+          const gr=predictSeed(G.seed);
+          if(gr && gr.stats && Array.isArray(gr.stats.rounds)){
+            const r10=gr.stats.rounds.find(r=>r.round===WIN_LEVEL);
+            gt=r10?r10.score:0;
+          }
+        }catch(e){}
+        if(!gt) gt=G.target;
+        G.boss.ghostTotal=gt;
+        G.boss.ghostPer=Math.ceil(gt/4);
+        G.target=Math.max(G.target, gt+1);
+      }
+    }
+    document.body.classList.add("boss-round");
+    if(!G.boss.introSeen){ showBossIntro(); }
+  } else {
+    if(G.boss) G.boss.active=false;
+    document.body.classList.remove("boss-round");
+  }
   { const ds=$("defStrip"); if(ds){ ds.classList.add("hidden"); ds.innerHTML=""; } }  // clear last word's definition
   G.reshuffleCount=0;
   G.pileReshuffles=0;
@@ -3159,6 +3383,30 @@ function submitWord(){
     if(G.perks.anthology && G.wordPlays[w]===1){ G.anthologyCount=(G.anthologyCount||0)+1; }   // Anthology: first-ever play
   }
   G.lastWordLetters=[...new Set(res.map(r=>r.letter).filter(Boolean))];    // Crossword chain
+  if(!G.roundLengths) G.roundLengths=[];
+  G.roundLengths.push(res.length);                                          // No Reprints history
+  if(bossActive()){
+    const B=G.boss, BT=BOSS_TYPES[B.type];
+    if(B.type==="editor" && (B.ban||[]).length<6){
+      let best=null; res.forEach(r=>{ if(r.letter && !B.ban.includes(r.letter) && (!best||r.value>best.value||(r.value===best.value&&r.letter<best.letter))) best=r; });
+      if(best){ B.ban.push(best.letter); toast(BT.taunt+" ("+best.letter+")"); renderHand(); }
+    }
+    if(B.type==="errata"){ B.lastLen=Math.max(B.lastLen||0,res.length); }
+    if(B.type==="deadline" && G.score<G.target){
+      G.target=Math.round(G.target*1.10);
+      toast(BT.taunt+" Target "+G.target+".");
+    }
+    if(B.type==="ghost" && sc.total<(B.ghostPer||0)){
+      G.hearts--; renderHud(); haptic([20,60,20]);
+      toast(BT.taunt+" "+sc.total+" against "+B.ghostPer+". A heart is gone.");
+      if(G.hearts<=0){ gameOver(false); return; }
+    }
+    renderChallengeBanner();
+  }
+  if(challengeActive() && G.challenge.type==="standing" && !(G.standingBan||[]).length){
+    G.standingBan=[...new Set(res.map(r=>r.letter).filter(Boolean))];       // Standing Type: first word locks
+    renderHand();                                                            // cross out the newly locked tiles
+  }
   G.pulpPending=0;                                                          // Pulp Mill bonus is consumed by this word
   if(isJazz){ G.canvas.forEach(c=>{ if(c.kind==="jazz" && (c.jazzLeft||0)>0) c.jazzLeft--; }); }
   // highlights
@@ -3194,6 +3442,7 @@ function submitWord(){
   }
   if(challengeDoublePay()) cash=Math.round(cash*1.5);   // v48g: payout challenge reward is +50%
   if(cash>0){ G.coins=Math.min(999,G.coins+cash); }
+  if(bossActive() && G.boss.type==="ledger" && cash>0){ G.boss.cash=(G.boss.cash||0)+cash; renderChallengeBanner(); }
   renderHud();
   // juice — scaled by BOTH word length and score, ramping harder for big plays
   const lenBoost = Math.max(0, res.length-4) * 0.11;        // +0.11 per letter past 4
@@ -3226,7 +3475,8 @@ function submitWord(){
   G.score+=sc.total;
   setTimeout(()=>{
     renderCanvas();
-    if(G.score>=G.target){ levelCleared(); return; }
+    if(G.score>=G.target && !(bossActive() && G.boss.type==="ledger" && (G.boss.cash||0)<10)){ levelCleared(); return; }
+    if(G.score>=G.target && bossActive() && G.boss.type==="ledger" && (G.boss.cash||0)<10){ toast(BOSS_TYPES.ledger.taunt+" $"+(G.boss.cash||0)+" of $10."); }
     if(G.handsLeft<=0){ levelFailed(); return; }
     dealUpToHand(true);
     renderHud();
@@ -3274,7 +3524,14 @@ function levelCleared(){
       wordsLeft:G.handsLeft, payout:rw.total}); }
   // v3a: fold the chosen challenge reward into this cleared round
   if(challengeActive()){
-    if(G.challenge.reward==="cash"){ rw.bonus=10; rw.total+=10; }
+    if(G.challenge.reward==="cash"||G.challenge.reward==="cash10"){ rw.bonus=10; rw.total+=10; }
+    else if(G.challenge.reward==="cash15"){ rw.bonus=15; rw.total+=15; }
+    else if(G.challenge.reward==="cash20"){ rw.bonus=20; rw.total+=20; }
+    else if(G.challenge.reward==="upgrade"){
+      const L=challengeUpgradeLetterFor(G.level);
+      const gc=makeLetterCard(L); gc.upLevel=1; G.deck.push(gc);
+      rw.upgradeLetter=L;
+    }
     else if(G.challenge.reward==="epic" && G.challenge.epic){
       applyOffer({d:G.challenge.epic.d});
       rw.epicReward = G.challenge.epic.name;
@@ -4102,7 +4359,8 @@ function enterNextLevel(){
 function openChallenge(lvl){
   const type=challengeTypeFor(lvl);
   const banned = type==="locked" ? deckTopLetters(CHALLENGE_BAN_COUNT) : [];
-  G.challengePending={ type, banned, epic:challengeEpicFor(lvl), reward:null };
+  const houseLetter = type==="house" ? houseLetterFor(lvl) : null;
+  G.challengePending={ type, banned, houseLetter, epic:challengeEpicFor(lvl), reward:null, trio:rewardTrioFor(lvl,type) };
   renderChallenge(lvl);
   hideGame();
   $("challengeScreen").classList.remove("hidden");
@@ -4120,7 +4378,7 @@ function renderChallenge(lvl){
     ? `Target <b>${tgt}</b> <span class="chal-was">(was ${base})</span>`
     : `Target <b>${tgt}</b>`;
   const grid=$("chalRewardGrid"); grid.innerHTML="";
-  CHALLENGE_REWARD_ORDER.forEach(key=>{
+  (p.trio||["double","epic","cash10"]).forEach(key=>{
     let r=CHALLENGE_REWARDS[key];
     if(key==="epic" && p.epic){ r={badge:"EPIC", name:p.epic.name, desc:p.epic.desc, art:p.epic.art}; }
     const b=document.createElement("button");
@@ -4136,7 +4394,7 @@ function renderChallenge(lvl){
 function selectChallengeReward(key,lvl){ G.challengePending.reward=key; haptic(8); renderChallenge(lvl); }
 function takeChallenge(){
   const p=G.challengePending; if(!p || !p.reward) return;
-  G.challenge={ type:p.type, reward:p.reward, banned:p.banned||[], epic:p.epic||null, active:true };
+  G.challenge={ type:p.type, reward:p.reward, banned:p.banned||[], houseLetter:p.houseLetter||null, epic:p.epic||null, active:true };
   G.challengePending=null;
   $("challengeScreen").classList.add("hidden");
   haptic([10,30,10]);
@@ -4300,9 +4558,10 @@ function buildStaticTile(c){
   }
   if(c.kind==="fused"){
     t.classList.add("fused","domino");
+    if((c.sides||[]).some(sd=>(sd.mult||1)!==1)) t.classList.add("goldside");
     fusedCells(c).forEach((cell,i)=>{
       if(i>0){ const d=document.createElement("span"); d.className="dom-div"; t.appendChild(d); }
-      const cd=document.createElement("span"); cd.className="dom-cell"+(cell.active?"":" dim");
+      const cd=document.createElement("span"); cd.className="dom-cell"+(cell.active?"":" dim")+(((c.sides[Math.min(i,1)]||{}).mult||1)!==1?" goldcell":"");
       const g=document.createElement("span"); g.className="dom-letter"; g.textContent=cell.letter; cd.appendChild(g);
       const v=document.createElement("span"); v.className="dom-val"; v.textContent=cell.val; cd.appendChild(v);
       t.appendChild(cd);
@@ -4771,7 +5030,8 @@ function showDefinition(word, isJazz){
    once the word is cleared or fixed. */
 function updateChallengeBlockHint(){
   const el=$("defStrip"); if(!el) return;
-  const gates = challengeActive() && (challengeMinLen()>0 || !!bannedLetterSet());   // steep/double-pay cannot block words
+  const gates = (challengeActive() && (challengeMinLen()>0 || !!bannedLetterSet() || ["house","reprints"].includes(G.challenge.type)))
+             || (bossActive() && (challengeMinLen()>0 || !!bannedLetterSet() || G.boss.type==="perfect"));
   const blocked = gates && isRealWord() && !wordValid();
   if(blocked){
     if(el.dataset.chalblock!=="1"){
@@ -4993,7 +5253,7 @@ function save(){
       perks:G.perks, scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, reprintUsed:G.reprintUsed, foilUsed:G.foilUsed, challenge:G.challenge, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, jazzCharges:G.jazzCharges, runMs:G.runMs, stats:G.stats,
       wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, wordPlays:G.wordPlays, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
       attempt:G.attempt, target:G.target, score:G.score, handsLeft:G.handsLeft, discardsLeft:G.discardsLeft,
-      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0,
+      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), roundLengths:(G.roundLengths||[]), standingBan:(G.standingBan||null), _marginsApplied:!!G._marginsApplied, boss:(G.boss||null), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0,
       rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
     };
     localStorage.setItem(SAVE_KEY,JSON.stringify(data));
@@ -5015,6 +5275,8 @@ function continueRun(){
   G.challenge=d.challenge||null;
   G.lucky7Stash=Array.isArray(d.lucky7Stash)?d.lucky7Stash:[];
   G.shopSeen=Array.isArray(d.shopSeen)?d.shopSeen:[];
+  G.roundLengths=Array.isArray(d.roundLengths)?d.roundLengths:[]; G.standingBan=d.standingBan||null; G._marginsApplied=!!d._marginsApplied;
+  G.boss=d.boss||null; if(G.boss&&G.boss.active&&G.level===WIN_LEVEL) document.body.classList.add("boss-round");
   G.anagramSigs=d.anagramSigs||{}; G.anthologyCount=d.anthologyCount||0; G.abcSeen=d.abcSeen||{}; G.lastWordLetters=d.lastWordLetters||null; G.pulpPending=d.pulpPending||0;
   G.jazzCharges=(typeof d.jazzCharges==="number")?d.jazzCharges:0;
   G.wordsPlayed=d.wordsPlayed||0; G.runScore=d.runScore||0; G.runBestWord=d.runBestWord||""; G.runBestScore=d.runBestScore||0; G.wordPlays=d.wordPlays||{};
@@ -5090,6 +5352,7 @@ function newRun(seed){
   G.attempt=0; G.best=1; G.shopOffers=[]; G.runMs=0;
   G.challenge=null; G.challengePending=null; G._rescues=0;   // never carry a challenge into a fresh run
   G.shopSeen=[];
+  G.boss=null; document.body.classList.remove("boss-round");
   G.lucky7Stash=[];
   G.anagramSigs={}; G.anthologyCount=0; G.abcSeen={}; G.lastWordLetters=null; G.pulpPending=0;
   G.deck=rollStartingDeck();
@@ -5218,6 +5481,7 @@ function applyTheme(t){
 function toggleTheme(){ applyTheme(currentTheme()==="dark"?"light":"dark"); haptic(12); }
 (function initTheme(){ let t="light"; try{ t=localStorage.getItem(THEME_KEY)||"light"; }catch(e){} applyTheme(t); })();
 ["themeSwitch","themeSwitchP"].forEach(id=>{ const b=$(id); if(b) b.addEventListener("click",toggleTheme); });
+$("bossGoBtn").addEventListener("click",()=>{ if(G.boss) G.boss.introSeen=true; $("bossScreen").classList.add("hidden"); save(); haptic(15); });
 $("optionsBtn").addEventListener("click",openOptions);
 $("optBackBtn").addEventListener("click",closeOptions);
 $("optExportBtn").addEventListener("click",exportAllRuns);
