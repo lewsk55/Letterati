@@ -370,15 +370,18 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
 .boss-desc{font-weight:700;font-size:.86rem;color:var(--ink);max-width:300px;margin:0 auto}
 .cb-tag.boss{background:var(--oxblood);color:#fff}
 body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
-.tile.smudged .glyph{opacity:.32;filter:blur(.4px)}
-.tile.smudged::after{content:"●";position:absolute;left:50%;top:42%;transform:translate(-50%,-50%) scale(1.6);color:rgba(35,32,46,.35);pointer-events:none}
-:root[data-theme="dark"] .tile.smudged::after{color:rgba(236,228,212,.3)}
+.tile.smudged .glyph{opacity:.85;filter:blur(.35px);text-shadow:2px 1px 3px rgba(35,32,46,.40),-1px 1px 2px rgba(35,32,46,.28),4px 2px 6px rgba(35,32,46,.18)}
+.tile.smudged::after{content:"";position:absolute;inset:0;border-radius:inherit;pointer-events:none;mix-blend-mode:multiply;background:linear-gradient(115deg,transparent 26%,rgba(35,32,46,.10) 38%,rgba(35,32,46,.22) 47%,rgba(35,32,46,.26) 53%,rgba(35,32,46,.12) 62%,transparent 76%)}
+:root[data-theme="dark"] .tile.smudged .glyph{text-shadow:2px 1px 3px rgba(0,0,0,.55),-1px 1px 2px rgba(0,0,0,.4)}
+:root[data-theme="dark"] .tile.smudged::after{mix-blend-mode:normal;background:linear-gradient(115deg,transparent 26%,rgba(0,0,0,.16) 38%,rgba(0,0,0,.30) 47%,rgba(0,0,0,.34) 53%,rgba(0,0,0,.18) 62%,transparent 76%)}
+
+
 .tile.fused.goldside{border-color:#C9A94E;box-shadow:0 0 0 2px rgba(201,169,78,.4),0 2px 0 var(--tile-edge),0 3px 8px rgba(35,32,46,.10)}
 .tile.fused.domino .dom-cell.goldcell .dom-letter{color:#8A6418}
 .tile.fused.domino .dom-cell.goldcell{background:linear-gradient(180deg,rgba(251,224,138,.55),rgba(226,182,75,.35));border-radius:8px}
-:root[data-theme="dark"] .tile.smudged .glyph{opacity:.32;filter:blur(.4px)}
-.tile.smudged::after{content:"●";position:absolute;left:50%;top:42%;transform:translate(-50%,-50%) scale(1.6);color:rgba(35,32,46,.35);pointer-events:none}
-:root[data-theme="dark"] .tile.smudged::after{color:rgba(236,228,212,.3)}
+:root[data-theme="dark"] 
+
+
 .tile.fused.goldside{border-color:#D8AA4E;box-shadow:0 0 0 2px rgba(216,170,78,.45),0 2px 0 #191621}
 :root[data-theme="dark"] .tile.fused.domino .dom-cell.goldcell{background:linear-gradient(180deg,rgba(216,170,78,.30),rgba(179,137,47,.20))}
 :root[data-theme="dark"] .tile.fused.domino .dom-cell.goldcell .dom-letter{color:#F0C868}
@@ -1223,7 +1226,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "49b";
+const VERSION = "49e";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1265,7 +1268,7 @@ const CHALLENGE_EARLY_ONLY = new Set(["rush"]);   // only offered at the first t
 /* ---------- Round 10 bosses: THE FINAL PROOF ---------- */
 const BOSS_TYPES = {
   editor:  { name:"The Editor", art:"🖋️", badge:"letters struck",
-             desc:"After every word, your most valuable letter in it is struck from the round.",
+             desc:"After every word, your most valuable letter in it is pulled from the round entirely.",
              intro:"Every draft you hand him comes back thinner. He only cuts your best lines.",
              taunt:"Struck. He never liked that letter anyway." },
   deadline:{ name:"The Deadline", art:"⏰", badge:"target rises",
@@ -1662,14 +1665,17 @@ function predRoll(seed){
 let _predLevel=1;
 function predPx(base,fire){ const infl=Math.pow(1.1,Math.max(0,(_predLevel||1)-1)); return Math.max(1,Math.round(base*0.65*SHOP_PRICE_SCALE*(fire?0.75:1)*infl)); }
 function predCV(c){ const base=c.fusedA?(c.fusedA.base+c.fusedB.base):c.base; return base*Math.pow(2,c.up||0); }
-function predScore(t,P){
+function predScore(t,P,zv){
   // t entries are letter tiles OR resolved parts {g:"er",v:5} from fused-tile modes.
+  // zv: Heavy Stock, vowels contribute zero (pure-vowel parts only; mixed fused
+  // pairs keep their value, a slightly optimistic approximation).
   let s=0,len=0,gm=1;
   t.forEach(x=>{
     const g=(x.g!==undefined)?x.g:(x.letter?x.letter.toLowerCase():"");
     gm*=(x.mult||1);
     let v=(x.v!==undefined)?x.v:predCV(x);
     if(P.vowelPower){ for(const ch of g){ if(VOWELS.has(ch.toUpperCase())) v+=(+P.vowelPower||0); } }
+    if(zv && [...g].every(ch=>VOWELS.has(ch.toUpperCase()))) v=0;
     s+=v; len+=g.length;
   });
   let m=lenMult(len); if(P.bigWords)m=1+(m-1)*2;
@@ -1679,12 +1685,13 @@ function predScore(t,P){
   tot*=P.scoreMult||1; return Math.round(tot);
 }
 function predBest(hand,P,opts){
-  opts=opts||{}; const banned=opts.banned||null, minLen=opts.minLen||0;
+  opts=opts||{}; const banned=opts.banned||null, minLen=opts.minLen||0, maxLen=opts.maxLen||99;
+  const uniqueOnly=!!opts.uniqueOnly, usedLens=opts.usedLens||null, mustHave=opts.mustHave?String(opts.mustHave).toLowerCase():null, zv=!!opts.zeroVowels;
   const hasFused=hand.some(t=>t.fusedA);
   if(!hasFused){
     const cand = banned ? hand.filter(t=>!banned.has(t.letter)) : hand;   // locked: drop banned letters from play
     const A=anaSet(),n=cand.length,lim=1<<n; let b=0,bt=null;
-    for(let mask=1;mask<lim;mask++){let c=0;for(let i=0;i<n;i++)if(mask&(1<<i))c++;if(c<2||c<minLen)continue;const sub=[];for(let i=0;i<n;i++)if(mask&(1<<i))sub.push(cand[i]);const k=sub.map(x=>x.letter.toLowerCase()).sort().join("");if(!A.has(k))continue;const sc=predScore(sub,P);if(sc>b){b=sc;bt=sub;}}
+    for(let mask=1;mask<lim;mask++){let c=0;for(let i=0;i<n;i++)if(mask&(1<<i))c++;if(c<2||c<minLen||c>maxLen)continue;if(usedLens&&usedLens.has(c))continue;const sub=[];for(let i=0;i<n;i++)if(mask&(1<<i))sub.push(cand[i]);const k=sub.map(x=>x.letter.toLowerCase()).sort().join("");if(!A.has(k))continue;if(uniqueOnly&&new Set(k).size!==k.length)continue;if(mustHave&&!k.includes(mustHave))continue;const sc=predScore(sub,P,zv);if(sc>b){b=sc;bt=sub;}}
     return {score:b,tiles:bt};
   }
   // fused-aware search: each fused tile plays as side A, side B, or the pair.
@@ -1714,36 +1721,49 @@ function predBest(hand,P,opts){
     }
     for(const parts of combos){
       let len=0; for(const pdt of parts) len+=pdt.g.length;
-      if(len<2||len<minLen||len>12) continue;
+      if(len<2||len<minLen||len>Math.min(12,maxLen)) continue;
+      if(usedLens&&usedLens.has(len)) continue;
       const k=parts.map(x=>x.g).join("").split("").sort().join("");
       if(!A.has(k)) continue;
-      const sc=predScore(parts,P);
+      if(uniqueOnly&&new Set(k).size!==k.length) continue;
+      if(mustHave&&!k.includes(mustHave)) continue;
+      const sc=predScore(parts,P,zv);
       if(sc>b){ b=sc; bt=idx.map(i=>cand[i].t); }
     }
   }
   return {score:b,tiles:bt};
 }
 function predLevel(P,seed,opts){
+  // opts (v49c): target, banned, minLen, smart, plus challenge/boss modifiers:
+  //   handDelta, turnsDelta, noDiscards, zeroVowels, mustHave, uniqueOnly,
+  //   reprints (unique word lengths), standing (first word locks its letters),
+  //   editor (each word strikes its best letter), errata (each word longer),
+  //   deadlineGrow (target +10% per non-clearing word)
   opts=opts||{};
-  const target = opts.target || targetFor(P.level);
-  const banned = opts.banned || null;
+  let target = opts.target || targetFor(P.level);
   const minLen = opts.minLen || 0;
   const rng=mulberry32(xfnv1a(String(seed)+"::lvl:"+P.level+":0"));
-  const src = banned ? P.deck.filter(c=>!banned.has(c.letter)) : P.deck;   // locked: banned letters not in the pile
-  let pile=shuffle(src,rng).slice(); let hand=[]; const draw=()=>{while(hand.length<P.handSize&&pile.length)hand.push(pile.shift());}; draw();
-  let score=0,cash=0,hl=4+(P.extraTurns||0);
-  const smart=!!opts.smart; let disc=smart?DISCARDS_PER_LEVEL:0;
+  let dynBan = opts.banned ? new Set(opts.banned) : null;
+  const src = dynBan ? P.deck.filter(c=>!dynBan.has(c.letter)) : P.deck;
+  const hsEff=Math.max(3,P.handSize+(opts.handDelta||0));
+  let pile=shuffle(src,rng).slice(); let hand=[]; const draw=()=>{while(hand.length<hsEff&&pile.length)hand.push(pile.shift());}; draw();
+  let score=0,cash=0,hl=Math.max(1,4+(P.extraTurns||0)+(opts.turnsDelta||0));
+  const smart=!!opts.smart && !opts.noDiscards; let disc=(!!opts.smart)?(opts.noDiscards?0:DISCARDS_PER_LEVEL):0;
+  let lastLen=0, firstWord=true;
+  const usedLens=opts.reprints? new Set() : null;
+  let wordNo=0;
+  const bo=()=>({banned:dynBan, minLen:opts.errata?Math.max(minLen,lastLen+1):minLen,
+                 // Errata: play an ascending ladder like a human would, opening
+                 // short (<=4, then <=6) so later rungs stay reachable.
+                 maxLen: opts.errata ? (wordNo===0?4 : wordNo===1?6 : 99) : 99,
+                 uniqueOnly:opts.uniqueOnly, usedLens, mustHave:opts.mustHave, zeroVowels:opts.zeroVowels});
   while(true){
     if(score>=target) return {res:"clear",hl,score,cash,discardsLeft:disc};
     if(hl<=0){ P.hearts--; if(P.hearts<=0) return {res:"fail",score,discardsLeft:disc}; hl=1; }
     if(smart){
-      // discard policy: if the best playable word is weak vs the pace we need
-      // (score per remaining turn), spend a discard to swap out up to 4 junk
-      // tiles. Held discards keep their 20%-each payout value, so the bot only
-      // spends when the hand genuinely lags the target.
       let guard=0;
       while(disc>0 && guard++<6){
-        const probe=predBest(hand,P,{banned,minLen});
+        const probe=predBest(hand,P,bo());
         const need=(target-score)/Math.max(1,hl);
         if(probe.tiles && probe.score>=need*0.55) break;
         const keep=new Set(probe.tiles||[]);
@@ -1752,12 +1772,28 @@ function predLevel(P,seed,opts){
         disc--; junk.forEach(t=>{hand.splice(hand.indexOf(t),1); pile.push(t);}); draw();
       }
     }
-    const {score:s,tiles}=predBest(hand,P,{banned,minLen});
+    let {score:s,tiles}=predBest(hand,P,bo());
+    if(!tiles && opts.errata){ const wide={...bo(),maxLen:99}; ({score:s,tiles}=predBest(hand,P,wide)); }
     if(!tiles){ hl--; if(hand.length){pile.push(hand.shift());draw();} continue; }
     score+=s; cash+=Math.floor(s/wordCashDivisor(P.level));
-    { const wl=tiles.reduce((n,t)=>n+(t.fusedA?2:1),0);
-      if(wl>=6 && (P.pressGrowth||0)>0){ P.scoreMult=Math.round(((P.scoreMult||1)+P.pressGrowth)*1000)/1000; }
+    const wl=tiles.reduce((n,t)=>n+(t.fusedA?2:1),0);
+    if(wl>=6 && (P.pressGrowth||0)>0){ P.scoreMult=Math.round(((P.scoreMult||1)+P.pressGrowth)*1000)/1000; }
+    lastLen=Math.max(lastLen,wl);
+    if(usedLens) usedLens.add(wl);
+    if(opts.standing && firstWord){
+      dynBan=new Set([...(dynBan||[])]); tiles.forEach(t=>{ if(t.letter) dynBan.add(t.letter); if(t.fusedA){dynBan.add(t.fusedA.letter);dynBan.add(t.fusedB.letter);} });
+    }
+    if(opts.editor && (!dynBan || dynBan.size<6+((opts.banned&&opts.banned.size)||0))){
+      let best=null; tiles.forEach(t=>{ const L=t.letter||((t.fusedA&&t.fusedA.letter)||null); const v=predCV(t)*(t.mult||1);
+        if(L && (!dynBan||!dynBan.has(L)) && (!best||v>best.v||(v===best.v&&L<best.L))) best={L,v}; });
+      if(best){ dynBan=new Set([...(dynBan||[])]); dynBan.add(best.L);
+        // struck letters leave the round (mirrors live): pure letter tiles removed
+        pile=pile.filter(t=>!(t.letter===best.L && !t.fusedA));
+        hand=hand.filter(t=>!(t.letter===best.L && !t.fusedA));
       }
+    }
+    if(opts.deadlineGrow && score<target){ target=Math.round(target*1.10); }
+    firstWord=false; wordNo++;
     const used=new Set(tiles); hand=hand.filter(t=>!used.has(t)); pile.push(...tiles); draw(); hl--;
   }
 }
@@ -1765,7 +1801,23 @@ function predLevel(P,seed,opts){
 // Same seeded pick the live game uses (challengeTypeFor), but with an explicit seed.
 function predChallengeType(seed,level){
   const rng=mulberry32(xfnv1a(String(seed)+"::challenge:"+level));
-  return CHALLENGE_ORDER[Math.floor(rng()*CHALLENGE_ORDER.length)];
+  const pool=CHALLENGE_ORDER.filter(t=>!(CHALLENGE_EARLY_ONLY.has(t) && level>5));
+  return pool[Math.floor(rng()*pool.length)];
+}
+function predHouseLetter(seed,level,deck){
+  const counts={}; deck.forEach(c=>{ if(c.letter) counts[c.letter]=(counts[c.letter]||0)+1; });
+  const ls=Object.keys(counts).sort((a,b)=>counts[b]-counts[a]||(a<b?-1:1));
+  if(!ls.length) return "E";
+  const rng=mulberry32(xfnv1a(String(seed)+"::house:"+level));
+  return ls[Math.floor(rng()*Math.min(4,ls.length))];
+}
+function predRewardTrio(seed,level,type){
+  const rng=mulberry32(xfnv1a(String(seed)+"::chreward:"+level));
+  const diff=(CHALLENGE_TYPES[type]&&CHALLENGE_TYPES[type].diff)||2;
+  const cashKey= diff>=3 ? "cash20" : diff===2 ? "cash15" : "cash10";
+  const pool=[cashKey,"double","epic","upgrade"];
+  for(let i=pool.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
+  return pool.slice(0,3);
 }
 // Most-used letters in the bot's deck (mirrors deckTopLetters; predictor tiles are all letters).
 function predDeckTop(deck,n){
@@ -1837,7 +1889,14 @@ function predictSeed(seed,opts){
       chType=predChallengeType(seed,P.level);
       const banned = chType==="locked" ? new Set(predDeckTop(P.deck,CHALLENGE_BAN_COUNT)) : null;
       const chTarget = chType==="steep" ? Math.round(target*CHALLENGE_TARGET_MULT) : target;
-      const chOpts={ target:chTarget, banned, minLen: chType==="longform"?CHALLENGE_MIN_LEN:0, smart:opts.smart };
+      const chOpts={ target:chTarget, banned, minLen: chType==="longform"?CHALLENGE_MIN_LEN:0, smart:opts.smart,
+        handDelta: chType==="margins"?-2 : chType==="smudged"?-1 : 0,
+        turnsDelta: chType==="rush"?-1:0,
+        noDiscards: chType==="union",
+        zeroVowels: chType==="heavy",
+        mustHave: chType==="house" ? predHouseLetter(seed,P.level,P.deck) : null,
+        reprints: chType==="reprints",
+        standing: chType==="standing" };
       // probe both branches on copies (predLevel only mutates .hearts on the copy)
       const probeStd={...P}; const stdR=predLevel(probeStd,seed,{smart:opts.smart});
       const probeCh ={...P}; const chR =predLevel(probeCh ,seed,chOpts);
@@ -1847,6 +1906,25 @@ function predictSeed(seed,opts){
       took = (chR.res==="clear") && (chCost<=stdCost);
       if(took){ P.hearts=probeCh.hearts; result=chR; target=chTarget; }
       else { P.hearts=probeStd.hearts; result=stdR; }
+    } else if(P.level===WIN_LEVEL && opts.boss!==false){
+      // ---- THE FINAL PROOF: the seeded boss is part of every real run, so the
+      // pinned gate faces it too. Ghost is approximated (hearts-1 on entry and a
+      // 10% stiffer target: the live ghost is this same bot, and "beat yourself
+      // by one point" is unwinnable by construction). Critic is a no-op for the
+      // perkless pinned bot. Ledger shortfalls cost a heart.
+      const bt=bossTypeFor(seed);
+      stats.boss=bt;
+      const bOpts={ smart:opts.smart };
+      if(bt==="editor")   bOpts.editor=true;
+      if(bt==="deadline") bOpts.deadlineGrow=true;
+      if(bt==="errata")   bOpts.errata=true;
+      if(bt==="perfect"){ bOpts.minLen=5; bOpts.uniqueOnly=true; }
+      if(bt==="ghost"){ P.hearts--; if(P.hearts<=0) return {winnable:false,round:P.level,stats};
+        bOpts.target=Math.round(target*1.10); target=bOpts.target; }
+      result=predLevel(P,seed,bOpts);
+      if(result.res==="clear" && bt==="ledger" && (result.cash||0)<10){
+        P.hearts--; if(P.hearts<=0) return {winnable:false,round:P.level,stats};
+      }
     } else {
       result=predLevel(P,seed,{smart:opts.smart});   // commits hearts directly to P
     }
@@ -1857,10 +1935,17 @@ function predictSeed(seed,opts){
     if(took){
       // pick the reward a skilled player would: invest in the deck on a comfy clear,
       // otherwise grab the bigger coin boost (double the purse vs a flat +10).
+      // pick from the seeded trio the live game actually offers
+      const trio=predRewardTrio(seed,P.level,chType);
       const comfy = result.hl>=1 && P.hearts>=3;
-      reward = comfy ? "epic" : ((b+DISCARDS_PER_LEVEL)>10 ? "double" : "cash");
+      const pref = comfy ? ["epic","upgrade","cash20","cash15","double","cash10"]
+                         : ["cash20","cash15","double","cash10","upgrade","epic"];
+      reward = pref.find(k=>trio.includes(k)) || trio[0];
       if(reward==="double") payout=Math.round(payout*1.5);
-      else if(reward==="cash") payout+=10;
+      else if(reward==="cash10"||reward==="cash") payout+=10;
+      else if(reward==="cash15") payout+=15;
+      else if(reward==="cash20") payout+=20;
+      else if(reward==="upgrade"){ const w=predWildLetter(seed,P.level); P.deck.push({letter:w,base:LETTER_VALUES[w],mult:1,up:1}); }   // free gilded letter
       else if(reward==="epic"){ const w=predWildLetter(seed,P.level); P.deck.push({letter:w,base:LETTER_VALUES[w],mult:1,up:0}); }   // epic modeled conservatively as a strong added letter
       stats.taken.push({level:P.level,type:chType,reward});
     }
@@ -2237,7 +2322,7 @@ function tileBadges(t,c){
   if(c.inkwell) add(railL,"ink","$");
   if(c.foil) add(railR,"foil"+((G.foilUsed||[]).includes(c.id)?" spent":""),"✦");
   if(c.watermark) add(railR,"wm","◊");
-  if(c._smudged){ t.classList.add("smudged"); }
+  if(c._smudged && challengeActive() && G.challenge.type==="smudged"){ t.classList.add("smudged"); }
   if(c.boldface) add(railR,"bold","2L");
   if(c.dropcap) add(railR,"dcap","1st");
   if(c.serif) add(railR,"serif","⇥");
@@ -2550,7 +2635,7 @@ function scoreOf(res){
     if(G.perks.vowelPower && VOWELS.has(r.letter)) v+=(+G.perks.vowelPower||0);   // v42a: +1 per vowel per stack
     if(r.card && r.card.foil && !(G.foilUsed||[]).includes(r.card.id)) v*=2;       // v42b: Foil Stamp, once per round
     if(challengeActive() && G.challenge.type==="heavy" && r.letter && VOWELS.has(r.letter)) v=0;   // Heavy Stock
-    if(r.card && r.card._smudged) v=0;                                              // Smudged Ink
+    if(r.card && r.card._smudged && challengeActive() && G.challenge.type==="smudged") v=0;   // Smudged Ink (this round only)
     return v;
   });
   goldMult=Math.round(goldMult*1000)/1000;
@@ -3282,6 +3367,9 @@ function startLevel(){
   G.handsLeft=HANDS_PER_LEVEL+G.extraTurns;
   G.discardsLeft=DISCARDS_PER_LEVEL+G.extraDiscards;
   G.roundLengths=[]; G.standingBan=null;
+  // Smudged Ink is strictly a one-round condition: clear stale ink from every
+  // zone (deck, piles, hand, canvas, stash) so no tile carries it out of the round.
+  [G.deck,G.drawPile,G.hand,G.played,G.canvas,G.lucky7Stash].forEach(arr=>(arr||[]).forEach(c=>{ if(c) delete c._smudged; }));
   if(G._marginsApplied){ G.handSize+=2; G._marginsApplied=false; }   // restore a prior Tight Margins
   if(challengeActive()){
     if(G.challenge.type==="union") G.discardsLeft=0;                                  // Union Rules
@@ -3296,7 +3384,7 @@ function startLevel(){
       if(bt==="ghost"){
         let gt=0;
         try{
-          const gr=predictSeed(G.seed);
+          const gr=predictSeed(G.seed,{boss:false});   // the ghost is the classic bot; it does not face a boss itself
           if(gr && gr.stats && Array.isArray(gr.stats.rounds)){
             const r10=gr.stats.rounds.find(r=>r.round===WIN_LEVEL);
             gt=r10?r10.score:0;
@@ -3389,7 +3477,16 @@ function submitWord(){
     const B=G.boss, BT=BOSS_TYPES[B.type];
     if(B.type==="editor" && (B.ban||[]).length<6){
       let best=null; res.forEach(r=>{ if(r.letter && !B.ban.includes(r.letter) && (!best||r.value>best.value||(r.value===best.value&&r.letter<best.letter))) best=r; });
-      if(best){ B.ban.push(best.letter); toast(BT.taunt+" ("+best.letter+")"); renderHand(); }
+      if(best){
+        const L=best.letter;
+        B.ban.push(L);
+        // struck letters LEAVE the round: pulled from hand, piles, and the canvas.
+        // The deck itself is untouched, so they return next run or in endless.
+        const strike=arr=>(arr||[]).filter(c=>!(c.kind==="letter" && c.letter===L));
+        G.hand=strike(G.hand); G.drawPile=strike(G.drawPile); G.played=strike(G.played); G.canvas=strike(G.canvas);
+        toast(BT.taunt+" Every "+L+" is gone.");
+        renderHand();
+      }
     }
     if(B.type==="errata"){ B.lastLen=Math.max(B.lastLen||0,res.length); }
     if(B.type==="deadline" && G.score<G.target){
@@ -3516,7 +3613,11 @@ function discardCanvas(){
 }
 
 /* ---------- level resolution ---------- */
+function clearSmudges(){
+  [G.deck,G.drawPile,G.hand,G.played,G.canvas,G.lucky7Stash].forEach(arr=>(arr||[]).forEach(c=>{ if(c) delete c._smudged; }));
+}
 function levelCleared(){
+  clearSmudges();
   const rw=computeReward();
   if(G.stats){ if(!G.stats.rounds) G.stats.rounds=[];
     G.stats.rounds.push({round:G.level, target:G.target, score:G.score, margin:G.score-G.target, cleared:true,
@@ -3681,6 +3782,7 @@ function heartBreakBurst(el){
   setTimeout(()=>burst.remove(),900);
 }
 function levelFailed(){
+  clearSmudges();
   G.hearts--;
   if(G.stats){ if(!G.stats.rounds) G.stats.rounds=[];
     G.stats.rounds.push({round:G.level, target:G.target, score:G.score, margin:G.score-G.target, cleared:false,
