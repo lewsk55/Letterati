@@ -1226,7 +1226,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "49e";
+const VERSION = "49g";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1259,8 +1259,8 @@ const CHALLENGE_TYPES = {
             desc:"Vowels score zero this round. They still spell." },
   reprints:{ name:"No Reprints", badge:"unique lengths", diff:1,
             desc:"Every word this round must be a different length." },
-  standing:{ name:"Standing Type", badge:"first word locks", diff:2,
-            desc:"After your first word, its letters are locked for the round." }
+  standing:{ name:"Standing Type", badge:"first word leaves", diff:2,
+            desc:"After your first word, its letters leave the round." }
 };
 const CHALLENGE_ORDER = ["steep","locked","longform","smudged","rush","house","margins","union","heavy","reprints","standing"];
 const CHALLENGE_EARLY_ONLY = new Set(["rush"]);   // only offered at the first two challenge rounds
@@ -1275,10 +1275,6 @@ const BOSS_TYPES = {
              desc:"The target grows 10 percent after every word that does not clear it.",
              intro:"The presses will not wait. Every hour you dawdle, the order grows.",
              taunt:"Tick. The number climbs." },
-  errata:  { name:"The Errata", art:"📜", badge:"ever longer",
-             desc:"Each word must be longer than your last.",
-             intro:"Corrections upon corrections. Each entry must outgrow the one before.",
-             taunt:"Too short. The list demands more." },
   critic:  { name:"The Critic", art:"🧐", badge:"perks silenced",
              desc:"One of your perks is silenced each turn, chosen by the house.",
              intro:"She reads everything you have built, and each turn she dismisses one of your tricks.",
@@ -1296,9 +1292,16 @@ const BOSS_TYPES = {
              intro:"The house wants the page and the purse. Numbers in both columns, or nothing.",
              taunt:"The books do not balance yet." }
 };
-const BOSS_ORDER=["editor","deadline","errata","critic","perfect","ghost","ledger"];
+const BOSS_ORDER=["editor","deadline","critic","perfect","ghost","ledger"];
 function bossTypeFor(seed){ const rng=makeRng("boss:"+seed); return BOSS_ORDER[Math.floor(rng()*BOSS_ORDER.length)]; }
-function bossActive(){ return !!(G.boss && G.boss.active && G.level===WIN_LEVEL); }
+function bossActive(){ return !!(G.boss && G.boss.active && G.level===WIN_LEVEL && BOSS_TYPES[G.boss.type]); }
+// A save from an older build may name a boss that no longer exists. Re-roll it
+// rather than crashing on an undefined definition.
+function normalizeBoss(){
+  if(G.boss && G.boss.type && !BOSS_TYPES[G.boss.type]){
+    G.boss.type=bossTypeFor(G.seed); G.boss.introSeen=false;
+  }
+}
 const CHALLENGE_REWARDS = {
   double: { name:"Bonus payouts", badge:"+50% coins",
             desc:"Every coin you earn this round pays 50% extra." },
@@ -1453,7 +1456,6 @@ function challengeMinLen(){
   let m=(challengeActive() && G.challenge.type==="longform") ? CHALLENGE_MIN_LEN : 0;
   if(bossActive()){
     if(G.boss.type==="perfect") m=Math.max(m,5);
-    if(G.boss.type==="errata")  m=Math.max(m,(G.boss.lastLen||0)+1);
   }
   return m;
 }
@@ -1632,10 +1634,10 @@ function rollStartingDeck(){
     const rng2=makeRng("deck2");
     cards=drawCapped(rng2).letters.map(makeLetterCard);   // still capped at 3
   }
-  // four starting golden slugs (1.25×), only on letters worth more than 1 point
-  // (v48c: gold compounds on the whole word, so the rate dropped from 1.5 to 1.25
-  // and the count went back up to four: more gold moments, gentler each)
-  const eligible=shuffle(cards.filter(c=>c.base>1),rng);
+  // four starting golden slugs (1.25×), drawn from the WHOLE deck, vowels
+  // included (v49f: the old base>1 filter shrank the pool to the few high-value
+  // letters, which is why the same J and V kept turning up golden)
+  const eligible=shuffle(cards.slice(),rng);
   eligible.slice(0,4).forEach(c=>{ c.mult=1.25; });
   return cards;
 }
@@ -1659,7 +1661,7 @@ function predRoll(seed){
   for(let t=0;t<400;t++){const{L,c}=draw(rng);const v=L.filter(x=>VOWELS.has(x)).length,hi=L.filter(x=>LETTER_VALUES[x]>1).length,face=L.reduce((a,x)=>a+LETTER_VALUES[x],0),mx=Math.max(...Object.values(c));if(v>=DECK_VOWEL_MIN&&v<=DECK_VOWEL_MAX&&hi>=DECK_HI_MIN&&face>=DECK_FACE_MIN&&mx<=MAX){ls=L;break;}}
   if(!ls) ls=draw(mulberry32(xfnv1a(String(seed)+"::deck2"))).L;
   const cards=ls.map(L=>({letter:L,base:LETTER_VALUES[L],mult:1,up:0}));
-  const el=shuffle(cards.filter(c=>c.base>1),rng); el.slice(0,4).forEach(c=>c.mult=1.25);
+  const el=shuffle(cards.slice(),rng); el.slice(0,4).forEach(c=>c.mult=1.25);
   return cards;
 }
 let _predLevel=1;
@@ -1737,7 +1739,7 @@ function predLevel(P,seed,opts){
   // opts (v49c): target, banned, minLen, smart, plus challenge/boss modifiers:
   //   handDelta, turnsDelta, noDiscards, zeroVowels, mustHave, uniqueOnly,
   //   reprints (unique word lengths), standing (first word locks its letters),
-  //   editor (each word strikes its best letter), errata (each word longer),
+  //   editor (each word strikes its best letter),
   //   deadlineGrow (target +10% per non-clearing word)
   opts=opts||{};
   let target = opts.target || targetFor(P.level);
@@ -1748,18 +1750,15 @@ function predLevel(P,seed,opts){
   const hsEff=Math.max(3,P.handSize+(opts.handDelta||0));
   let pile=shuffle(src,rng).slice(); let hand=[]; const draw=()=>{while(hand.length<hsEff&&pile.length)hand.push(pile.shift());}; draw();
   let score=0,cash=0,hl=Math.max(1,4+(P.extraTurns||0)+(opts.turnsDelta||0));
+  const words=[];
   const smart=!!opts.smart && !opts.noDiscards; let disc=(!!opts.smart)?(opts.noDiscards?0:DISCARDS_PER_LEVEL):0;
-  let lastLen=0, firstWord=true;
+  let firstWord=true;
   const usedLens=opts.reprints? new Set() : null;
-  let wordNo=0;
-  const bo=()=>({banned:dynBan, minLen:opts.errata?Math.max(minLen,lastLen+1):minLen,
-                 // Errata: play an ascending ladder like a human would, opening
-                 // short (<=4, then <=6) so later rungs stay reachable.
-                 maxLen: opts.errata ? (wordNo===0?4 : wordNo===1?6 : 99) : 99,
+  const bo=()=>({banned:dynBan, minLen,
                  uniqueOnly:opts.uniqueOnly, usedLens, mustHave:opts.mustHave, zeroVowels:opts.zeroVowels});
   while(true){
-    if(score>=target) return {res:"clear",hl,score,cash,discardsLeft:disc};
-    if(hl<=0){ P.hearts--; if(P.hearts<=0) return {res:"fail",score,discardsLeft:disc}; hl=1; }
+    if(score>=target) return {res:"clear",hl,score,cash,discardsLeft:disc,words};
+    if(hl<=0){ P.hearts--; if(P.hearts<=0) return {res:"fail",score,discardsLeft:disc,words}; hl=1; }
     if(smart){
       let guard=0;
       while(disc>0 && guard++<6){
@@ -1772,16 +1771,16 @@ function predLevel(P,seed,opts){
         disc--; junk.forEach(t=>{hand.splice(hand.indexOf(t),1); pile.push(t);}); draw();
       }
     }
-    let {score:s,tiles}=predBest(hand,P,bo());
-    if(!tiles && opts.errata){ const wide={...bo(),maxLen:99}; ({score:s,tiles}=predBest(hand,P,wide)); }
+    const {score:s,tiles}=predBest(hand,P,bo());
     if(!tiles){ hl--; if(hand.length){pile.push(hand.shift());draw();} continue; }
-    score+=s; cash+=Math.floor(s/wordCashDivisor(P.level));
+    score+=s; words.push(s); cash+=Math.floor(s/wordCashDivisor(P.level));
     const wl=tiles.reduce((n,t)=>n+(t.fusedA?2:1),0);
     if(wl>=6 && (P.pressGrowth||0)>0){ P.scoreMult=Math.round(((P.scoreMult||1)+P.pressGrowth)*1000)/1000; }
-    lastLen=Math.max(lastLen,wl);
     if(usedLens) usedLens.add(wl);
     if(opts.standing && firstWord){
       dynBan=new Set([...(dynBan||[])]); tiles.forEach(t=>{ if(t.letter) dynBan.add(t.letter); if(t.fusedA){dynBan.add(t.fusedA.letter);dynBan.add(t.fusedB.letter);} });
+      pile=pile.filter(t=>!(t.letter && dynBan.has(t.letter) && !t.fusedA));
+      hand=hand.filter(t=>!(t.letter && dynBan.has(t.letter) && !t.fusedA));
     }
     if(opts.editor && (!dynBan || dynBan.size<6+((opts.banned&&opts.banned.size)||0))){
       let best=null; tiles.forEach(t=>{ const L=t.letter||((t.fusedA&&t.fusedA.letter)||null); const v=predCV(t)*(t.mult||1);
@@ -1793,7 +1792,7 @@ function predLevel(P,seed,opts){
       }
     }
     if(opts.deadlineGrow && score<target){ target=Math.round(target*1.10); }
-    firstWord=false; wordNo++;
+    firstWord=false;
     const used=new Set(tiles); hand=hand.filter(t=>!used.has(t)); pile.push(...tiles); draw(); hl--;
   }
 }
@@ -1881,7 +1880,7 @@ function predShop(P,style){
 function predictSeed(seed,opts){
   opts=opts||{};
   const useCh = opts.challenges===true;   // default OFF: seed-gen keeps its safe standard-path guarantee
-  const stats={taken:[]};
+  const stats={taken:[],rounds:[]};
   const P={level:1,hearts:MAX_HEARTS,coins:0,handSize:START_HAND,extraTurns:0,scoreMult:1,pressGrowth:0,vowelPower:false,bigWords:false,deck:predRoll(seed)};
   for(P.level=1;P.level<=WIN_LEVEL;P.level++){
     let target=targetFor(P.level), result, took=false, chType=null, reward=null;
@@ -1917,7 +1916,6 @@ function predictSeed(seed,opts){
       const bOpts={ smart:opts.smart };
       if(bt==="editor")   bOpts.editor=true;
       if(bt==="deadline") bOpts.deadlineGrow=true;
-      if(bt==="errata")   bOpts.errata=true;
       if(bt==="perfect"){ bOpts.minLen=5; bOpts.uniqueOnly=true; }
       if(bt==="ghost"){ P.hearts--; if(P.hearts<=0) return {winnable:false,round:P.level,stats};
         bOpts.target=Math.round(target*1.10); target=bOpts.target; }
@@ -1928,6 +1926,7 @@ function predictSeed(seed,opts){
     } else {
       result=predLevel(P,seed,{smart:opts.smart});   // commits hearts directly to P
     }
+    stats.rounds.push({round:P.level, score:result.score, words:result.words||[]});
     if(result.res==="fail") return {winnable:false,round:P.level,stats};
     let b=4; const o=result.score-target; b+=Math.min(5,Math.floor(o/Math.max(8,target*0.4))); b+=Math.max(0,result.hl); b=Math.max(2,Math.min(COIN_CAP,b));
     const heldDisc = opts.smart ? Math.max(0,(result.discardsLeft!=null?result.discardsLeft:DISCARDS_PER_LEVEL)) : DISCARDS_PER_LEVEL;
@@ -3339,8 +3338,10 @@ function renderChallengeBanner(){
     const B=G.boss, def=BOSS_TYPES[B.type];
     let state="";
     if(B.type==="editor" && (B.ban||[]).length) state=`<span class="cb-dot">·</span><span class="cb-locked">🔒 ${B.ban.join(" ")}</span>`;
-    if(B.type==="errata") state=`<span class="cb-dot">·</span><span class="cb-locked">next: ${(B.lastLen||0)+1}+ letters</span>`;
-    if(B.type==="ghost") state=`<span class="cb-dot">·</span><span class="cb-locked">👻 ${B.ghostPer}/word · ${B.ghostTotal} total</span>`;
+    if(B.type==="ghost"){
+      const nq=(B.ghostWords && B.ghostWords[B.wordIdx||0]!=null) ? B.ghostWords[B.wordIdx||0] : (B.ghostPer||0);
+      state=`<span class="cb-dot">·</span><span class="cb-locked">👻 next word: beat ${nq} · total ${B.ghostTotal}</span>`;
+    }
     if(B.type==="ledger") state=`<span class="cb-dot">·</span><span class="cb-locked">$${B.cash||0} of $10</span>`;
     if(B.type==="critic" && B.suspended) state=`<span class="cb-dot">·</span><span class="cb-locked">silenced: ${B.suspended}</span>`;
     el.innerHTML=`<span class="cb-tag boss">FINAL PROOF</span><span class="cb-name">${def.art} ${def.name}</span>${state}<span class="cb-desc">${escHtml(def.desc)}</span>`;
@@ -3382,21 +3383,24 @@ function startLevel(){
       const bt=bossTypeFor(G.seed);
       G.boss={ type:bt, active:true, ban:[], lastLen:0, cash:0, suspended:null, stash:null, introSeen:false };
       if(bt==="ghost"){
-        let gt=0;
+        let gt=0, gw=[];
         try{
           const gr=predictSeed(G.seed,{boss:false});   // the ghost is the classic bot; it does not face a boss itself
           if(gr && gr.stats && Array.isArray(gr.stats.rounds)){
             const r10=gr.stats.rounds.find(r=>r.round===WIN_LEVEL);
-            gt=r10?r10.score:0;
+            if(r10){ gt=r10.score||0; gw=(r10.words||[]).slice(); }
           }
         }catch(e){}
         if(!gt) gt=G.target;
         G.boss.ghostTotal=gt;
-        G.boss.ghostPer=Math.ceil(gt/4);
+        G.boss.ghostWords=gw;                    // the ghost's ACTUAL word scores, in order
+        G.boss.wordIdx=0;
+        G.boss.ghostPer=Math.ceil(gt/4);         // fallback only, when the word list runs out
         G.target=Math.max(G.target, gt+1);
       }
     }
     document.body.classList.add("boss-round");
+    renderChallengeBanner();
     if(!G.boss.introSeen){ showBossIntro(); }
   } else {
     if(G.boss) G.boss.active=false;
@@ -3488,21 +3492,29 @@ function submitWord(){
         renderHand();
       }
     }
-    if(B.type==="errata"){ B.lastLen=Math.max(B.lastLen||0,res.length); }
     if(B.type==="deadline" && G.score<G.target){
       G.target=Math.round(G.target*1.10);
       toast(BT.taunt+" Target "+G.target+".");
     }
-    if(B.type==="ghost" && sc.total<(B.ghostPer||0)){
-      G.hearts--; renderHud(); haptic([20,60,20]);
-      toast(BT.taunt+" "+sc.total+" against "+B.ghostPer+". A heart is gone.");
-      if(G.hearts<=0){ gameOver(false); return; }
+    if(B.type==="ghost"){
+      const quota=(B.ghostWords && B.ghostWords[B.wordIdx]!=null) ? B.ghostWords[B.wordIdx] : (B.ghostPer||0);
+      B.wordIdx=(B.wordIdx||0)+1;
+      if(quota>0 && sc.total<quota){
+        G.hearts--; renderHud(); haptic([20,60,20]);
+        toast(BT.taunt+" "+sc.total+" against its "+quota+". A heart is gone.");
+        if(G.hearts<=0){ gameOver(false); return; }
+      }
     }
     renderChallengeBanner();
   }
   if(challengeActive() && G.challenge.type==="standing" && !(G.standingBan||[]).length){
-    G.standingBan=[...new Set(res.map(r=>r.letter).filter(Boolean))];       // Standing Type: first word locks
-    renderHand();                                                            // cross out the newly locked tiles
+    G.standingBan=[...new Set(res.map(r=>r.letter).filter(Boolean))];       // fused sides and wilds still honor the ban
+    // the letters themselves LEAVE the round, so a discardless hand can never
+    // be clogged with dead tiles (deck untouched; they return next level)
+    const bans=new Set(G.standingBan);
+    const strike=arr=>(arr||[]).filter(c=>!(c.kind==="letter" && bans.has(c.letter)));
+    G.hand=strike(G.hand); G.drawPile=strike(G.drawPile); G.played=strike(G.played); G.canvas=strike(G.canvas);
+    renderHand();
   }
   G.pulpPending=0;                                                          // Pulp Mill bonus is consumed by this word
   if(isJazz){ G.canvas.forEach(c=>{ if(c.kind==="jazz" && (c.jazzLeft||0)>0) c.jazzLeft--; }); }
@@ -5378,7 +5390,7 @@ function continueRun(){
   G.lucky7Stash=Array.isArray(d.lucky7Stash)?d.lucky7Stash:[];
   G.shopSeen=Array.isArray(d.shopSeen)?d.shopSeen:[];
   G.roundLengths=Array.isArray(d.roundLengths)?d.roundLengths:[]; G.standingBan=d.standingBan||null; G._marginsApplied=!!d._marginsApplied;
-  G.boss=d.boss||null; if(G.boss&&G.boss.active&&G.level===WIN_LEVEL) document.body.classList.add("boss-round");
+  G.boss=d.boss||null; normalizeBoss(); if(G.boss&&G.boss.active&&G.level===WIN_LEVEL) document.body.classList.add("boss-round");
   G.anagramSigs=d.anagramSigs||{}; G.anthologyCount=d.anthologyCount||0; G.abcSeen=d.abcSeen||{}; G.lastWordLetters=d.lastWordLetters||null; G.pulpPending=d.pulpPending||0;
   G.jazzCharges=(typeof d.jazzCharges==="number")?d.jazzCharges:0;
   G.wordsPlayed=d.wordsPlayed||0; G.runScore=d.runScore||0; G.runBestWord=d.runBestWord||""; G.runBestScore=d.runBestScore||0; G.wordPlays=d.wordPlays||{};
