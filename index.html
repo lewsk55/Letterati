@@ -1226,7 +1226,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "49g";
+const VERSION = "49h";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
@@ -1260,7 +1260,7 @@ const CHALLENGE_TYPES = {
   reprints:{ name:"No Reprints", badge:"unique lengths", diff:1,
             desc:"Every word this round must be a different length." },
   standing:{ name:"Standing Type", badge:"first word leaves", diff:2,
-            desc:"After your first word, its letters leave the round." }
+            desc:"The slugs you set in your first word stay on the press for the round." }
 };
 const CHALLENGE_ORDER = ["steep","locked","longform","smudged","rush","house","margins","union","heavy","reprints","standing"];
 const CHALLENGE_EARLY_ONLY = new Set(["rush"]);   // only offered at the first two challenge rounds
@@ -1448,7 +1448,6 @@ function deckTopLetters(n){
 function challengeActive(){ return !!(G.challenge && G.challenge.active); }
 function bannedLetterSet(){
   if(challengeActive() && G.challenge.type==="locked") return new Set(G.challenge.banned||[]);
-  if(challengeActive() && G.challenge.type==="standing" && (G.standingBan||[]).length) return new Set(G.standingBan);
   if(bossActive() && G.boss.type==="editor" && (G.boss.ban||[]).length) return new Set(G.boss.ban);
   return null;
 }
@@ -1609,6 +1608,23 @@ function fmtDuration(ms){
 }
 
 /* ---------- starting deck ---------- */
+// Guarantees at least one U for every Q in a freshly rolled deck. Mutates in
+// place and keeps the deck size fixed by converting an existing low tile.
+function ensureQueensU(cards){
+  const qs=cards.filter(c=>c.letter==="Q").length;
+  if(!qs) return cards;
+  let us=cards.filter(c=>c.letter==="U").length;
+  while(us<qs){
+    let idx=-1, worst=Infinity;
+    cards.forEach((c,i)=>{ if(c.letter==="Q"||c.letter==="U") return;
+      if(VOWELS.has(c.letter)) return;                  // never eat the deck's vowels
+      if(c.base<worst){ worst=c.base; idx=i; } });
+    if(idx<0) break;
+    cards[idx]=makeLetterCard("U");
+    us++;
+  }
+  return cards;
+}
 function rollStartingDeck(){
   const rng=makeRng("deck");
   const MAX_DUP=3;   // never more than 3 of the same letter to open with
@@ -1634,6 +1650,9 @@ function rollStartingDeck(){
     const rng2=makeRng("deck2");
     cards=drawCapped(rng2).letters.map(makeLetterCard);   // still capped at 3
   }
+  // A Q never travels alone: if the roll produced a Q with no U, convert the
+  // cheapest non-Q, non-vowel tile into a U so the Q is always playable.
+  ensureQueensU(cards);
   // four starting golden slugs (1.25×), drawn from the WHOLE deck, vowels
   // included (v49f: the old base>1 filter shrank the pool to the few high-value
   // letters, which is why the same J and V kept turning up golden)
@@ -1661,6 +1680,16 @@ function predRoll(seed){
   for(let t=0;t<400;t++){const{L,c}=draw(rng);const v=L.filter(x=>VOWELS.has(x)).length,hi=L.filter(x=>LETTER_VALUES[x]>1).length,face=L.reduce((a,x)=>a+LETTER_VALUES[x],0),mx=Math.max(...Object.values(c));if(v>=DECK_VOWEL_MIN&&v<=DECK_VOWEL_MAX&&hi>=DECK_HI_MIN&&face>=DECK_FACE_MIN&&mx<=MAX){ls=L;break;}}
   if(!ls) ls=draw(mulberry32(xfnv1a(String(seed)+"::deck2"))).L;
   const cards=ls.map(L=>({letter:L,base:LETTER_VALUES[L],mult:1,up:0}));
+  { // mirror ensureQueensU: a Q never travels alone
+    const qs=cards.filter(c=>c.letter==="Q").length;
+    let us=cards.filter(c=>c.letter==="U").length;
+    while(qs && us<qs){
+      let idx=-1,worst=Infinity;
+      cards.forEach((c,i)=>{ if(c.letter==="Q"||c.letter==="U"||VOWELS.has(c.letter)) return; if(c.base<worst){worst=c.base;idx=i;} });
+      if(idx<0) break;
+      cards[idx]={letter:"U",base:LETTER_VALUES["U"],mult:1,up:0}; us++;
+    }
+  }
   const el=shuffle(cards.slice(),rng); el.slice(0,4).forEach(c=>c.mult=1.25);
   return cards;
 }
@@ -1738,7 +1767,7 @@ function predBest(hand,P,opts){
 function predLevel(P,seed,opts){
   // opts (v49c): target, banned, minLen, smart, plus challenge/boss modifiers:
   //   handDelta, turnsDelta, noDiscards, zeroVowels, mustHave, uniqueOnly,
-  //   reprints (unique word lengths), standing (first word locks its letters),
+  //   reprints (unique word lengths), standing (first word tiles stay set),
   //   editor (each word strikes its best letter),
   //   deadlineGrow (target +10% per non-clearing word)
   opts=opts||{};
@@ -1777,11 +1806,8 @@ function predLevel(P,seed,opts){
     const wl=tiles.reduce((n,t)=>n+(t.fusedA?2:1),0);
     if(wl>=6 && (P.pressGrowth||0)>0){ P.scoreMult=Math.round(((P.scoreMult||1)+P.pressGrowth)*1000)/1000; }
     if(usedLens) usedLens.add(wl);
-    if(opts.standing && firstWord){
-      dynBan=new Set([...(dynBan||[])]); tiles.forEach(t=>{ if(t.letter) dynBan.add(t.letter); if(t.fusedA){dynBan.add(t.fusedA.letter);dynBan.add(t.fusedB.letter);} });
-      pile=pile.filter(t=>!(t.letter && dynBan.has(t.letter) && !t.fusedA));
-      hand=hand.filter(t=>!(t.letter && dynBan.has(t.letter) && !t.fusedA));
-    }
+    // Standing Type: the exact tiles played simply never return to the pile.
+    const standingGone = (opts.standing && firstWord) ? new Set(tiles) : null;
     if(opts.editor && (!dynBan || dynBan.size<6+((opts.banned&&opts.banned.size)||0))){
       let best=null; tiles.forEach(t=>{ const L=t.letter||((t.fusedA&&t.fusedA.letter)||null); const v=predCV(t)*(t.mult||1);
         if(L && (!dynBan||!dynBan.has(L)) && (!best||v>best.v||(v===best.v&&L<best.L))) best={L,v}; });
@@ -1793,7 +1819,9 @@ function predLevel(P,seed,opts){
     }
     if(opts.deadlineGrow && score<target){ target=Math.round(target*1.10); }
     firstWord=false;
-    const used=new Set(tiles); hand=hand.filter(t=>!used.has(t)); pile.push(...tiles); draw(); hl--;
+    const used=new Set(tiles); hand=hand.filter(t=>!used.has(t));
+    if(!standingGone) pile.push(...tiles);   // Standing Type keeps the set slugs off the press
+    draw(); hl--;
   }
 }
 /* ---- challenge-aware bot helpers (v3b) ---- */
@@ -3367,7 +3395,7 @@ function startLevel(){
   G.score=0;
   G.handsLeft=HANDS_PER_LEVEL+G.extraTurns;
   G.discardsLeft=DISCARDS_PER_LEVEL+G.extraDiscards;
-  G.roundLengths=[]; G.standingBan=null;
+  G.roundLengths=[]; G.standingDone=false;
   // Smudged Ink is strictly a one-round condition: clear stale ink from every
   // zone (deck, piles, hand, canvas, stash) so no tile carries it out of the round.
   [G.deck,G.drawPile,G.hand,G.played,G.canvas,G.lucky7Stash].forEach(arr=>(arr||[]).forEach(c=>{ if(c) delete c._smudged; }));
@@ -3442,9 +3470,12 @@ function startLevel(){
 function returnCanvasToPile(){
   if(G.canvas.length){
     G.canvas.forEach(c=>{ if(c.kind==="clone") c.cloneLetter=null; if(c.kind==="wildvowel") c.vowel=null; if(c.kind==="wildcons") c.cons=null; });
-    const encore=G.canvas.filter(c=>c.encore), rest=G.canvas.filter(c=>!c.encore);
+    const standing=G.canvas.filter(c=>c._standingGone);   // Standing Type: these leave the round
+    const live=G.canvas.filter(c=>!c._standingGone);
+    const encore=live.filter(c=>c.encore), rest=live.filter(c=>!c.encore);
     if(!G.played) G.played=[];
     G.played.push(...rest);                       // v45a: played slugs go to the discard pile
+    standing.forEach(c=>{ delete c._standingGone; });   // clear the mark; the tile simply is not returned
     if(encore.length) G.drawPile.unshift(...encore);
     G.canvas=[];
   }
@@ -3507,14 +3538,14 @@ function submitWord(){
     }
     renderChallengeBanner();
   }
-  if(challengeActive() && G.challenge.type==="standing" && !(G.standingBan||[]).length){
-    G.standingBan=[...new Set(res.map(r=>r.letter).filter(Boolean))];       // fused sides and wilds still honor the ban
-    // the letters themselves LEAVE the round, so a discardless hand can never
-    // be clogged with dead tiles (deck untouched; they return next level)
-    const bans=new Set(G.standingBan);
-    const strike=arr=>(arr||[]).filter(c=>!(c.kind==="letter" && bans.has(c.letter)));
-    G.hand=strike(G.hand); G.drawPile=strike(G.drawPile); G.played=strike(G.played); G.canvas=strike(G.canvas);
-    renderHand();
+  if(challengeActive() && G.challenge.type==="standing" && !G.standingDone){
+    // Standing Type: the EXACT tiles set in the first word stay on the press for
+    // the rest of the round. Only those instances leave (other copies of the same
+    // letter keep playing), and the deck itself is untouched, so everything
+    // returns next level. Flagged here; returnCanvasToPile drops them.
+    G.standingDone=true;
+    G.canvas.forEach(c=>{ c._standingGone=true; });
+    toast("Standing type: those "+G.canvas.length+" slugs stay set for this round.");
   }
   G.pulpPending=0;                                                          // Pulp Mill bonus is consumed by this word
   if(isJazz){ G.canvas.forEach(c=>{ if(c.kind==="jazz" && (c.jazzLeft||0)>0) c.jazzLeft--; }); }
@@ -3961,7 +3992,7 @@ function utilPool(){
 function letterOffer(L){
   const v=LETTER_VALUES[L];
   const rarity=v<=2?"common":v<=4?"uncommon":"rare";
-  return {kind:"Letter",rarity,name:"Add "+L,desc:"A "+v+"-point "+L+" joins your deck.",
+  return {kind:"Letter",rarity,name:"Add "+L,desc:L==="Q" ? "A "+v+"-point Q joins your deck, with a U to keep it company." : "A "+v+"-point "+L+" joins your deck.",
     price:px(2+Math.ceil(v/2)), art:`<span class="mini-tile">${L}<span class="mv">${v}</span></span>`,
     d:{type:"letter",L}};
 }
@@ -4043,7 +4074,8 @@ function heartOffer(){
 function applyOffer(o){
   const d=o.d||{};
   switch(d.type){
-    case "letter":       { const card=makeLetterCard(d.L); if(d.gild) card.upLevel=d.gild|0; G.deck.push(card); } break;
+    case "letter":       { const card=makeLetterCard(d.L); if(d.gild) card.upLevel=d.gild|0; G.deck.push(card);
+                           if(d.L==="Q") G.deck.push(makeLetterCard("U")); } break;   // a Q never travels alone
     case "clone":        G.deck.push(makeCloneCard()); break;
     case "firstUp":      openBonusChooser("firstUp"); break;
     case "lastUp":       openBonusChooser("lastUp"); break;
@@ -5367,7 +5399,7 @@ function save(){
       perks:G.perks, scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, reprintUsed:G.reprintUsed, foilUsed:G.foilUsed, challenge:G.challenge, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, jazzCharges:G.jazzCharges, runMs:G.runMs, stats:G.stats,
       wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, wordPlays:G.wordPlays, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
       attempt:G.attempt, target:G.target, score:G.score, handsLeft:G.handsLeft, discardsLeft:G.discardsLeft,
-      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), roundLengths:(G.roundLengths||[]), standingBan:(G.standingBan||null), _marginsApplied:!!G._marginsApplied, boss:(G.boss||null), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0,
+      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), roundLengths:(G.roundLengths||[]), standingDone:!!G.standingDone, _marginsApplied:!!G._marginsApplied, boss:(G.boss||null), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0,
       rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
     };
     localStorage.setItem(SAVE_KEY,JSON.stringify(data));
@@ -5389,7 +5421,7 @@ function continueRun(){
   G.challenge=d.challenge||null;
   G.lucky7Stash=Array.isArray(d.lucky7Stash)?d.lucky7Stash:[];
   G.shopSeen=Array.isArray(d.shopSeen)?d.shopSeen:[];
-  G.roundLengths=Array.isArray(d.roundLengths)?d.roundLengths:[]; G.standingBan=d.standingBan||null; G._marginsApplied=!!d._marginsApplied;
+  G.roundLengths=Array.isArray(d.roundLengths)?d.roundLengths:[]; G.standingDone=!!d.standingDone; G._marginsApplied=!!d._marginsApplied;
   G.boss=d.boss||null; normalizeBoss(); if(G.boss&&G.boss.active&&G.level===WIN_LEVEL) document.body.classList.add("boss-round");
   G.anagramSigs=d.anagramSigs||{}; G.anthologyCount=d.anthologyCount||0; G.abcSeen=d.abcSeen||{}; G.lastWordLetters=d.lastWordLetters||null; G.pulpPending=d.pulpPending||0;
   G.jazzCharges=(typeof d.jazzCharges==="number")?d.jazzCharges:0;
