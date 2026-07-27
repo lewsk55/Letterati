@@ -24,6 +24,9 @@
    workhorse letter; letter offers show held counts; rank-forward
    game over; First-up/Finale label drift fixed (reads scoreOf);
    telemetry adds challenges[], bossLog, dealer[] swaps.
+   v491b: Tight Margins renamed Small Margins, now takes one tile
+   instead of two (diff 2 -> 1); the restore stores the actual
+   delta so hand size can never drift across a save.
    ============================================================ */
 :root{
   --ink:#23202E;          /* warm near-black ink */
@@ -1240,7 +1243,7 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "491a";
+const VERSION = "491b";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -1253,6 +1256,7 @@ const CHALLENGE_LEVELS = new Set([3,5,7]);
 const CHALLENGE_TARGET_MULT = 1.75;  // "steep target" challenge: +75% over the round's base goal
 const CHALLENGE_BAN_COUNT  = 3;      // "letters locked": one vowel + two most-used consonants
 const CHALLENGE_MIN_LEN    = 5;      // "long form": no words under 5 letters
+const MARGINS_TILES        = 1;      // "small margins": tiles taken off the hand (v491b: was 2)
 const CHALLENGE_TYPES = {
   steep:  { name:"Steep Target", badge:"+75% target", diff:2,
             desc:"Clear a target that is 75 percent higher this round." },
@@ -1266,8 +1270,8 @@ const CHALLENGE_TYPES = {
             desc:"You get one fewer word this round." },
   house:  { name:"House Style", badge:"required letter", diff:2,
             desc:"Every word must contain the commissioned letter." },
-  margins:{ name:"Tight Margins", badge:"smaller hand", diff:2,
-            desc:"Your hand holds two fewer tiles this round." },
+  margins:{ name:"Small Margins", badge:"smaller hand", diff:1,
+            desc:"Your hand holds one fewer tile this round." },
   union:  { name:"Union Rules", badge:"no discards", diff:2,
             desc:"No discards this round." },
   heavy:  { name:"Heavy Stock", badge:"vowels worth 0", diff:3,
@@ -1936,7 +1940,7 @@ function predictSeed(seed,opts){
       const banned = chType==="locked" ? new Set(predDeckTop(P.deck,CHALLENGE_BAN_COUNT)) : null;
       const chTarget = chType==="steep" ? Math.round(target*CHALLENGE_TARGET_MULT) : target;
       const chOpts={ target:chTarget, banned, minLen: chType==="longform"?CHALLENGE_MIN_LEN:0, smart:opts.smart,
-        handDelta: chType==="margins"?-2 : chType==="smudged"?-1 : 0,
+        handDelta: chType==="margins"?-MARGINS_TILES : chType==="smudged"?-1 : 0,
         turnsDelta: chType==="rush"?-1:0,
         noDiscards: chType==="union",
         zeroVowels: chType==="heavy",
@@ -3479,11 +3483,11 @@ function startLevel(){
   // Smudged Ink is strictly a one-round condition: clear stale ink from every
   // zone (deck, piles, hand, canvas, stash) so no tile carries it out of the round.
   [G.deck,G.drawPile,G.hand,G.played,G.canvas,G.lucky7Stash].forEach(arr=>(arr||[]).forEach(c=>{ if(c) delete c._smudged; }));
-  if(G._marginsApplied){ G.handSize+=2; G._marginsApplied=false; }   // restore a prior Tight Margins
+  if(G._marginsApplied){ G.handSize+=(+G._marginsApplied||0); G._marginsApplied=0; }   // restore a prior Small Margins
   if(challengeActive()){
     if(G.challenge.type==="union") G.discardsLeft=0;                                  // Union Rules
     if(G.challenge.type==="rush")  G.handsLeft=Math.max(1,G.handsLeft-1);             // Rush Order
-    if(G.challenge.type==="margins"){ G.handSize=Math.max(3,G.handSize-2); G._marginsApplied=true; }   // Tight Margins
+    if(G.challenge.type==="margins"){ const before=G.handSize; G.handSize=Math.max(3,G.handSize-MARGINS_TILES); G._marginsApplied=before-G.handSize; }   // Small Margins
   }
   // ---- Round 10: THE FINAL PROOF ----
   if(G.level===WIN_LEVEL && !G.endless){
@@ -5598,7 +5602,7 @@ function save(){
       perks:G.perks, scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, reprintUsed:G.reprintUsed, foilUsed:G.foilUsed, challenge:G.challenge, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, jazzCharges:G.jazzCharges, runMs:G.runMs, stats:G.stats,
       wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, wordPlays:G.wordPlays, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
       attempt:G.attempt, target:G.target, score:G.score, handsLeft:G.handsLeft, discardsLeft:G.discardsLeft,
-      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), roundLengths:(G.roundLengths||[]), standingDone:!!G.standingDone, _marginsApplied:!!G._marginsApplied, boss:(G.boss||null), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0,
+      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), roundLengths:(G.roundLengths||[]), standingDone:!!G.standingDone, _marginsApplied:(+G._marginsApplied||0), boss:(G.boss||null), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0,
       rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed, _bossPreviewSeen:!!G._bossPreviewSeen, _lockOpened:!!G._lockOpened, letterPlays:G.letterPlays||{}, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
     };
     localStorage.setItem(SAVE_KEY,JSON.stringify(data));
@@ -5620,7 +5624,7 @@ function continueRun(){
   G.challenge=d.challenge||null;
   G.lucky7Stash=Array.isArray(d.lucky7Stash)?d.lucky7Stash:[];
   G.shopSeen=Array.isArray(d.shopSeen)?d.shopSeen:[];
-  G.roundLengths=Array.isArray(d.roundLengths)?d.roundLengths:[]; G.standingDone=!!d.standingDone; G._marginsApplied=!!d._marginsApplied;
+  G.roundLengths=Array.isArray(d.roundLengths)?d.roundLengths:[]; G.standingDone=!!d.standingDone; G._marginsApplied=(d._marginsApplied===true?2:(+d._marginsApplied||0));   // legacy saves stored a boolean for the old 2-tile cut
   G.boss=d.boss||null; normalizeBoss(); if(G.boss&&G.boss.active&&G.level===WIN_LEVEL) document.body.classList.add("boss-round");
   G.anagramSigs=d.anagramSigs||{}; G.anthologyCount=d.anthologyCount||0; G._bossPreviewSeen=!!d._bossPreviewSeen; G._lockOpened=!!d._lockOpened; G.letterPlays=d.letterPlays||{}; G.abcSeen=d.abcSeen||{}; G.lastWordLetters=d.lastWordLetters||null; G.pulpPending=d.pulpPending||0;
   G.jazzCharges=(typeof d.jazzCharges==="number")?d.jazzCharges:0;
