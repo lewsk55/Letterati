@@ -16,6 +16,14 @@
    Sibling to Verbatim. Tile engine + juice ported from Verbatim;
    roguelike systems (seeded streams, rising shop prices, rerolls,
    deck view, card removal, hearts) modelled on Golf Gone Wrong.
+   v491a: boss preview at end of R7 shop + AHEAD banner (R8-9);
+   boss-round target eased x0.85 (live + predictor in lockstep);
+   Big Words reworked (6+ letter words x2); new perks: Fighting
+   Words (+50%/lost heart), Dealer's Choice (pull from draw pile);
+   Sealed shelf paid 7th shop slot; Gild offer names the run's
+   workhorse letter; letter offers show held counts; rank-forward
+   game over; First-up/Finale label drift fixed (reads scoreOf);
+   telemetry adds challenges[], bossLog, dealer[] swaps.
    ============================================================ */
 :root{
   --ink:#23202E;          /* warm near-black ink */
@@ -73,6 +81,7 @@
 }
 :root[data-theme="dark"] .tile.combo{background:linear-gradient(180deg,#3B3054,#2E2542);border-color:#6A5793}
 :root[data-theme="dark"] .tile.lucky7{background:linear-gradient(180deg,#2E4629,#233620);border-color:#557B4A}
+:root[data-theme="dark"] .tile.dealer{background:linear-gradient(180deg,#26364A,#1D2A3A);border-color:#4A6B8E}
 :root[data-theme="dark"] .tile.clone{background:linear-gradient(180deg,#39344E,#2C283E);border-color:#5C548A}
 :root[data-theme="dark"] .tile.copycat{background:linear-gradient(180deg,#443B28,#352E1E);border-color:#7A683F}
 :root[data-theme="dark"] .pause-fab{background:var(--paper);}
@@ -401,6 +410,9 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 .tile.lucky7{background:linear-gradient(180deg,#F1F8EE,#DCEFD6);border-color:#AFD3A2}
 .tile.lucky7 .glyph{font-size:1.25em}
 .tile.lucky7 .glyph-sub{position:absolute;left:0;right:0;bottom:3px;text-align:center;font-family:var(--ui);font-size:.42em;font-weight:800;letter-spacing:.06em;color:#3C7E4A}
+.tile.dealer{background:linear-gradient(180deg,#EEF3FA,#D8E4F2);border-color:#9FB9D6}
+.tile.dealer .glyph{font-size:1.25em}
+.tile.dealer .glyph-sub{position:absolute;left:0;right:0;bottom:3px;text-align:center;font-family:var(--ui);font-size:.42em;font-weight:800;letter-spacing:.06em;color:#3D6288}
 .clone-choice.fused-duo{background:linear-gradient(180deg,#EAF3F0,#D3E7E0);border-color:#9FC4B8}
 .clone-choice.active{outline:2px solid #3C9E84;outline-offset:1px}
 .deck-tile.fuse-pending{outline:3px solid #3C9E84;outline-offset:2px;border-radius:10px}
@@ -601,6 +613,8 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 .shop-underrow .icon-btn{margin:0}
 .reroll-btn{flex:1;background:transparent;border:1.5px solid var(--tile-edge);border-radius:12px;padding:13px;font-weight:800;color:var(--ink);cursor:pointer;display:flex;align-items:center;justify-content:center;gap:6px}
 .reroll-btn:disabled{opacity:.4;cursor:not-allowed}
+.offer.sealed{border-style:dashed;opacity:.92}
+.offer.sealed .o-art{filter:saturate(.7)}
 .next-btn{flex:1.3;background:var(--ink);color:var(--paper);border:none;border-radius:12px;padding:13px;font-weight:800;cursor:pointer}
 .purse{font-weight:800;color:var(--brass-deep);display:flex;align-items:center;gap:5px;font-size:1rem}
 
@@ -930,7 +944,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 <!-- ===== Game over / win ===== -->
 <div class="overlay hidden" id="bossScreen">
   <div class="sheet sheet-center boss-sheet">
-    <div class="boss-kicker">ROUND 10 · THE FINAL PROOF</div>
+    <div class="boss-kicker" id="bossKicker">ROUND 10 · THE FINAL PROOF</div>
     <div class="boss-art" id="bossArt">🖋️</div>
     <div class="boss-name" id="bossName">The Editor</div>
     <div class="boss-badge" id="bossBadge">letters struck</div>
@@ -1226,8 +1240,9 @@ EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "49h";
+const VERSION = "491a";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
+const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
    At rounds 3, 5 and 7 the player is offered ONE seeded challenge: a harder
@@ -1340,7 +1355,7 @@ const CHALLENGE_EPIC_POOL = [
   {name:"Wild consonant",   art:"✦",  desc:"A slug that becomes any consonant you choose.", d:{type:"wildCons"}},
   {name:"Wild vowel",       art:"✺",  desc:"A slug that becomes any vowel you choose.", d:{type:"wildVowel"}},
   {name:"Clone",            art:"❖",  desc:"Play it as a copy of any letter you are holding.", d:{type:"clone"}},
-  {name:"Big words",        art:"📏", desc:"Longer words give double the length multiplier.", d:{type:"bigWords"}},
+  {name:"Big words",        art:"📏", desc:"Words of 6 or more letters score ×2.", d:{type:"bigWords"}},
   {name:"Free re-roll",     art:"♻️", desc:"Your first re-roll in each shop is free, for the rest of the run.", d:{type:"freeRerolls"}},
   {name:"Twinsies",         art:"👯", desc:"Double the whole word when two of the same letter sit side by side.", d:{type:"twinsies"}},
   {name:"Two of a kind",    art:"🃏", desc:"Any word with a repeated letter scores 1.5 times.", d:{type:"twoOfAKind"}},
@@ -1354,7 +1369,8 @@ const CHALLENGE_EPIC_POOL = [
   {name:"Marginalia",       art:"🪙", desc:"Earn 1 coin for every 15 points past the round target, up to 15 coins.", d:{type:"marginalia"}},
   {name:"Mirror",           art:"🪞", desc:"Palindromes score 3 times.", d:{type:"mirror"}},
   {name:"Verbose",          art:"🅥", desc:"Verbs score 1.5 times.", d:{type:"verbose"}},
-  {name:"Reprint",          art:"📋", desc:"Lose your last heart and gain one more. Once per run.", d:{type:"reprint"}}
+  {name:"Reprint",          art:"📋", desc:"Lose your last heart and gain one more. Once per run.", d:{type:"reprint"}},
+  {name:"Fighting Words",   art:"🥊", desc:"Words score +50% for every heart you have lost.", d:{type:"fightingWords"}}
 ];
 const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:2,M:3,N:1,O:1,P:3,Q:10,R:1,S:2,T:2,U:1,V:4,W:4,X:8,Y:4,Z:10};
 // L,S,T bumped 1→2 (v2d): only vowels + N,R,U remain 1-point. Targets scaled to match (see TARGET_SCALE).
@@ -1468,6 +1484,7 @@ function epicOwned(e){
   if(t==="twoOfAKind")  return !!G.perks.twoOfAKind;
   if(t==="vowelPower")  return !!G.perks.vowelPower;
   if(t==="interest")    return !!G.perks.interest;
+  if(t==="fightingWords") return !!G.perks.fightingWords;
   return false;
 }
 // The featured epic offered at a given challenge level. Seeded by level (and the run
@@ -1550,6 +1567,7 @@ const COMBO_DEFS = {
 };
 function makeComboCard(key){ const d=COMBO_DEFS[key]; return {id:++cardSeq, kind:"combo", combo:key, letter:null, base:d.seq.length, upLevel:0, mult:1}; }
 function makeLucky7Card(){ return {id:++cardSeq, kind:"lucky7", letter:null}; }
+function makeDealerCard(){ return {id:++cardSeq, kind:"dealer", letter:null}; }
 function comboSeq(c){ return COMBO_DEFS[c.combo].seq; }
 function comboLabel(c){ return COMBO_DEFS[c.combo].label; }
 function comboEntries(c){ const u=c.upLevel||0; return comboSeq(c).map(L=>({letter:L, value:1*Math.pow(2,u)})); }
@@ -1573,7 +1591,7 @@ const G = {
   perks:{ firstUp:{}, lastUp:{}, discardMoneyBoost:false, interest:false, twinsies:false,
           vowelPower:0, fireSale:false, bigWords:false, freeRerolls:false,
           proofSheet:false, twoOfAKind:false, shortKing:false,
-          kerning:false, fiveTimer:false, marginalia:false, mirror:false, reprint:false, repeater:false, powerTrio:false, verbose:false },
+          kerning:false, fiveTimer:false, marginalia:false, mirror:false, reprint:false, repeater:false, powerTrio:false, verbose:false, fightingWords:false },
   scoreMult:1,             // live "press multiplier", applied to every word score
   pressGrowth:0,           // v41a: each 6+ letter word raises scoreMult by this (per Press multiplier stack)
   challenge:null,          // active challenge-level descriptor {type,reward,banned[],active} or null
@@ -1709,8 +1727,9 @@ function predScore(t,P,zv){
     if(zv && [...g].every(ch=>VOWELS.has(ch.toUpperCase()))) v=0;
     s+=v; len+=g.length;
   });
-  let m=lenMult(len); if(P.bigWords)m=1+(m-1)*2;
+  let m=lenMult(len);
   let tot=s*m; if(len>=P.handSize)tot*=1.5;
+  if(P.bigWords && len>=6) tot*=2;   // v491a rework: 6+ letter words score ×2 (mirrors live scoreOf)
   if(P.shortKing && len>=2 && len<=5){ tot*={2:4,3:3,4:2.5,5:2}[len]; }   // live Short King tiers
   tot*=gm;   // v48a: golden letters compound on the whole word
   tot*=P.scoreMult||1; return Math.round(tot);
@@ -1941,7 +1960,8 @@ function predictSeed(seed,opts){
       // perkless pinned bot. Ledger shortfalls cost a heart.
       const bt=bossTypeFor(seed);
       stats.boss=bt;
-      const bOpts={ smart:opts.smart };
+      target=Math.round(target*BOSS_TARGET_SCALE);   // v491a: mirrors the live round-10 easing
+      const bOpts={ smart:opts.smart, target };
       if(bt==="editor")   bOpts.editor=true;
       if(bt==="deadline") bOpts.deadlineGrow=true;
       if(bt==="perfect"){ bOpts.minLen=5; bOpts.uniqueOnly=true; }
@@ -2415,6 +2435,14 @@ function buildTile(c,where){
     t.addEventListener("click",e=>{ if(justDragged){ e.preventDefault(); return; } e.preventDefault(); if(where==="hand") useLucky7(c); });
     return t;   // an action card: tap in the bank to use; it never enters the canvas
   }
+  if(c.kind==="dealer"){
+    t.classList.add("dealer");
+    if(!G.drawPile || G.drawPile.length===0) t.classList.add("spent");
+    const g=document.createElement("span"); g.className="glyph"; g.textContent="🎴"; t.appendChild(g);
+    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="DEALER"; t.appendChild(s);
+    t.addEventListener("click",e=>{ if(justDragged){ e.preventDefault(); return; } e.preventDefault(); if(where==="hand") useDealersChoice(c); });
+    return t;   // an action card: tap in the bank to use; it never enters the canvas
+  }
   if(c.kind==="combo"){
     t.classList.add("combo");
     const banLock=bannedLetterSet();
@@ -2677,7 +2705,6 @@ function scoreOf(res){
   const boldCount=res.reduce((n,r)=>n+((r.card&&r.card.boldface)?1:0),0);
   const effLen=res.length+boldCount;                                  // Bold Face: each counts as 2 letters for length
   let m=lenMult(effLen);
-  if(G.perks.bigWords) m=1+(m-1)*2;             // double the length bonus above ×1
   m=Math.round(m*100)/100;
   let total=sum*m;
   let bingo=false;
@@ -2686,8 +2713,9 @@ function scoreOf(res){
   // word by (1 + 0.5*s) when the word starts (first-up) / ends (finale) with it. (v41a: +50% per stack, was +100%)
   const fuStacks = res.length>0 ? (G.perks.firstUp[res[0].letter]||0) : 0;
   const luStacks = res.length>0 ? (G.perks.lastUp[res[res.length-1].letter]||0) : 0;
-  if(fuStacks>0) total*=(1+0.5*fuStacks);
-  if(luStacks>0) total*=(1+0.5*luStacks);
+  const fuMult=Math.round((1+0.5*fuStacks)*100)/100, luMult=Math.round((1+0.5*luStacks)*100)/100;
+  if(fuStacks>0) total*=fuMult;
+  if(luStacks>0) total*=luMult;
   // Twinsies: ×2 when two identical letters sit side by side in the word.
   let twinHit=false;
   if(G.perks.twinsies){ for(let i=1;i<res.length;i++){ if(res[i].letter===res[i-1].letter){ twinHit=true; break; } } }
@@ -2709,6 +2737,9 @@ function scoreOf(res){
   // Five Timer (v42a): exactly-5-letter words → ×1.5
   let fiveHit=false;
   if(G.perks.fiveTimer && effLen===5){ fiveHit=true; total*=1.5; }
+  // Big Words (v491a rework): any word of 6+ letters → ×2 (was: doubled length bonus)
+  let bigHit=false;
+  if(G.perks.bigWords && effLen>=6){ bigHit=true; total*=2; }
   // Mirror (v42a): palindromes → ×3
   let mirrorHit=false;
   if(G.perks.mirror && res.length>=2){ const w=res.map(r=>r.letter).join(""); if(w===w.split("").reverse().join("")){ mirrorHit=true; total*=3; } }
@@ -2744,6 +2775,9 @@ function scoreOf(res){
   }
   let coloHit=false;
   if(G.perks.colophon && G.handsLeft===1){ coloHit=true; total*=2; }
+  // Fighting Words (v491a): +50% per lost heart. Backs to the wall, best work yet.
+  let fwMult=1;
+  if(G.perks.fightingWords){ const lost=Math.max(0,MAX_HEARTS-G.hearts); if(lost>0){ fwMult=1+0.5*lost; total*=fwMult; } }
   let movableHit=false;
   if(G.perks.movableType && res.length>=2 && res.every(r=>r.letter)){
     const mw=res.map(r=>r.letter.toLowerCase()).join(""); const sig=mw.split("").sort().join("");
@@ -2762,7 +2796,7 @@ function scoreOf(res){
   if(G.perks.pulpMill && (G.pulpPending||0)>0){ pulpAdd=G.pulpPending; total+=pulpAdd; }
   let commissionAdd=0;
   if(G.perks.commission && (G.coins||0)>0){ commissionAdd=G.coins; total+=commissionAdd; }
-  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,twinHit,pairHit,shortHit,shortMult,kernHit,fiveHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit,effLen,ligHit,crossHit,alphaHit,coloHit,movableHit,anthMult,vanityHit,liqMult,goldMult,pulpAdd,commissionAdd};
+  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,fuMult,luMult,twinHit,pairHit,shortHit,shortMult,kernHit,fiveHit,bigHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit,effLen,ligHit,crossHit,alphaHit,coloHit,fwMult,movableHit,anthMult,vanityHit,liqMult,goldMult,pulpAdd,commissionAdd};
 }
 function updateLive(){
   const res=resolvedCanvas();
@@ -2787,13 +2821,14 @@ function updateLive(){
   const parts=[`${sc.sum} base`, `×${sc.mult} length`];
   if(sc.press!==1) parts.push(`×${sc.press.toFixed(2)} press`);
   if(sc.bingo) parts.push(`×1.5 full case`);
-  if(sc.firstHit) parts.push(`×${1+sc.fuStacks} first`);
-  if(sc.lastHit) parts.push(`×${1+sc.luStacks} finale`);
+  if(sc.firstHit) parts.push(`×${sc.fuMult%1?sc.fuMult.toFixed(1):sc.fuMult} first`);
+  if(sc.lastHit) parts.push(`×${sc.luMult%1?sc.luMult.toFixed(1):sc.luMult} finale`);
   if(sc.twinHit) parts.push(`×2 twins`);
   if(sc.pairHit) parts.push(`×1.5 pair`);
   if(sc.shortHit) parts.push(`×${(sc.shortMult%1?sc.shortMult.toFixed(1):sc.shortMult)} short`);
   if(sc.kernHit) parts.push(`×1.25 kerning`);
   if(sc.fiveHit) parts.push(`×1.5 five`);
+  if(sc.bigHit) parts.push(`×2 big words`);
   if(sc.mirrorHit) parts.push(`×3 mirror`);
   if(sc.trioHit) parts.push(`×2 trio`);
   if(sc.verbHit) parts.push(`×1.5 verb`);
@@ -2802,6 +2837,7 @@ function updateLive(){
   if(sc.crossHit) parts.push(`×1.25 crossword`);
   if(sc.alphaHit) parts.push(`×4 a to z`);
   if(sc.coloHit) parts.push(`×2 colophon`);
+  if(sc.fwMult>1) parts.push(`×${sc.fwMult%1?sc.fwMult.toFixed(1):sc.fwMult} fighting`);
   if(sc.movableHit) parts.push(`×2 anagram`);
   if(sc.anthMult>1) parts.push(`×${sc.anthMult.toFixed(2)} anthology`);
   if(sc.vanityHit) parts.push(`×1.25 vanity`);
@@ -3223,6 +3259,30 @@ function useLucky7(card){
   tiles.slice(-7).forEach((t,k)=>{ t.classList.add("dealing"); t.style.animationDelay=(k*45)+"ms"; });
   save();
 }
+// Dealer's Choice: tap in the hand to pull any tile from the draw pile. The
+// dealer card swaps into the pulled tile's spot in the pile, so counts never drift.
+function useDealersChoice(card){
+  if(!G.drawPile || G.drawPile.length===0){ toast("Your draw pile is empty"); haptic(8); return; }
+  G._dealerCardId=card.id;
+  openDeck("dealer");
+}
+function doDealerSwap(id){
+  const pi=G.drawPile.findIndex(c=>c.id===id); if(pi<0) return;
+  const hi=G.hand.findIndex(c=>c.id===G._dealerCardId);
+  if(hi<0){ G._dealerCardId=null; closeDeck(); return; }
+  const pulled=G.drawPile[pi];
+  const dealer=G.hand[hi];
+  G.drawPile[pi]=dealer;          // dealer takes the pulled tile's spot in the pile
+  G.hand[hi]=pulled;              // pulled tile lands in the hand
+  G._dealerCardId=null;
+  if(G.stats){ (G.stats.dealer=G.stats.dealer||[]).push({round:G.level,
+    pulled:(pulled.kind==="letter"?pulled.letter:pulled.kind)}); }
+  closeDeck();
+  renderHand(); renderHud(); updateLive();
+  toast("Dealer's Choice: "+(pulled.kind==="letter"?pulled.letter:pulled.kind));
+  haptic([12,28,12]);
+  save();
+}
 function drawIntoHand(){
   let dealt=0, didReshuffle=false;
   while(G.hand.length<G.handSize){
@@ -3374,7 +3434,25 @@ function renderChallengeBanner(){
     if(B.type==="critic" && B.suspended) state=`<span class="cb-dot">·</span><span class="cb-locked">silenced: ${B.suspended}</span>`;
     el.innerHTML=`<span class="cb-tag boss">FINAL PROOF</span><span class="cb-name">${def.art} ${def.name}</span>${state}<span class="cb-desc">${escHtml(def.desc)}</span>`;
     el.classList.remove("hidden");
+  } else if(!G.infinite && !G.endless && G._bossPreviewSeen && G.level>=WIN_LEVEL-2 && G.level<WIN_LEVEL){
+    const def=BOSS_TYPES[bossTypeFor(G.seed)];
+    el.innerHTML=`<span class="cb-tag">AHEAD</span><span class="cb-name">${def.art} ${def.name}</span><span class="cb-dot">·</span><span class="cb-desc">Round ${WIN_LEVEL}: ${escHtml(def.badge)}</span>`;
+    el.classList.remove("hidden");
   } else { el.classList.add("hidden"); el.innerHTML=""; }
+}
+function showBossPreview(){
+  G._bossPreviewSeen=true; G._bossPreviewOpen=true;
+  const def=BOSS_TYPES[bossTypeFor(G.seed)];
+  $("bossKicker").textContent="AHEAD · ROUND "+WIN_LEVEL+" · THE FINAL PROOF";
+  $("bossArt").textContent=def.art;
+  $("bossName").textContent=def.name;
+  $("bossBadge").textContent=def.badge;
+  $("bossDesc").textContent=def.desc;
+  $("bossIntroLine").textContent="Word from the floor: this is who waits at the final proof. Two rounds to get ready.";
+  $("bossGoBtn").textContent="Back to work";
+  $("bossScreen").classList.remove("hidden");
+  save();
+  haptic([15,50,15]);
 }
 function showBossIntro(){
   const B=G.boss; if(!B) return;
@@ -3384,6 +3462,8 @@ function showBossIntro(){
   $("bossBadge").textContent=def.badge;
   $("bossDesc").textContent=def.desc;
   $("bossIntroLine").textContent=def.intro;
+  $("bossKicker").textContent="ROUND "+WIN_LEVEL+" · THE FINAL PROOF";
+  $("bossGoBtn").textContent="Go to press";
   $("bossScreen").classList.remove("hidden");
   haptic([20,80,20,80,40]);
 }
@@ -3407,9 +3487,11 @@ function startLevel(){
   }
   // ---- Round 10: THE FINAL PROOF ----
   if(G.level===WIN_LEVEL && !G.endless){
+    G.target=Math.round(G.target*BOSS_TARGET_SCALE);   // v491a: keep in lockstep with predictSeed's boss branch
     if(!G.boss || !G.boss.active){
       const bt=bossTypeFor(G.seed);
       G.boss={ type:bt, active:true, ban:[], lastLen:0, cash:0, suspended:null, stash:null, introSeen:false };
+      if(G.stats && !G.stats.bossLog) G.stats.bossLog={round:G.level, type:bt, heartsBefore:G.hearts, heartsAfter:null, cleared:null, words:0};
       if(bt==="ghost"){
         let gt=0, gw=[];
         try{
@@ -3498,6 +3580,8 @@ function submitWord(){
   const sc=scoreOf(res);
   const w=res.map(r=>r.letter.toLowerCase()).join("");
   if(!isJazz){ if(!G.wordPlays) G.wordPlays={}; G.wordPlays[w]=(G.wordPlays[w]||0)+1; }   // v43a: Repeater history (after scoreOf read the prior count)
+  if(!G.letterPlays) G.letterPlays={};
+  res.forEach(r=>{ if(r.letter) G.letterPlays[r.letter]=(G.letterPlays[r.letter]||0)+1; });   // v491a: workhorse tracking for the gild offer
   if(!isJazz){
     if(!G.anagramSigs) G.anagramSigs={};                                   // Movable Type history (after scoreOf read it)
     const sig=w.split("").sort().join("");
@@ -3665,7 +3749,11 @@ function levelCleared(){
   if(G.stats){ if(!G.stats.rounds) G.stats.rounds=[];
     G.stats.rounds.push({round:G.level, target:G.target, score:G.score, margin:G.score-G.target, cleared:true,
       heartsLeft:G.hearts, discardsLeft:G.discardsLeft, discardsSpent:(DISCARDS_PER_LEVEL+(G.extraDiscards||0))-G.discardsLeft,
-      wordsLeft:G.handsLeft, payout:rw.total}); }
+      wordsLeft:G.handsLeft, payout:rw.total});
+    { const ch=G.stats.challenges&&G.stats.challenges.find(c=>c.round===G.level&&c.taken&&c.cleared==null);
+      if(ch){ ch.cleared=true; ch.heartsAfter=G.hearts; } }
+    if(G.stats.bossLog && G.stats.bossLog.round===G.level && G.stats.bossLog.cleared==null){
+      G.stats.bossLog.cleared=true; G.stats.bossLog.heartsAfter=G.hearts; G.stats.bossLog.words=(G.levelStats&&G.levelStats.words)||0; } }
   // v3a: fold the chosen challenge reward into this cleared round
   if(challengeActive()){
     if(G.challenge.reward==="cash"||G.challenge.reward==="cash10"){ rw.bonus=10; rw.total+=10; }
@@ -3916,6 +4004,7 @@ function pickWeighted(rng,entries){
 function perkPool(rng){
   const e=[
     {make:()=>cloneOffer(),        weight:1.4},
+    {make:()=>dealersChoiceOffer(), weight:1.0},
     {make:()=>copyCatOffer(),      weight:1.6},
     {make:()=>wildVowelOffer(),    weight:2},
     {make:()=>wildConsOffer(),     weight:1.0},
@@ -3958,6 +4047,7 @@ function perkPool(rng){
   if(!G.perks.kerning)           e.push({make:()=>kerningOffer(),     weight:1.4});
   if(!G.perks.fiveTimer)         e.push({make:()=>fiveTimerOffer(),   weight:1.4});
   if(!G.perks.marginalia)        e.push({make:()=>marginaliaOffer(),  weight:1.3});
+  if(!G.perks.fightingWords)     e.push({make:()=>fightingWordsOffer(), weight:1.2});
   if(!G.perks.mirror)            e.push({make:()=>mirrorOffer(),      weight:0.8});
   if(!G.perks.verbose)           e.push({make:()=>verboseOffer(),     weight:1.2});
   if(!G.perks.verbizer)          e.push({make:()=>verbizerOffer(),    weight:0.8});
@@ -3989,12 +4079,20 @@ function utilPool(){
   if(G.hearts<MAX_HEARTS) e.push({make:()=>heartOffer(),weight:2});
   return e;
 }
+function heldCount(L){ return G.deck.filter(c=>c.kind==="letter"&&c.letter===L).length; }
+function heldNote(L){ const n=heldCount(L); return n===0?" You hold none.":(n===1?" You hold 1.":" You hold "+n+"."); }
 function letterOffer(L){
   const v=LETTER_VALUES[L];
   const rarity=v<=2?"common":v<=4?"uncommon":"rare";
-  return {kind:"Letter",rarity,name:"Add "+L,desc:L==="Q" ? "A "+v+"-point Q joins your deck, with a U to keep it company." : "A "+v+"-point "+L+" joins your deck.",
+  return {kind:"Letter",rarity,name:"Add "+L,desc:(L==="Q" ? "A "+v+"-point Q joins your deck, with a U to keep it company." : "A "+v+"-point "+L+" joins your deck.")+heldNote(L),
     price:px(2+Math.ceil(v/2)), art:`<span class="mini-tile">${L}<span class="mv">${v}</span></span>`,
     d:{type:"letter",L}};
+}
+function dealersChoiceOffer(){
+  return {kind:"Card",rarity:"epic",name:"Dealer's Choice",
+    desc:"Tap it in your hand to pull any tile from your draw pile. This card takes its place in the pile.",
+    price:px(13), art:`<span class="mini-tile" style="background:linear-gradient(180deg,#EEF3FA,#D8E4F2);border-color:#9FB9D6">🎴</span>`,
+    d:{type:"dealer"}};
 }
 function cloneOffer(){
   return {kind:"Card",rarity:"epic",name:"Clone",desc:"Play it as a copy of any letter you're holding, along with every upgrade on it.",
@@ -4046,7 +4144,7 @@ function goldenLetterOffer(rng){
   const pool={E:3,A:2,S:3,R:3,T:3,N:2,L:2,D:2,M:2,P:2,H:2,C:2,B:1,W:1,Y:1,K:1};
   const L=weightedLetter(rng,pool), v=LETTER_VALUES[L];
   return {kind:"Letter",rarity:"rare",name:"Golden "+L,
-    desc:"A new "+v+"-point "+L+", already golden. Its 1.25× multiplies your whole word score.",
+    desc:"A new "+v+"-point "+L+", already golden. Its 1.25× multiplies your whole word score."+heldNote(L),
     price:px(6+Math.ceil(v/2)),
     art:`<span class="mini-tile" style="background:linear-gradient(180deg,#F6E7B7,#EAD292);border-color:#C9A94E">${L}<span class="mv">${v}</span></span>`,
     d:{type:"goldenLetter",L}};
@@ -4059,8 +4157,21 @@ function heavyPressOffer(rng){
     desc:"Every word that scores 100 or more raises your score multiplier by 3% (stacks).",
     price:px(10), art:"⚙️", d:{type:"heavyPress",g}};
 }
+function suggestGildLetter(){
+  // The letter that has done the most work this run, provided a gildable copy is
+  // in the deck. Falls back to the most-held deck letter before any words are set.
+  const gildable=L=>G.deck.some(c=>c.kind==="letter" && c.letter===L && (c.upLevel||0)<GILD_CAP);
+  const played=Object.entries(G.letterPlays||{}).sort((a,b)=>b[1]-a[1]).map(e=>e[0]).filter(gildable);
+  if(played.length) return played[0];
+  const held={}; G.deck.forEach(c=>{ if(c.kind==="letter"&&(c.upLevel||0)<GILD_CAP) held[c.letter]=(held[c.letter]||0)+1; });
+  const top=Object.entries(held).sort((a,b)=>b[1]-a[1]);
+  return top.length?top[0][0]:"E";
+}
 function gildOffer(){
-  return {kind:"Upgrade",rarity:"rare",name:"Gilded Letter",desc:"Double a letter's points. Re-gilding the same letter costs double each time.",
+  // v491a: the offer now leads with the player's workhorse letter (it was passed
+  // 53 times in playtest telemetry as a nameless generic). The pick stays theirs.
+  const L=suggestGildLetter();
+  return {kind:"Upgrade",rarity:"rare",name:"Gild "+L,desc:"Double a letter's points. Your "+L+" has done the most work this run. Re-gilding the same letter costs double each time.",
     price:px(GILD_BASE), art:"✨", needsTarget:"gild", d:{type:"gild"}};
 }
 function eraserOffer(){
@@ -4077,6 +4188,7 @@ function applyOffer(o){
     case "letter":       { const card=makeLetterCard(d.L); if(d.gild) card.upLevel=d.gild|0; G.deck.push(card);
                            if(d.L==="Q") G.deck.push(makeLetterCard("U")); } break;   // a Q never travels alone
     case "clone":        G.deck.push(makeCloneCard()); break;
+    case "dealer":       G.deck.push(makeDealerCard()); break;
     case "firstUp":      openBonusChooser("firstUp"); break;
     case "lastUp":       openBonusChooser("lastUp"); break;
     case "fuller":       G.handSize++; break;
@@ -4111,6 +4223,7 @@ function applyOffer(o){
     case "kerning":      G.perks.kerning=true; break;
     case "fiveTimer":    G.perks.fiveTimer=true; break;
     case "marginalia":   G.perks.marginalia=true; break;
+    case "fightingWords": G.perks.fightingWords=true; break;
     case "mirror":       G.perks.mirror=true; break;
     case "verbose":      G.perks.verbose=true; break;
     case "verbizer":     G.perks.verbizer=true; break;
@@ -4168,6 +4281,10 @@ function shortKingOffer(){
 function freeJazzOffer(){
   return {kind:"Card",rarity:"legendary",name:"Free jazz",desc:"Set ANY combination of letters — real word or not. 3 uses, then it leaves your deck.",
     price:px(14), art:"🎷", d:{type:"freeJazz"}};
+}
+function fightingWordsOffer(){
+  return {kind:"Perk",rarity:"epic",name:"Fighting Words",desc:"Words score +50% for every heart you have lost.",
+    price:px(7), art:"🥊", d:{type:"fightingWords"}};
 }
 function vowelPowerOffer(){
   const stacks=(+G.perks.vowelPower||0);
@@ -4354,7 +4471,8 @@ function fireSaleOffer(){
     price:px(7), art:"🔥", d:{type:"fireSale"}};
 }
 function bigWordsOffer(){
-  return {kind:"Perk",rarity:"epic",name:"Big words",desc:"Longer words give double the length multiplier.",
+  // v491a rework: from doubled length bonus to a flat ×2 on 6+ letter words.
+  return {kind:"Perk",rarity:"epic",name:"Big words",desc:"Words of 6 or more letters score ×2.",
     price:px(12), art:"📏", d:{type:"bigWords"}};
 }
 function twinsiesOffer(){
@@ -4374,6 +4492,7 @@ function setShopHeader(){
 }
 function openShop(){
   G.freeRerollUsed=false;         // reset BEFORE building so the shop opens un-rerolled and the free reroll varies the seed
+  G._lockOpened=false;            // v491a: the sealed shelf re-locks at every new shop
   G.shopSeen=[];                  // fresh shop: forget the previous shop's stock
   G.shopOffers=buildShopPool();   // reroll count persists for the whole run
   if(G.perks.abridged){
@@ -4393,7 +4512,7 @@ function openShop(){
 function shopSnapshot(){
   return {
     coins:G.coins, handSize:G.handSize, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns,
-    scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, heavyPress:G.heavyPress||0, jazzCharges:G.jazzCharges, hearts:G.hearts, rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed,
+    scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, heavyPress:G.heavyPress||0, jazzCharges:G.jazzCharges, hearts:G.hearts, rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed, _lockOpened:!!G._lockOpened,
     gildOfferIdx:G.gildOfferIdx, fuseOfferIdx:G.fuseOfferIdx,
     perks:JSON.parse(JSON.stringify(G.perks)),
     deck:G.deck.map(c=>({...c})),
@@ -4405,7 +4524,7 @@ function shopUndo(){
   if(!G.shopUndo.length) return;
   const s=G.shopUndo.pop();
   G.coins=s.coins; G.handSize=s.handSize; G.extraDiscards=s.extraDiscards; G.extraTurns=s.extraTurns;
-  G.scoreMult=s.scoreMult; G.pressGrowth=s.pressGrowth||0; G.heavyPress=s.heavyPress||0; G.jazzCharges=s.jazzCharges; G.hearts=s.hearts; G.rerollCount=s.rerollCount; G.freeRerollUsed=s.freeRerollUsed;
+  G.scoreMult=s.scoreMult; G.pressGrowth=s.pressGrowth||0; G.heavyPress=s.heavyPress||0; G.jazzCharges=s.jazzCharges; G.hearts=s.hearts; G.rerollCount=s.rerollCount; G.freeRerollUsed=s.freeRerollUsed; G._lockOpened=!!s._lockOpened;
   G.gildOfferIdx=s.gildOfferIdx; G.fuseOfferIdx=(s.fuseOfferIdx!=null?s.fuseOfferIdx:null); G.fusePending=null; G.perks=s.perks; G.deck=s.deck; G.shopOffers=s.offers;
   haptic(12); toast("Undone");
   renderShop(); save();
@@ -4435,6 +4554,21 @@ function renderShop(){
     if(!o.sold){ card.querySelector(".buy-btn").addEventListener("click",()=>buyOffer(i)); }
     grid.appendChild(card);
   });
+  if(!G._lockOpened){
+    const cost=sealedCost();
+    const card=document.createElement("div");
+    card.className="offer sealed";
+    card.innerHTML=`
+      <span class="o-kind">SEALED · Crate</span>
+      <div class="o-art">📦</div>
+      <div>
+        <div class="o-name">Sealed shelf</div>
+        <div class="o-desc">Pay to crack open one more offer.</div>
+      </div>
+      <button class="buy-btn" ${G.coins<cost?"disabled":""}><span class="c-ico">◉</span>${cost}</button>`;
+    card.querySelector(".buy-btn").addEventListener("click",openSealedShelf);
+    grid.appendChild(card);
+  }
 }
 function rerollCost(){ if(G.perks.freeRerolls && !G.freeRerollUsed) return 0; return G.rerollCount + 1; }   // first reroll each shop is free with the perk; otherwise 1,2,3… (count persists all run)
 function buyOffer(i){
@@ -4482,7 +4616,42 @@ function rerollShop(){
   else G.rerollCount++;
   statShopReroll();
   G.shopOffers=buildShopPool();
+  if(G.perks.abridged){
+    G.shopOffers.push({kind:"Upgrade",rarity:"epic",name:"Abridged",desc:"Cut one tile from your deck.",
+      price:1, art:"✂️", needsTarget:"remove", d:{type:"eraser"}});
+  }
+  if(G._lockOpened) appendSealedOffer();   // an opened shelf stays open through rerolls, restocked fresh
   haptic(12);
+  renderShop();
+  save();
+}
+/* ---- Sealed shelf (v491a): a paid 7th slot, a sink for idle coins ----
+   Appended AFTER the seeded pool roll (same rule as Abridged) so it never
+   disturbs seeded offer picks or the pinned predictor. */
+function sealedCost(){ return px(6); }
+function appendSealedOffer(){
+  const rng=makeRng("shoplock:"+G.level+":"+G.rerollCount+":"+(G.freeRerollUsed?1:0));
+  const seen=new Set((G.shopOffers||[]).map(o=>o.name));
+  let o=null;
+  for(let tries=0;tries<24;tries++){
+    const cand = rng()<0.5 ? letterOffer(weightedLetter(rng,Object.assign({},{E:12,A:9,I:9,O:8,N:6,R:6,T:6,L:4,S:4,U:4,D:4,G:3},{B:2,C:2,M:2,P:2,F:2,H:2,V:2,W:2,Y:2,K:1,J:1,X:1,Q:1,Z:1})))
+                           : pickWeighted(rng,perkPool(rng));
+    if(!seen.has(cand.name)){ o=cand; break; }
+    if(!o) o=cand;
+  }
+  o.sold=false; o._sealed=true;
+  G.shopOffers.push(o);
+  if(G._curShop) G._curShop.offered.push({name:o.name,kind:o.kind,price:o.price});
+}
+function openSealedShelf(){
+  const cost=sealedCost();
+  if(G._lockOpened || G.coins<cost) return;
+  pushShopUndo();
+  G.coins-=cost;
+  G._lockOpened=true;
+  statShopBuy("Sealed shelf", cost, "sealedShelf");
+  appendSealedOffer();
+  haptic([10,30,10]);
   renderShop();
   save();
 }
@@ -4496,6 +4665,9 @@ function nextRound(){
 function enterNextLevel(){
   G.challenge=null;   // clear any spent challenge before the new round
   const lvl=G.level;
+  // v491a: the final proof is announced two rounds out, so the boss can be prepared
+  // for instead of sprung. Purely presentational; the boss itself is unchanged.
+  if(lvl===WIN_LEVEL-2 && !G.infinite && !G._bossPreviewSeen){ showBossPreview(); return; }
   const offerable = CHALLENGE_LEVELS.has(lvl) && (!G.infinite || lvl<=WIN_LEVEL);
   if(offerable){ openChallenge(lvl); }
   else { startLevel(); }
@@ -4507,6 +4679,8 @@ function openChallenge(lvl){
   const banned = type==="locked" ? deckTopLetters(CHALLENGE_BAN_COUNT) : [];
   const houseLetter = type==="house" ? houseLetterFor(lvl) : null;
   G.challengePending={ type, banned, houseLetter, epic:challengeEpicFor(lvl), reward:null, trio:rewardTrioFor(lvl,type) };
+  if(G.stats){ if(!G.stats.challenges) G.stats.challenges=[];
+    G.stats.challenges.push({round:lvl, type, rewardsOffered:(G.challengePending.trio||[]).slice(), taken:false, reward:null, cleared:null, heartsBefore:G.hearts, heartsAfter:null}); }
   renderChallenge(lvl);
   hideGame();
   $("challengeScreen").classList.remove("hidden");
@@ -4541,6 +4715,8 @@ function selectChallengeReward(key,lvl){ G.challengePending.reward=key; haptic(8
 function takeChallenge(){
   const p=G.challengePending; if(!p || !p.reward) return;
   G.challenge={ type:p.type, reward:p.reward, banned:p.banned||[], houseLetter:p.houseLetter||null, epic:p.epic||null, active:true };
+  { const ch=G.stats&&G.stats.challenges&&G.stats.challenges[G.stats.challenges.length-1];
+    if(ch && ch.round===G.level){ ch.taken=true; ch.reward=p.reward; } }
   G.challengePending=null;
   $("challengeScreen").classList.add("hidden");
   haptic([10,30,10]);
@@ -4571,6 +4747,7 @@ function openDeck(mode){
   else if(mode==="foil"){ hint.textContent="Tap a letter. Its value is doubled the first time you play it each round."; hint.className="select-hint"; }
   else if(mode==="watermark"){ hint.textContent="Tap a letter. It is always in your opening hand each round."; hint.className="select-hint"; }
   else if(mode==="fuse"){ hint.textContent="Tap two letters to fuse into one tile. Pick the first."; hint.className="select-hint gild"; }
+  else if(mode==="dealer"){ hint.textContent="Tap a tile in your draw pile to pull it into your hand."; hint.className="select-hint gild"; }
   else hint.classList.add("hidden");
   if(mode){ hint.classList.remove("hidden"); }
   renderDeck();
@@ -4583,7 +4760,8 @@ function deckTileEl(c){
   if(G.selectMode==="remove"){ wrap.classList.add("selectable","danger"); wrap.addEventListener("click",()=>doRemove(c.id)); }
   if(G.selectMode==="gild" && upgradable && (c.upLevel||0)<GILD_CAP){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doGild(c.id)); }
   if(G.selectMode==="growth"    && upgradable && typeof c.growth!=="number"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"growth")); }
-  if(G.selectMode==="encore"    && c.kind!=="lucky7" && !c.encore){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"encore")); }
+  if(G.selectMode==="dealer"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doDealerSwap(c.id)); }
+  if(G.selectMode==="encore"    && c.kind!=="lucky7" && c.kind!=="dealer" && !c.encore){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"encore")); }
   if(G.selectMode==="foil"      && upgradable && !c.foil){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"foil")); }
   if(G.selectMode==="watermark" && upgradable && !c.watermark){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"watermark")); }
   ["boldface","dropcap","serif","ditto","inkwell"].forEach(k=>{
@@ -4605,7 +4783,10 @@ function renderDeck(){
   const sortFn=deckSortKey();
   const inPlay = !$("play").classList.contains("hidden");
   const grouped = inPlay && !G.selectMode;   // pile split only mid-round, never while picking a target
-  if(grouped){
+  if(G.selectMode==="dealer"){
+    list.className="deck-list";
+    G.drawPile.slice().sort(sortFn).forEach(c=>list.appendChild(deckTileEl(c)));
+  } else if(grouped){
     list.classList.remove("deck-list");
     const inHand=[...G.hand,...G.canvas];
     const ban=bannedLetterSet();
@@ -4634,9 +4815,10 @@ function renderDeck(){
     G.deck.slice().sort(sortFn).forEach(c=>list.appendChild(deckTileEl(c)));
   }
   // header count
-  $("deckCount").textContent = grouped ? (G.drawPile.length+" / "+G.deck.length+" in draw") : (G.deck.length+" cards");
+  $("deckCount").textContent = G.selectMode==="dealer" ? (G.drawPile.length+" in your draw pile")
+    : grouped ? (G.drawPile.length+" / "+G.deck.length+" in draw") : (G.deck.length+" cards");
   // summary
-  let pts=0, clones=0, jazz=0, wilds=0, wconst=0, copies=0, fused=0, combos=0, lucky=0;
+  let pts=0, clones=0, jazz=0, wilds=0, wconst=0, copies=0, fused=0, combos=0, lucky=0, dealer=0;
   G.deck.forEach(c=>{
     if(c.kind==="clone"){clones++;return;}
     if(c.kind==="jazz"){jazz++;return;}
@@ -4644,6 +4826,7 @@ function renderDeck(){
     if(c.kind==="wildcons"){wconst++;return;}
     if(c.kind==="copycat"){copies++;return;}
     if(c.kind==="lucky7"){lucky++;return;}
+    if(c.kind==="dealer"){dealer++;return;}
     if(c.kind==="fused"){fused++; pts+=fusedValue(c); return;}
     if(c.kind==="combo"){combos++; pts+=comboValue(c); return;}
     pts+=cardValue(c);
@@ -4653,6 +4836,7 @@ function renderDeck(){
   if(combos) extras.push(`${combos} combo${combos>1?"s":""}`);
   if(fused)  extras.push(`${fused} fused`);
   if(lucky)  extras.push(`${lucky} Lucky 7`);
+  if(dealer) extras.push(`${dealer} Dealer's Choice`);
   if(clones) extras.push(`${clones} clone${clones>1?"s":""}`);
   if(wilds)  extras.push(`${wilds} wild vowel${wilds>1?"s":""}`);
   if(wconst) extras.push(`${wconst} wild consonant${wconst>1?"s":""}`);
@@ -4730,6 +4914,12 @@ function buildStaticTile(c){
     const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="LUCKY 7"; t.appendChild(s);
     return t;
   }
+  if(c.kind==="dealer"){
+    t.classList.add("dealer");
+    const g=document.createElement("span"); g.className="glyph"; g.textContent="🎴"; t.appendChild(g);
+    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="DEALER"; t.appendChild(s);
+    return t;
+  }
   const g=document.createElement("span"); g.textContent=(c.kind==="copycat"?"⧉":tileGlyph(c)); t.appendChild(g);
   if(c.kind==="clone"){ const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="CLONE"; t.appendChild(s); }
   else if(c.kind==="copycat"){ const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="COPY"; t.appendChild(s); }
@@ -4755,7 +4945,7 @@ function doTileUpgrade(id,kind){
   // Encore now works on ANY playable tile (letters, combos, fused, wilds, free jazz...);
   // the other stamps still target letters and fused tiles only.
   const NEW_STAMPS=["boldface","dropcap","serif","ditto","inkwell"];
-  if(kind==="encore"){ if(c.kind==="lucky7") return; }
+  if(kind==="encore"){ if(c.kind==="lucky7"||c.kind==="dealer") return; }
   else if(NEW_STAMPS.includes(kind)){ if(c.kind!=="letter") return; }
   else if(c.kind!=="letter" && c.kind!=="fused") return;
   if(kind==="growth"){ if(typeof c.growth!=="number") c.growth=0; }
@@ -4917,7 +5107,7 @@ function closeBonusChooser(){ $("bonusChooser").classList.add("hidden"); }
 function statInit(seed){
   G.stats={ game:"letterati", version:VERSION, seed,
     runId:(typeof crypto!=="undefined"&&crypto.randomUUID)?crypto.randomUUID():("run-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,10)),
-    startedAt:new Date().toISOString(), words:[], shops:[], rounds:[], result:null,
+    startedAt:new Date().toISOString(), words:[], shops:[], rounds:[], challenges:[], bossLog:null, result:null,
     finalRound:1, finalDeck:null, runMs:0, runScore:0, bestWord:"", bestScore:0 };
   G._curShop=null;
 }
@@ -4945,6 +5135,11 @@ function snapshotDeck(){ return G.deck.map(c=> c.kind==="letter"
 function statFinish(result){
   if(!G.stats) statInit(G.seed||"unknown");   // never silently drop a run (e.g. continued from a pre-fix save)
   G.stats.result=result; G.stats.finalRound=G.level; G.stats.endedAt=new Date().toISOString();
+  { const ch=(G.stats.challenges||[]).find(c=>c.taken&&c.cleared==null);
+    if(ch){ ch.cleared=false; ch.heartsAfter=G.hearts; } }
+  if(G.stats.bossLog){
+    if(G.stats.bossLog.cleared==null){ G.stats.bossLog.cleared=false; G.stats.bossLog.heartsAfter=G.hearts; G.stats.bossLog.words=(G.levelStats&&G.levelStats.words)||0; }
+    if(G.boss&&G.boss.ghostTotal!=null) G.stats.bossLog.ghostTotal=G.boss.ghostTotal; }
   // Analytics bucket the three terminal events explicitly: a game over (hearts gone),
   // a clean win, or a deliberate End run. (Quit to title does NOT finalize.)
   G.stats.ending = result==="end" ? "end"
@@ -4955,7 +5150,7 @@ function statFinish(result){
   G.stats.runScore=G.runScore||0;
   G.stats.bestWord=G.runBestWord||""; G.stats.bestScore=G.runBestScore||0;
   G.stats.perks={ firstUp:G.perks.firstUp, lastUp:G.perks.lastUp, vowelPower:G.perks.vowelPower,
-    bigWords:G.perks.bigWords, fireSale:G.perks.fireSale, interest:G.perks.interest,
+    bigWords:G.perks.bigWords, fireSale:G.perks.fireSale, interest:G.perks.interest, fightingWords:!!G.perks.fightingWords,
     scoreMult:G.scoreMult, handSize:G.handSize, extraTurns:G.extraTurns };
   try{ localStorage.setItem("letterati_laststats", JSON.stringify(G.stats)); }catch(e){}
   try{ const arr=JSON.parse(localStorage.getItem("letterati_runs")||"[]"); arr.push(G.stats);
@@ -5218,13 +5413,14 @@ function showChallengeFreeDiscard(minL){
 function ownedPerksList(){
   const out=[];
   if(+G.perks.vowelPower>0) out.push("Vowel Power · +"+(+G.perks.vowelPower)+" per vowel");
-  if(G.perks.bigWords)   out.push("Big Words · ×2 length bonus");
+  if(G.perks.bigWords)   out.push("Big Words · 6+ letter words ×2");
   if(G.perks.twinsies)   out.push("Twinsies · ×2 side-by-side doubles");
   if(G.perks.twoOfAKind) out.push("Two of a Kind · ×1.5 on a repeated letter");
   if(G.perks.shortKing)  out.push("Short King · ×4/×3/×2.5/×2 for 2–5 letters");
   if(G.perks.kerning)    out.push("Kerning · +25% no repeated letter");
   if(G.perks.fiveTimer)  out.push("Five Timer · ×1.5 five-letter words");
   if(G.perks.marginalia) out.push("Marginalia · 1 coin per 15 over target, max 15");
+  if(G.perks.fightingWords) out.push("Fighting Words · +50% per lost heart");
   if(G.perks.mirror)     out.push("Mirror · ×3 palindromes");
   if(G.perks.verbose)    out.push("Verbose · ×1.5 verbs");
   if(G.perks.verbizer)   out.push("Verbizer · add er/ing to any word");
@@ -5261,13 +5457,14 @@ function ownedPerksList(){
 function ownedPerkCards(){
   const out=[]; const P=G.perks; const push=(art,name,desc)=>out.push({art,name,desc});
   if(+P.vowelPower>0) push("🅰️","Vowel Power","+"+(+P.vowelPower)+" to the value of every vowel.");
-  if(P.bigWords)   push("📏","Big Words","Longer words give double the length multiplier.");
+  if(P.bigWords)   push("📏","Big Words","Words of 6 or more letters score ×2.");
   if(P.twinsies)   push("👯","Twinsies","×2 when two of the same letter sit side by side.");
   if(P.twoOfAKind) push("🃏","Two of a Kind","×1.5 on any word with a repeated letter.");
   if(P.shortKing)  push("👑","Short King","Short words score big: ×4, ×3, ×2.5, ×2 for 2, 3, 4, 5 letters.");
   if(P.kerning)    push("📐","Kerning","+25% on words with no repeated letter.");
   if(P.fiveTimer)  push("5️⃣","Five Timer","×1.5 on exactly five-letter words.");
   if(P.marginalia) push("🪙","Marginalia","1 coin for every 15 points past the target, up to 15 coins.");
+  if(P.fightingWords) push("🥊","Fighting Words","Words score +50% for every heart you have lost.");
   if(P.mirror)     push("🪞","Mirror","×3 on palindromes.");
   if(P.verbose)    push("🅥","Verbose","×1.5 on verbs, in any form.");
   if(P.verbizer)   push("🪄","Verbizer","Add er or ing to any valid word to make it a verb.");
@@ -5365,8 +5562,10 @@ function gameOver(won){
   const mastered = won || G.wonRun;
   r.textContent=mastered?"Press Mastered":"The Press Goes Cold";
   r.className="over-result "+(mastered?"win":"lose");
+  const bestRank=rankFor(Math.max(1,G.level-1)) || "";
   $("overStats").innerHTML=`
-    <div class="stat-line">${(G.wonRun && G.level>WIN_LEVEL) ? `Cleared all ${WIN_LEVEL} — then pushed to <b>round ${G.level}</b> in endless.` : `You reached <b>round ${G.level}</b>.`}</div>
+    ${(!mastered && bestRank)?`<div class="stat-line" style="font-size:1.02rem">Rank earned: <b>${bestRank}</b></div>`:""}
+    <div class="stat-line">${(G.wonRun && G.level>WIN_LEVEL) ? `Cleared all ${WIN_LEVEL} — then pushed to <b>round ${G.level}</b> in endless.` : (mastered ? `You reached <b>round ${G.level}</b>.` : `You made it to <b>round ${G.level}</b> of ${WIN_LEVEL}.`)}</div>
     <div class="stat-line">Run time: <b>${fmtDuration(G.runMs)}</b></div>
     <div class="stat-line">Run score: <b>${(G.runScore||0).toLocaleString()}</b></div>
     <div class="stat-line">Words set this run: <b>${G.wordsPlayed||0}</b></div>
@@ -5400,7 +5599,7 @@ function save(){
       wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, wordPlays:G.wordPlays, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
       attempt:G.attempt, target:G.target, score:G.score, handsLeft:G.handsLeft, discardsLeft:G.discardsLeft,
       drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), roundLengths:(G.roundLengths||[]), standingDone:!!G.standingDone, _marginsApplied:!!G._marginsApplied, boss:(G.boss||null), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0,
-      rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
+      rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed, _bossPreviewSeen:!!G._bossPreviewSeen, _lockOpened:!!G._lockOpened, letterPlays:G.letterPlays||{}, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
     };
     localStorage.setItem(SAVE_KEY,JSON.stringify(data));
   }catch(e){}
@@ -5413,7 +5612,7 @@ function continueRun(){
   cardSeq=d.cardSeq||0;
   G.seed=d.seed; G.level=d.level; G.hearts=d.hearts; G.coins=d.coins; G.handSize=d.handSize;
   G.infinite=!!d.infinite; G.wonRun=!!d.wonRun;
-  G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
+  G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
   if(G.perks.vowelPower===true) G.perks.vowelPower=1;   // v42a: legacy boolean -> 1 stack
   G.reprintUsed=!!d.reprintUsed;
   G.foilUsed=Array.isArray(d.foilUsed)?d.foilUsed.slice():[];
@@ -5423,7 +5622,7 @@ function continueRun(){
   G.shopSeen=Array.isArray(d.shopSeen)?d.shopSeen:[];
   G.roundLengths=Array.isArray(d.roundLengths)?d.roundLengths:[]; G.standingDone=!!d.standingDone; G._marginsApplied=!!d._marginsApplied;
   G.boss=d.boss||null; normalizeBoss(); if(G.boss&&G.boss.active&&G.level===WIN_LEVEL) document.body.classList.add("boss-round");
-  G.anagramSigs=d.anagramSigs||{}; G.anthologyCount=d.anthologyCount||0; G.abcSeen=d.abcSeen||{}; G.lastWordLetters=d.lastWordLetters||null; G.pulpPending=d.pulpPending||0;
+  G.anagramSigs=d.anagramSigs||{}; G.anthologyCount=d.anthologyCount||0; G._bossPreviewSeen=!!d._bossPreviewSeen; G._lockOpened=!!d._lockOpened; G.letterPlays=d.letterPlays||{}; G.abcSeen=d.abcSeen||{}; G.lastWordLetters=d.lastWordLetters||null; G.pulpPending=d.pulpPending||0;
   G.jazzCharges=(typeof d.jazzCharges==="number")?d.jazzCharges:0;
   G.wordsPlayed=d.wordsPlayed||0; G.runScore=d.runScore||0; G.runBestWord=d.runBestWord||""; G.runBestScore=d.runBestScore||0; G.wordPlays=d.wordPlays||{};
   G.levelStats=d.levelStats||{bestWord:"",bestScore:0,words:0};
@@ -5489,7 +5688,7 @@ function newRun(seed){
   cardSeq=0;
   G.seed=seed;
   G.level=1; G.hearts=MAX_HEARTS; G.coins=0; G.handSize=START_HAND;
-  G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false};
+  G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false};
   G.reprintUsed=false;
   G.scoreMult=1; G.pressGrowth=0; G.heavyPress=0; G.extraDiscards=0; G.extraTurns=0; G.jazzCharges=0; G.lastReward=null;
   G.infinite=false; G.wonRun=false;
@@ -5497,6 +5696,7 @@ function newRun(seed){
   G.wordsPlayed=0; G.runScore=0; G.runBestWord=""; G.runBestScore=0; G.wordPlays={}; G.levelStats={bestWord:"",bestScore:0,words:0};
   G.attempt=0; G.best=1; G.shopOffers=[]; G.runMs=0;
   G.challenge=null; G.challengePending=null; G._rescues=0;   // never carry a challenge into a fresh run
+  G.letterPlays={}; G._bossPreviewSeen=false; G._bossPreviewOpen=false; G._lockOpened=false; G._dealerCardId=null;
   G.shopSeen=[];
   G.boss=null; document.body.classList.remove("boss-round");
   G.lucky7Stash=[];
@@ -5627,7 +5827,11 @@ function applyTheme(t){
 function toggleTheme(){ applyTheme(currentTheme()==="dark"?"light":"dark"); haptic(12); }
 (function initTheme(){ let t="light"; try{ t=localStorage.getItem(THEME_KEY)||"light"; }catch(e){} applyTheme(t); })();
 ["themeSwitch","themeSwitchP"].forEach(id=>{ const b=$(id); if(b) b.addEventListener("click",toggleTheme); });
-$("bossGoBtn").addEventListener("click",()=>{ if(G.boss) G.boss.introSeen=true; $("bossScreen").classList.add("hidden"); save(); haptic(15); });
+$("bossGoBtn").addEventListener("click",()=>{
+  $("bossScreen").classList.add("hidden"); haptic(15);
+  if(G._bossPreviewOpen){ G._bossPreviewOpen=false; enterNextLevel(); return; }   // preview: resume the round flow
+  if(G.boss) G.boss.introSeen=true; save();
+});
 $("optionsBtn").addEventListener("click",openOptions);
 $("optBackBtn").addEventListener("click",closeOptions);
 $("optExportBtn").addEventListener("click",exportAllRuns);
