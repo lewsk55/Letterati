@@ -27,6 +27,12 @@
    v491b: Tight Margins renamed Small Margins, now takes one tile
    instead of two (diff 2 -> 1); the restore stores the actual
    delta so hand size can never drift across a save.
+   v491e: the boss is introduced on an opening run screen alongside
+   the full deck, and repeated at the foot of the deck sheet (the
+   round-7 warning and AHEAD banner are gone); Clone can copy a
+   wild vowel or wild consonant; a spent Free jazz now leaves every
+   pile including the discard; gilding costs 50% less via a single
+   shared gildStepCost; The Ledger boss retired.
    v491d: the shop sells named workhorse gilds at their real price,
    applied instantly (the tile picker and its confirm dialog are
    retired); a shelf can carry two; shop undo now deep-copies
@@ -93,6 +99,7 @@
 :root[data-theme="dark"] .tile.combo{background:linear-gradient(180deg,#3B3054,#2E2542);border-color:#6A5793}
 :root[data-theme="dark"] .tile.lucky7{background:linear-gradient(180deg,#2E4629,#233620);border-color:#557B4A}
 :root[data-theme="dark"] .tile.dealer{background:linear-gradient(180deg,#26364A,#1D2A3A);border-color:#4A6B8E}
+:root[data-theme="dark"] .intro-boss,:root[data-theme="dark"] .deck-boss{background:rgba(214,106,114,.10)}
 :root[data-theme="dark"] .tile.clone{background:linear-gradient(180deg,#39344E,#2C283E);border-color:#5C548A}
 :root[data-theme="dark"] .tile.copycat{background:linear-gradient(180deg,#443B28,#352E1E);border-color:#7A683F}
 :root[data-theme="dark"] .pause-fab{background:var(--paper);}
@@ -635,6 +642,14 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 .deck-tile.selectable.danger:hover{outline-color:var(--oxblood)}
 .deck-tile.selectable.gild:hover{outline-color:var(--brass)}
 .deck-summary{font-size:.78rem;color:var(--ink-soft);text-align:center;line-height:1.5}
+.clone-choice.wild{background:linear-gradient(180deg,#EFEAF7,#DFD7EE);border-color:#C3B8DD}
+.intro-boss:empty,.deck-boss:empty{display:none}
+.intro-boss,.deck-boss{margin-top:14px;padding:12px 14px;border:2px solid var(--oxblood);border-radius:12px;background:rgba(122,29,36,.06);text-align:center}
+.intro-boss .ib-kicker,.deck-boss .ib-kicker{font-size:.58rem;font-weight:900;letter-spacing:.2em;text-transform:uppercase;color:var(--oxblood);margin-bottom:5px}
+.intro-boss .ib-name,.deck-boss .ib-name{font-family:var(--serif);font-weight:800;font-size:1.12rem;color:var(--ink)}
+.intro-boss .ib-desc,.deck-boss .ib-desc{font-size:.78rem;font-weight:700;color:var(--ink-soft);margin-top:4px;line-height:1.45}
+.deck-boss{margin-top:16px;padding:10px 12px}
+.deck-boss .ib-name{font-size:1rem}
 .select-hint{text-align:center;font-size:.86rem;font-weight:800;color:var(--oxblood);margin:6px 0 2px}
 .select-hint.gild{color:var(--brass-deep)}
 
@@ -945,6 +960,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
     <div class="select-hint hidden" id="selectHint"></div>
     <div class="deck-list" id="deckList"></div>
     <div class="deck-summary" id="deckSummary"></div>
+    <div class="deck-boss" id="deckBoss"></div>
     <div class="deck-perks" id="deckPerks"></div>
     <div class="deck-words" id="deckWords"></div>
   </div>
@@ -960,6 +976,17 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
     <div class="boss-intro" id="bossIntroLine"></div>
     <div class="boss-desc" id="bossDesc"></div>
     <button class="menu-btn" id="bossGoBtn" style="margin-top:20px">Go to press</button>
+  </div>
+</div>
+<div class="overlay hidden" id="runIntroScreen">
+  <div class="sheet">
+    <div class="sheet-head">
+      <div class="sheet-title">Your Deck<small id="introCount"></small></div>
+    </div>
+    <div class="deck-list" id="introDeck"></div>
+    <div class="deck-summary" id="introSummary"></div>
+    <div class="intro-boss" id="introBoss"></div>
+    <button class="menu-btn" id="introGoBtn" style="margin-top:18px">Start the run</button>
   </div>
 </div>
 <div class="overlay hidden" id="overScreen">
@@ -1287,7 +1314,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "491d";
+const VERSION = "491e";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -1349,13 +1376,9 @@ const BOSS_TYPES = {
   ghost:   { name:"The Ghost Writer", art:"👻", badge:"beat the ghost",
              desc:"A rival works your same letters. Fall short of the ghost on any word and lose a heart. Beat its total to win.",
              intro:"Someone worked this same case before you, and the pages are still warm. Outwrite the ghost, word for word.",
-             taunt:"The ghost wrote better." },
-  ledger:  { name:"The Ledger", art:"📒", badge:"score + $10",
-             desc:"Clear the target AND bank 10 coins during the round.",
-             intro:"The house wants the page and the purse. Numbers in both columns, or nothing.",
-             taunt:"The books do not balance yet." }
+             taunt:"The ghost wrote better." }
 };
-const BOSS_ORDER=["editor","deadline","critic","perfect","ghost","ledger"];
+const BOSS_ORDER=["editor","deadline","critic","perfect","ghost"];   // v491e: The Ledger retired
 function bossTypeFor(seed){ const rng=makeRng("boss:"+seed); return BOSS_ORDER[Math.floor(rng()*BOSS_ORDER.length)]; }
 function bossActive(){ return !!(G.boss && G.boss.active && G.level===WIN_LEVEL && BOSS_TYPES[G.boss.type]); }
 // A save from an older build may name a boss that no longer exists. Re-roll it
@@ -1433,6 +1456,7 @@ const DECK_HI_MIN = 4;    // every starting deck has at least 4 letters worth >1
 const DECK_FACE_MIN = 40; // and at least 40 total face value — kills the unfair low tail, keeps variety
 const START_HAND = 7;
 const GILD_BASE = 6;   // base price to gild a fresh letter (doubles per existing gild)
+const GILD_PRICE_SCALE = 0.5;   // v491e: gilding costs half what it used to
 const HANDS_PER_LEVEL = 4;     // "turns" — words you may set
 const DISCARDS_PER_LEVEL = 4;
 const PRICE_MULTIPLIER = 1.22; // per-round shop inflation (GGW used ~1.46)
@@ -1620,10 +1644,18 @@ function comboSeq(c){ return COMBO_DEFS[c.combo].seq; }
 function comboLabel(c){ return COMBO_DEFS[c.combo].label; }
 function comboEntries(c){ const u=c.upLevel||0; return comboSeq(c).map(L=>({letter:L, value:1*Math.pow(2,u)})); }
 function comboValue(c){ return comboEntries(c).reduce((s,e)=>s+e.value,0); }
+// One formula for what a gild costs, shared by the shop offer, the pre-gilded
+// letter offer and letterAcquireCost, so the three can never drift apart.
+// value-scaled: gilding a high-value letter (X/Z/Q) costs far more than an E,
+// and each successive gild on the same tile doubles.
+function gildStepCost(value, existingGilds){
+  const u=existingGilds||0;
+  return px((GILD_BASE/2 + value*Math.pow(2,u)) * Math.pow(2,u) * GILD_PRICE_SCALE);
+}
 // Shop-equivalent cost to acquire a letter at a given gild level (base letter + each gild).
 function letterAcquireCost(L, gild){
   const v=LETTER_VALUES[L]; let p=px(2+Math.ceil(v/2));
-  for(let u=0; u<(gild||0); u++){ p += px((GILD_BASE/2 + v*Math.pow(2,u)) * Math.pow(2,u)); }
+  for(let u=0; u<(gild||0); u++){ p += gildStepCost(v, u); }
   return p;
 }
 const CONSONANTS=["B","C","D","F","G","H","J","K","L","M","N","P","Q","R","S","T","V","W","X","Y","Z"];
@@ -2016,9 +2048,6 @@ function predictSeed(seed,opts){
       if(bt==="ghost"){ P.hearts--; if(P.hearts<=0) return {winnable:false,round:P.level,stats};
         bOpts.target=Math.round(target*1.10); target=bOpts.target; }
       result=predLevel(P,seed,bOpts);
-      if(result.res==="clear" && bt==="ledger" && (result.cash||0)<10){
-        P.hearts--; if(P.hearts<=0) return {winnable:false,round:P.level,stats};
-      }
     } else {
       result=predLevel(P,seed,{smart:opts.smart});   // commits hearts directly to P
     }
@@ -3173,9 +3202,22 @@ function openCloneChooser(card,idx){
   const rank=c=>cardValue(c)*10 + CLONE_COPY_PROPS.reduce((n,k)=>n+((c[k]!==undefined&&c[k]!==false&&c[k]!==1)?1:0),0);
   G.hand.concat(G.canvas).forEach(c=>{ if(c.kind==="letter"){ const cur=best[c.letter]; if(!cur || rank(c)>rank(cur)) best[c.letter]=c; } });
   const letters=Object.keys(best);
-  if(letters.length===0){ toast("No letters to copy yet"); return; }
+  // v491e: a wild you are holding is a legitimate thing to copy. Picking it turns
+  // the clone into a wild of the same kind, so it chains straight into that
+  // chooser rather than locking the clone to whatever the wild happens to be set to.
+  const wildKinds=[];
+  const holding=G.hand.concat(G.canvas);
+  if(holding.some(c=>c.kind==="wildvowel")) wildKinds.push({kind:"wildvowel", glyph:"✺", label:"vowel"});
+  if(holding.some(c=>c.kind==="wildcons"))  wildKinds.push({kind:"wildcons",  glyph:"✦", label:"cons"});
+  if(letters.length===0 && wildKinds.length===0){ toast("No letters to copy yet"); return; }
   clonePending={cardId:card.id, idx};
   const wrap=$("cloneChoices"); wrap.innerHTML="";
+  wildKinds.forEach(w=>{
+    const b=document.createElement("button"); b.className="clone-choice wild";
+    b.innerHTML=`${w.glyph}<span class="cc-val">wild</span><span class="cc-marks">${w.label}</span>`;
+    b.addEventListener("click",()=>pickCloneWild(w.kind));
+    wrap.appendChild(b);
+  });
   letters.sort().forEach(L=>{
     const src=best[L], g=gildLevel(src);
     const b=document.createElement("button"); b.className="clone-choice"+(g>0?" upgraded":"");
@@ -3190,13 +3232,21 @@ function openCloneChooser(card,idx){
   });
   $("cloneChooser").classList.remove("hidden");
 }
-function pickClone(L){
+// The clone becomes a wild of the chosen kind: hand off to that kind's chooser,
+// which writes the result back onto the clone.
+function pickCloneWild(kind){
   if(!clonePending) return;
   const {cardId,idx}=clonePending; clonePending=null;
   $("cloneChooser").classList.add("hidden");
   const c=G.hand.find(x=>x.id===cardId); if(!c) return;
+  if(kind==="wildvowel") openVowelChooser(c,idx,true);
+  else openConsChooser(c,idx,true);
+}
+// Assign a letter to a clone, copying the best matching tile's gild and stamps.
+// When no such tile exists (the wild path), the clone takes the plain letter value.
+function setCloneLetter(c,L){
   let src=null;   // re-find the best source tile of this letter to copy its gild
-  const rankS=c=>cardValue(c)*10 + CLONE_COPY_PROPS.reduce((n,k)=>n+((c[k]!==undefined&&c[k]!==false&&c[k]!==1)?1:0),0);
+  const rankS=x=>cardValue(x)*10 + CLONE_COPY_PROPS.reduce((n,k)=>n+((x[k]!==undefined&&x[k]!==false&&x[k]!==1)?1:0),0);
   G.hand.concat(G.canvas).forEach(x=>{ if(x.kind==="letter"&&x.letter===L){ if(!src||rankS(x)>rankS(src)) src=x; } });
   c.cloneLetter=L;
   c.cloneBase = src ? src.base : LETTER_VALUES[L];
@@ -3206,14 +3256,21 @@ function pickClone(L){
   // keeps a previous source's stamps.
   CLONE_COPY_PROPS.forEach(k=>{ delete c[k]; });
   if(src) CLONE_COPY_PROPS.forEach(k=>{ if(src[k]!==undefined && src[k]!==false && src[k]!==null) c[k]=src[k]; });
+}
+function pickClone(L){
+  if(!clonePending) return;
+  const {cardId,idx}=clonePending; clonePending=null;
+  $("cloneChooser").classList.add("hidden");
+  const c=G.hand.find(x=>x.id===cardId); if(!c) return;
+  setCloneLetter(c,L);
   placeFromHand(cardId,idx);
 }
 function cancelClone(){ clonePending=null; $("cloneChooser").classList.add("hidden"); }
 
 /* ---------- Wild vowel: fan the five vowels above & below the canvas ---------- */
 let vowelPending=null;
-function openVowelChooser(card,idx){
-  vowelPending={cardId:card.id, idx};
+function openVowelChooser(card,idx,forClone){
+  vowelPending={cardId:card.id, idx, forClone:!!forClone};
   const ov=$("vowelChooser");
   const fan=$("vowelFan"); fan.innerHTML="";
   // anchor the fan over the letter canvas
@@ -3246,18 +3303,18 @@ function openVowelChooser(card,idx){
 function pickVowel(L){
   if(!vowelPending) return;
   const banned=bannedLetterSet(); if(banned && banned.has(L)) return;   // locked this round
-  const {cardId,idx}=vowelPending; vowelPending=null;
+  const {cardId,idx,forClone}=vowelPending; vowelPending=null;
   const ov=$("vowelChooser"); ov.classList.remove("show"); ov.classList.add("hidden");
   const c=G.hand.find(x=>x.id===cardId); if(!c) return;
-  c.vowel=L;
+  if(forClone) setCloneLetter(c,L); else c.vowel=L;
   placeFromHand(cardId,idx);
 }
 function cancelVowel(){ vowelPending=null; const ov=$("vowelChooser"); ov.classList.remove("show"); ov.classList.add("hidden"); }
 
 /* ---------- Wild consonant: pick any of the 21 consonants ---------- */
 let consPending=null;
-function openConsChooser(card,idx){
-  consPending={cardId:card.id, idx};
+function openConsChooser(card,idx,forClone){
+  consPending={cardId:card.id, idx, forClone:!!forClone};
   const wrap=$("consChoices"); wrap.innerHTML="";
   const banned=bannedLetterSet();
   CONSONANTS.forEach(L=>{
@@ -3273,10 +3330,11 @@ function openConsChooser(card,idx){
 function pickCons(L){
   if(!consPending) return;
   const banned=bannedLetterSet(); if(banned && banned.has(L)) return;   // locked this round
-  const {cardId,idx}=consPending; consPending=null;
+  const {cardId,idx,forClone}=consPending; consPending=null;
   $("consChooser").classList.add("hidden");
   const c=G.hand.find(x=>x.id===cardId); if(!c) return;
-  c.cons=L; placeFromHand(cardId,idx);
+  if(forClone) setCloneLetter(c,L); else c.cons=L;
+  placeFromHand(cardId,idx);
 }
 function cancelCons(){ consPending=null; $("consChooser").classList.add("hidden"); }
 
@@ -3483,29 +3541,30 @@ function renderChallengeBanner(){
       const nq=(B.ghostWords && B.ghostWords[B.wordIdx||0]!=null) ? B.ghostWords[B.wordIdx||0] : (B.ghostPer||0);
       state=`<span class="cb-dot">·</span><span class="cb-locked">👻 next word: beat ${nq} · total ${B.ghostTotal}</span>`;
     }
-    if(B.type==="ledger") state=`<span class="cb-dot">·</span><span class="cb-locked">$${B.cash||0} of $10</span>`;
     if(B.type==="critic" && B.suspended) state=`<span class="cb-dot">·</span><span class="cb-locked">silenced: ${B.suspended}</span>`;
     el.innerHTML=`<span class="cb-tag boss">FINAL PROOF</span><span class="cb-name">${def.art} ${def.name}</span>${state}<span class="cb-desc">${escHtml(def.desc)}</span>`;
     el.classList.remove("hidden");
-  } else if(!G.infinite && !G.endless && G._bossPreviewSeen && G.level>=WIN_LEVEL-2 && G.level<WIN_LEVEL){
-    const def=BOSS_TYPES[bossTypeFor(G.seed)];
-    el.innerHTML=`<span class="cb-tag">AHEAD</span><span class="cb-name">${def.art} ${def.name}</span><span class="cb-dot">·</span><span class="cb-desc">Round ${WIN_LEVEL}: ${escHtml(def.badge)}</span>`;
-    el.classList.remove("hidden");
   } else { el.classList.add("hidden"); el.innerHTML=""; }
 }
-function showBossPreview(){
-  G._bossPreviewSeen=true; G._bossPreviewOpen=true;
+// The final proof, shown as a card rather than a full-screen warning. Used by the
+// opening run screen and the foot of the deck sheet, so the player can always look
+// up who is waiting without being told they are about to face them.
+function bossCardHtml(cls, kicker){
+  if(G.infinite || G.endless) return "";
   const def=BOSS_TYPES[bossTypeFor(G.seed)];
-  $("bossKicker").textContent="AHEAD · ROUND "+WIN_LEVEL+" · THE FINAL PROOF";
-  $("bossArt").textContent=def.art;
-  $("bossName").textContent=def.name;
-  $("bossBadge").textContent=def.badge;
-  $("bossDesc").textContent=def.desc;
-  $("bossIntroLine").textContent="Word from the floor: this is who waits at the final proof. Two rounds to get ready.";
-  $("bossGoBtn").textContent="Back to work";
-  $("bossScreen").classList.remove("hidden");
-  save();
-  haptic([15,50,15]);
+  if(!def) return "";
+  return `<div class="ib-kicker">${kicker}</div>
+    <div class="ib-name">${def.art} ${escHtml(def.name)}</div>
+    <div class="ib-desc">${escHtml(def.desc)}</div>`;
+}
+function showRunIntro(){
+  const list=$("introDeck"); list.innerHTML="";
+  G.deck.slice().sort(deckSortKey()).forEach(c=>list.appendChild(deckTileEl(c)));
+  $("introCount").textContent=G.deck.length+" cards";
+  $("introSummary").innerHTML=deckSummaryHtml();
+  $("introBoss").innerHTML=bossCardHtml("intro-boss","Round "+WIN_LEVEL+" · the final proof");
+  $("runIntroScreen").classList.remove("hidden");
+  haptic(12);
 }
 function showBossIntro(){
   const B=G.boss; if(!B) return;
@@ -3543,7 +3602,7 @@ function startLevel(){
     G.target=Math.round(G.target*BOSS_TARGET_SCALE);   // v491a: keep in lockstep with predictSeed's boss branch
     if(!G.boss || !G.boss.active){
       const bt=bossTypeFor(G.seed);
-      G.boss={ type:bt, active:true, ban:[], lastLen:0, cash:0, suspended:null, stash:null, introSeen:false };
+      G.boss={ type:bt, active:true, ban:[], lastLen:0, suspended:null, stash:null, introSeen:false };
       if(G.stats && !G.stats.bossLog) G.stats.bossLog={round:G.level, type:bt, heartsBefore:G.hearts, heartsAfter:null, cleared:null, words:0};
       if(bt==="ghost"){
         let gt=0, gw=[];
@@ -3719,7 +3778,6 @@ function submitWord(){
   }
   if(challengeDoublePay()) cash=Math.round(cash*1.5);   // v48g: payout challenge reward is +50%
   if(cash>0){ G.coins=Math.min(999,G.coins+cash); }
-  if(bossActive() && G.boss.type==="ledger" && cash>0){ G.boss.cash=(G.boss.cash||0)+cash; renderChallengeBanner(); }
   renderHud();
   // juice — scaled by BOTH word length and score, ramping harder for big plays
   const lenBoost = Math.max(0, res.length-4) * 0.11;        // +0.11 per letter past 4
@@ -3743,17 +3801,21 @@ function submitWord(){
   returnCanvasToPile();
   clearUndo();   // a set word is a hard boundary: no undo across it
   // a Free jazz card with no uses left is exhausted and leaves the deck for good
-  { const dead=G.deck.filter(c=>c.kind==="jazz" && (c.jazzLeft||0)<=0);
+  // v491e: a spent Free jazz must leave EVERY pile. It was only being pulled from
+  // the deck and draw pile, but returnCanvasToPile() had just put it in G.played,
+  // so the next reshuffle handed it back with zero charges left on it.
+  { const dead=G.deck.concat(G.played||[],G.hand||[],G.drawPile||[])
+      .filter(c=>c.kind==="jazz" && (c.jazzLeft||0)<=0);
     if(dead.length){ const ids=new Set(dead.map(c=>c.id));
-      G.deck=G.deck.filter(c=>!ids.has(c.id));
-      if(G.drawPile) G.drawPile=G.drawPile.filter(c=>!ids.has(c.id));
+      const strip=a=>Array.isArray(a)?a.filter(c=>!ids.has(c.id)):a;
+      G.deck=strip(G.deck); G.drawPile=strip(G.drawPile);
+      G.played=strip(G.played); G.hand=strip(G.hand);
       toast("Free jazz exhausted"); } }
   animateScore(G.score, G.score+sc.total);
   G.score+=sc.total;
   setTimeout(()=>{
     renderCanvas();
-    if(G.score>=G.target && !(bossActive() && G.boss.type==="ledger" && (G.boss.cash||0)<10)){ levelCleared(); return; }
-    if(G.score>=G.target && bossActive() && G.boss.type==="ledger" && (G.boss.cash||0)<10){ toast(BOSS_TYPES.ledger.taunt+" $"+(G.boss.cash||0)+" of $10."); }
+    if(G.score>=G.target){ levelCleared(); return; }
     if(G.handsLeft<=0){ levelFailed(); return; }
     dealUpToHand(true);
     renderHud();
@@ -4164,7 +4226,7 @@ function dealersChoiceOffer(){
     d:{type:"dealer"}};
 }
 function cloneOffer(){
-  return {kind:"Card",rarity:"epic",name:"Clone",desc:"Play it as a copy of any letter you're holding, along with every upgrade on it.",
+  return {kind:"Card",rarity:"epic",name:"Clone",desc:"Play it as a copy of any letter or wild you're holding, along with every upgrade on it.",
     price:px(11), art:`<span class="mini-tile" style="background:linear-gradient(180deg,#EDEAF6,#DED8EE);border-color:#C3B8DD">❖</span>`,
     d:{type:"clone"}};
 }
@@ -4718,9 +4780,6 @@ function nextRound(){
 function enterNextLevel(){
   G.challenge=null;   // clear any spent challenge before the new round
   const lvl=G.level;
-  // v491a: the final proof is announced two rounds out, so the boss can be prepared
-  // for instead of sprung. Purely presentational; the boss itself is unchanged.
-  if(lvl===WIN_LEVEL-2 && !G.infinite && !G._bossPreviewSeen){ showBossPreview(); return; }
   const offerable = CHALLENGE_LEVELS.has(lvl) && (!G.infinite || lvl<=WIN_LEVEL);
   if(offerable){ openChallenge(lvl); }
   else { startLevel(); }
@@ -4868,7 +4927,14 @@ function renderDeck(){
   // header count
   $("deckCount").textContent = G.selectMode==="dealer" ? (G.drawPile.length+" in your draw pile")
     : grouped ? (G.drawPile.length+" / "+G.deck.length+" in draw") : (G.deck.length+" cards");
-  // summary
+  $("deckSummary").innerHTML=deckSummaryHtml();
+  // v491e: the final proof sits at the foot of the deck sheet, so it reads as
+  // reference the player can check any time rather than an imminent threat.
+  { const bf=$("deckBoss"); if(bf) bf.innerHTML=bossCardHtml("deck-boss","Round "+WIN_LEVEL+" · the final proof"); }
+  renderDeckPerks();
+  renderDeckWords();
+}
+function deckSummaryHtml(){
   let pts=0, clones=0, jazz=0, wilds=0, wconst=0, copies=0, fused=0, combos=0, lucky=0, dealer=0;
   G.deck.forEach(c=>{
     if(c.kind==="clone"){clones++;return;}
@@ -4893,9 +4959,7 @@ function renderDeck(){
   if(wconst) extras.push(`${wconst} wild consonant${wconst>1?"s":""}`);
   if(copies) extras.push(`${copies} copy cat${copies>1?"s":""}`);
   if(jazz)   extras.push(`${jazz} free jazz`);
-  $("deckSummary").innerHTML=`${vowels} vowels · ${G.deck.filter(c=>c.kind==="letter").length-vowels} consonants${extras.length?" · "+extras.join(" · "):""}<br>total face value ${pts}`;
-  renderDeckPerks();
-  renderDeckWords();
+  return `${vowels} vowels · ${G.deck.filter(c=>c.kind==="letter").length-vowels} consonants${extras.length?" · "+extras.join(" · "):""}<br>total face value ${pts}`;
 }
 function renderDeckPerks(){
   const dp=$("deckPerks"); if(!dp) return;
@@ -5071,10 +5135,9 @@ function doRemove(id){
 const GILD_CAP = 3;   // a letter can be gilded at most 3 times
 function gildCostFor(c){
   const u=c.upLevel||0;
-  if(c.kind==="fused"){ return px((GILD_BASE/2 + fusedValue(c)) * Math.pow(2, u)); }   // v45a: gild both sides at once
-  // value-scaled: gilding a high-value letter (X/Z/Q) costs far more than an E,
-  // and each successive gild on the same letter doubles.
-  return px((GILD_BASE/2 + cardValue(c)) * Math.pow(2, u));
+  // A fused tile gilds both sides at once (v45a); its base value is the pair's.
+  const base = c.kind==="fused" ? fusedValue(c)/Math.pow(2,u) : (c.base|0);
+  return gildStepCost(base, u);
 }
 
 /* ============================================================
@@ -5629,7 +5692,7 @@ function save(){
       wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, wordPlays:G.wordPlays, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
       attempt:G.attempt, target:G.target, score:G.score, handsLeft:G.handsLeft, discardsLeft:G.discardsLeft,
       drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), roundLengths:(G.roundLengths||[]), standingDone:!!G.standingDone, _marginsApplied:(+G._marginsApplied||0), boss:(G.boss||null), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0,
-      rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed, _bossPreviewSeen:!!G._bossPreviewSeen, letterPlays:G.letterPlays||{}, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
+      rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed, letterPlays:G.letterPlays||{}, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
     };
     localStorage.setItem(SAVE_KEY,JSON.stringify(data));
   }catch(e){}
@@ -5652,7 +5715,7 @@ function continueRun(){
   G.shopSeen=Array.isArray(d.shopSeen)?d.shopSeen:[];
   G.roundLengths=Array.isArray(d.roundLengths)?d.roundLengths:[]; G.standingDone=!!d.standingDone; G._marginsApplied=(d._marginsApplied===true?2:(+d._marginsApplied||0));   // legacy saves stored a boolean for the old 2-tile cut
   G.boss=d.boss||null; normalizeBoss(); if(G.boss&&G.boss.active&&G.level===WIN_LEVEL) document.body.classList.add("boss-round");
-  G.anagramSigs=d.anagramSigs||{}; G.anthologyCount=d.anthologyCount||0; G._bossPreviewSeen=!!d._bossPreviewSeen; G.letterPlays=d.letterPlays||{}; G.abcSeen=d.abcSeen||{}; G.lastWordLetters=d.lastWordLetters||null; G.pulpPending=d.pulpPending||0;
+  G.anagramSigs=d.anagramSigs||{}; G.anthologyCount=d.anthologyCount||0; G.letterPlays=d.letterPlays||{}; G.abcSeen=d.abcSeen||{}; G.lastWordLetters=d.lastWordLetters||null; G.pulpPending=d.pulpPending||0;
   G.jazzCharges=(typeof d.jazzCharges==="number")?d.jazzCharges:0;
   G.wordsPlayed=d.wordsPlayed||0; G.runScore=d.runScore||0; G.runBestWord=d.runBestWord||""; G.runBestScore=d.runBestScore||0; G.wordPlays=d.wordPlays||{};
   G.levelStats=d.levelStats||{bestWord:"",bestScore:0,words:0};
@@ -5726,7 +5789,7 @@ function newRun(seed){
   G.wordsPlayed=0; G.runScore=0; G.runBestWord=""; G.runBestScore=0; G.wordPlays={}; G.levelStats={bestWord:"",bestScore:0,words:0};
   G.attempt=0; G.best=1; G.shopOffers=[]; G.runMs=0;
   G.challenge=null; G.challengePending=null; G._rescues=0;   // never carry a challenge into a fresh run
-  G.letterPlays={}; G._bossPreviewSeen=false; G._bossPreviewOpen=false; G._dealerCardId=null;
+  G.letterPlays={}; G._dealerCardId=null;
   G.shopSeen=[];
   G.boss=null; document.body.classList.remove("boss-round");
   G.lucky7Stash=[];
@@ -5736,7 +5799,7 @@ function newRun(seed){
   { const ds=$("defStrip"); if(ds){ ds.classList.add("hidden"); ds.innerHTML=""; } }
   $("titleScreen").classList.add("hidden");
   $("overScreen").classList.add("hidden");
-  startLevel();
+  showRunIntro();   // v491e: the deck and the final proof, before the first round
 }
 function randomSeed(){ return Math.random().toString(36).slice(2,7).toUpperCase(); }
 
@@ -5855,9 +5918,12 @@ function applyTheme(t){
 function toggleTheme(){ applyTheme(currentTheme()==="dark"?"light":"dark"); haptic(12); }
 (function initTheme(){ let t="light"; try{ t=localStorage.getItem(THEME_KEY)||"light"; }catch(e){} applyTheme(t); })();
 ["themeSwitch","themeSwitchP"].forEach(id=>{ const b=$(id); if(b) b.addEventListener("click",toggleTheme); });
+$("introGoBtn").addEventListener("click",()=>{
+  $("runIntroScreen").classList.add("hidden"); haptic(15);
+  startLevel();
+});
 $("bossGoBtn").addEventListener("click",()=>{
   $("bossScreen").classList.add("hidden"); haptic(15);
-  if(G._bossPreviewOpen){ G._bossPreviewOpen=false; enterNextLevel(); return; }   // preview: resume the round flow
   if(G.boss) G.boss.introSeen=true; save();
 });
 $("optionsBtn").addEventListener("click",openOptions);
