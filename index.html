@@ -27,6 +27,9 @@
    v491b: Tight Margins renamed Small Margins, now takes one tile
    instead of two (diff 2 -> 1); the restore stores the actual
    delta so hand size can never drift across a save.
+   v491f: shelf split evenly (letter side / perk side) so a shop
+   always carries three perk-pool offers; new Super Store perk
+   widens every shop to 8; "chesty" keeps its definition hidden.
    v491e: the boss is introduced on an opening run screen alongside
    the full deck, and repeated at the foot of the deck sheet (the
    round-7 warning and AHEAD banner are gone); Clone can copy a
@@ -1314,7 +1317,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "491e";
+const VERSION = "491f";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -1441,7 +1444,8 @@ const CHALLENGE_EPIC_POOL = [
   {name:"Mirror",           art:"🪞", desc:"Palindromes score 3 times.", d:{type:"mirror"}},
   {name:"Verbose",          art:"🅥", desc:"Verbs score 1.5 times.", d:{type:"verbose"}},
   {name:"Reprint",          art:"📋", desc:"Lose your last heart and gain one more. Once per run.", d:{type:"reprint"}},
-  {name:"Fighting Words",   art:"🥊", desc:"Words score +50% for every heart you have lost.", d:{type:"fightingWords"}}
+  {name:"Fighting Words",   art:"🥊", desc:"Words score +50% for every heart you have lost.", d:{type:"fightingWords"}},
+  {name:"Super Store",      art:"🏬", desc:"Every shop stocks 8 offers instead of 6.", d:{type:"superStore"}}
 ];
 const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:2,M:3,N:1,O:1,P:3,Q:10,R:1,S:2,T:2,U:1,V:4,W:4,X:8,Y:4,Z:10};
 // L,S,T bumped 1→2 (v2d): only vowels + N,R,U remain 1-point. Targets scaled to match (see TARGET_SCALE).
@@ -1557,6 +1561,7 @@ function epicOwned(e){
   if(t==="vowelPower")  return !!G.perks.vowelPower;
   if(t==="interest")    return !!G.perks.interest;
   if(t==="fightingWords") return !!G.perks.fightingWords;
+  if(t==="superStore")    return !!G.perks.superStore;
   return false;
 }
 // The featured epic offered at a given challenge level. Seeded by level (and the run
@@ -1671,7 +1676,7 @@ const G = {
   perks:{ firstUp:{}, lastUp:{}, discardMoneyBoost:false, interest:false, twinsies:false,
           vowelPower:0, fireSale:false, bigWords:false, freeRerolls:false,
           proofSheet:false, twoOfAKind:false, shortKing:false,
-          kerning:false, fiveTimer:false, marginalia:false, mirror:false, reprint:false, repeater:false, powerTrio:false, verbose:false, fightingWords:false },
+          kerning:false, fiveTimer:false, marginalia:false, mirror:false, reprint:false, repeater:false, powerTrio:false, verbose:false, fightingWords:false, superStore:false },
   scoreMult:1,             // live "press multiplier", applied to every word score
   pressGrowth:0,           // v41a: each 6+ letter word raises scoreMult by this (per Press multiplier stack)
   challenge:null,          // active challenge-level descriptor {type,reward,banned[],active} or null
@@ -4070,6 +4075,9 @@ function px(base){
   return Math.max(1,Math.round(base*0.65*SHOP_PRICE_SCALE*(G.perks.fireSale?0.75:1)*(G.perks.vanityPress?1.25:1)*infl));
 }   // 35% off base, then 20% off (v3a); Fire sale = 25% more off
 
+const SHOP_SLOTS_BASE  = 6;   // v491f: an even shelf, half letters half perks
+const SHOP_SLOTS_SUPER = 8;   // Super Store
+function shopSlots(){ return G.perks.superStore ? SHOP_SLOTS_SUPER : SHOP_SLOTS_BASE; }
 function buildShopPool(){
   const rng=makeRng("shop:"+G.level+":"+G.rerollCount+":"+(G.freeRerollUsed?1:0));
   const offers=[];
@@ -4081,15 +4089,19 @@ function buildShopPool(){
   const rarePool={B:2,C:2,M:2,P:2,F:2,H:2,V:2,W:2,Y:2,K:1,J:1,X:1,Q:1,Z:1};
   // every offer (letters AND perks/cards) passes through here so no name appears twice
   const shelf=new Set();
-  const add=(make)=>{
+  /* v491f: `wide` is the second-chance maker used when the primary category runs
+     out of unseen names. It must stay on the SAME side of the shelf: before this,
+     an exhausted perk draw fell back to letter stock, which is precisely how a
+     shelf could end up with five letters and one perk. */
+  const add=(make, wide)=>{
+    const widen = wide || (tries=>(tries%3===0)?goldenLetterOffer(rng):letterOffer(weightedLetter(rng,Object.assign({},commonPool,rarePool))));
     for(let tries=0;tries<24;tries++){
       const o=make();
       if(!seen.has(o.name)){ seen.add(o.name); shelf.add(o.name); offers.push(o); return; }
     }
-    // Category exhausted: widen to unseen letter stock (26+ names deep) before
-    // ever repeating, so rerolls stay repeat-free far longer.
+    // Category exhausted: widen within the same side before ever repeating.
     for(let tries=0;tries<24;tries++){
-      const o=(tries%3===0)?goldenLetterOffer(rng):letterOffer(weightedLetter(rng,Object.assign({},commonPool,rarePool)));
+      const o=widen(tries);
       if(!seen.has(o.name)){ seen.add(o.name); shelf.add(o.name); offers.push(o); return; }
     }
     // Truly exhausted: allow "not on THIS shelf" as the last resort.
@@ -4099,17 +4111,28 @@ function buildShopPool(){
     }
     const o=make(); offers.push(o);
   };
-  add(()=> rng()<0.30 ? goldenLetterOffer(rng) : letterOffer(weightedLetter(rng,commonPool)));   // v48c: golden letters get a real seat
+  /* v491f: a fixed even split. The old shelf left slots 5 and 6 to chance, so an
+     unlucky roll could hand out five letters and a single perk. Now the letter
+     side and the perk side each get a guaranteed half:
+       LETTER SIDE  common letter · rare letter · utility (gild / eraser / mend)
+       PERK SIDE    three draws from the perk pool
+     Super Store adds one to each side, keeping the shelf even at 8. */
+  const N=shopSlots(), perSide=N/2;
+  // letter side
+  add(()=> rng()<0.40 ? goldenLetterOffer(rng) : letterOffer(weightedLetter(rng,commonPool)));   // v48c seat, widened in v491f now that goldens left the perk pool
   add(()=> rng()<0.22 ? pregildedLetterOffer(rng) : letterOffer(weightedLetter(rng,rarePool)));   // v42a: rare pre-gilded letter
-  add(()=>pickWeighted(rng,perkPool(rng)));
+  for(let i=0;i<perSide-3;i++){
+    add(()=>{ const r=rng();   // v491d: a shelf can carry a second workhorse gild
+      return r<0.75 ? letterOffer(weightedLetter(rng,Object.assign({},commonPool,rarePool))) : gildOffer(rng); });
+  }
   add(()=>pickWeighted(rng,utilPool(rng)));
-  // round out to 6: a mix of letters and perks/cards
-  add(()=> rng()<0.5 ? letterOffer(weightedLetter(rng,Object.assign({},commonPool,rarePool))) : pickWeighted(rng,perkPool(rng)) );
-  add(()=>{ const r=rng();   // v491d: a shelf can carry a second workhorse gild
-    return r<0.45 ? letterOffer(weightedLetter(rng,Object.assign({},commonPool,rarePool)))
-         : r<0.60 ? gildOffer(rng)
-         : pickWeighted(rng,perkPool(rng)); });
-  const shelfOut=offers.slice(0,6).map(o=>({...o,sold:false}));
+  // perk side
+  // Widen with more perk draws, never letters: after 24 unseen misses the third
+  // loop below accepts a name seen at an earlier reroll, which still hands the
+  // player a perk. A perk slot always yields a perk.
+  const perkWide=()=>pickWeighted(rng,perkPool(rng));
+  for(let i=0;i<perSide;i++) add(()=>pickWeighted(rng,perkPool(rng)), perkWide);
+  const shelfOut=offers.slice(0,N).map(o=>({...o,sold:false}));
   G.shopSeen=[...new Set([...(G.shopSeen||[]), ...shelfOut.map(o=>o.name)])];   // remember across rerolls
   return shelfOut;
 }
@@ -4146,7 +4169,6 @@ function perkPool(rng){
     {make:()=>extraTurnOffer(),    weight:1.8},
     {make:()=>pressMultOffer(rng), weight:1.3},
     {make:()=>heavyPressOffer(rng), weight:1.1},
-    {make:()=>goldenLetterOffer(rng), weight:2.2},
     {make:()=>growthMindOffer(),   weight:1.2},
     {make:()=>foilOffer(),         weight:1.1},
     {make:()=>fusionOffer(),       weight:1.8},
@@ -4179,6 +4201,7 @@ function perkPool(rng){
   if(!G.perks.fiveTimer)         e.push({make:()=>fiveTimerOffer(),   weight:1.4});
   if(!G.perks.marginalia)        e.push({make:()=>marginaliaOffer(),  weight:1.3});
   if(!G.perks.fightingWords)     e.push({make:()=>fightingWordsOffer(), weight:1.2});
+  if(!G.perks.superStore)        e.push({make:()=>superStoreOffer(),   weight:1.1});
   if(!G.perks.mirror)            e.push({make:()=>mirrorOffer(),      weight:0.8});
   if(!G.perks.verbose)           e.push({make:()=>verboseOffer(),     weight:1.2});
   if(!G.perks.verbizer)          e.push({make:()=>verbizerOffer(),    weight:0.8});
@@ -4393,6 +4416,12 @@ function applyOffer(o){
     case "fiveTimer":    G.perks.fiveTimer=true; break;
     case "marginalia":   G.perks.marginalia=true; break;
     case "fightingWords": G.perks.fightingWords=true; break;
+    case "superStore":   G.perks.superStore=true;
+      // widen the shelf immediately: restock in place so the new seats are usable now
+      { const keep=(G.shopOffers||[]).filter(o=>o.sold);
+        G.shopOffers=buildShopPool();
+        keep.forEach(k=>{ const m=G.shopOffers.find(o=>o.name===k.name); if(m) m.sold=true; }); }
+      break;
     case "mirror":       G.perks.mirror=true; break;
     case "verbose":      G.perks.verbose=true; break;
     case "verbizer":     G.perks.verbizer=true; break;
@@ -4634,6 +4663,11 @@ function pregildedLetterOffer(rng){
     desc:"A "+L+" that arrives gilded ×"+gild+", worth "+finalVal+" points.",
     price, art:`<span class="mini-tile upgraded">${L}<span class="mv">${finalVal}</span></span>`,
     d:{type:"letter",L,gild}};
+}
+function superStoreOffer(){
+  return {kind:"Perk",rarity:"epic",name:"Super Store",
+    desc:"Every shop from now on stocks 8 offers instead of 6.",
+    price:px(12), art:"🏬", d:{type:"superStore"}};
 }
 function fireSaleOffer(){
   return {kind:"Perk",rarity:"rare",name:"Fire sale",desc:"All shop prices 25% cheaper, forever.",
@@ -5229,7 +5263,7 @@ function statFinish(result){
   G.stats.runScore=G.runScore||0;
   G.stats.bestWord=G.runBestWord||""; G.stats.bestScore=G.runBestScore||0;
   G.stats.perks={ firstUp:G.perks.firstUp, lastUp:G.perks.lastUp, vowelPower:G.perks.vowelPower,
-    bigWords:G.perks.bigWords, fireSale:G.perks.fireSale, interest:G.perks.interest, fightingWords:!!G.perks.fightingWords,
+    bigWords:G.perks.bigWords, fireSale:G.perks.fireSale, interest:G.perks.interest, fightingWords:!!G.perks.fightingWords, superStore:!!G.perks.superStore,
     scoreMult:G.scoreMult, handSize:G.handSize, extraTurns:G.extraTurns };
   try{ localStorage.setItem("letterati_laststats", JSON.stringify(G.stats)); }catch(e){}
   try{ const arr=JSON.parse(localStorage.getItem("letterati_runs")||"[]"); arr.push(G.stats);
@@ -5361,7 +5395,8 @@ const DEF_BLOCKLIST=new Set([
   "shemale","shemales","ladyboy","ladyboys",
   "transvestite","transvestites","crossdresser","crossdressers",
   "catamite","catamites","ponce","ponces",
-  "tit","tits","titty","titties","tittie","titties","boob","boobs","boobies"
+  "tit","tits","titty","titties","tittie","titties","boob","boobs","boobies",
+  "chesty","chestier","chestiest"
 ]);
 function escHtml(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&lt;",">":"&gt;",'"':"&quot;"}[c])); }
 /* Family-safety filter on definitions (PBS). Full Wiktionary includes explicit and
@@ -5500,6 +5535,7 @@ function ownedPerksList(){
   if(G.perks.fiveTimer)  out.push("Five Timer · ×1.5 five-letter words");
   if(G.perks.marginalia) out.push("Marginalia · 1 coin per 15 over target, max 15");
   if(G.perks.fightingWords) out.push("Fighting Words · +50% per lost heart");
+  if(G.perks.superStore) out.push("Super Store · 8 shop offers");
   if(G.perks.mirror)     out.push("Mirror · ×3 palindromes");
   if(G.perks.verbose)    out.push("Verbose · ×1.5 verbs");
   if(G.perks.verbizer)   out.push("Verbizer · add er/ing/ed to any word");
@@ -5544,6 +5580,7 @@ function ownedPerkCards(){
   if(P.fiveTimer)  push("5️⃣","Five Timer","×1.5 on exactly five-letter words.");
   if(P.marginalia) push("🪙","Marginalia","1 coin for every 15 points past the target, up to 15 coins.");
   if(P.fightingWords) push("🥊","Fighting Words","Words score +50% for every heart you have lost.");
+  if(P.superStore) push("🏬","Super Store","Every shop stocks 8 offers instead of 6.");
   if(P.mirror)     push("🪞","Mirror","×3 on palindromes.");
   if(P.verbose)    push("🅥","Verbose","×1.5 on verbs, in any form.");
   if(P.verbizer)   push("🪄","Verbizer","Add er, ing or ed to any valid word to make it a verb.");
@@ -5705,7 +5742,7 @@ function continueRun(){
   cardSeq=d.cardSeq||0;
   G.seed=d.seed; G.level=d.level; G.hearts=d.hearts; G.coins=d.coins; G.handSize=d.handSize;
   G.infinite=!!d.infinite; G.wonRun=!!d.wonRun;
-  G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
+  G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false,superStore:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
   if(G.perks.vowelPower===true) G.perks.vowelPower=1;   // v42a: legacy boolean -> 1 stack
   G.reprintUsed=!!d.reprintUsed;
   G.foilUsed=Array.isArray(d.foilUsed)?d.foilUsed.slice():[];
@@ -5781,7 +5818,7 @@ function newRun(seed){
   cardSeq=0;
   G.seed=seed;
   G.level=1; G.hearts=MAX_HEARTS; G.coins=0; G.handSize=START_HAND;
-  G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false};
+  G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false,superStore:false};
   G.reprintUsed=false;
   G.scoreMult=1; G.pressGrowth=0; G.heavyPress=0; G.extraDiscards=0; G.extraTurns=0; G.jazzCharges=0; G.lastReward=null;
   G.infinite=false; G.wonRun=false;
