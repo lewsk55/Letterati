@@ -27,6 +27,23 @@
    v491b: Tight Margins renamed Small Margins, now takes one tile
    instead of two (diff 2 -> 1); the restore stores the actual
    delta so hand size can never drift across a save.
+   v492b: trios are arranged freely (6 orders, tap the placed tile
+   to rearrange); Triple fusion upgrade forges a trio from one of
+   your fused pairs plus a letter (gilds and golden carry over) and
+   is the featured path, with ready-made trios rarer as fallback.
+   v492a: eight legendaries land: Word Binder, Second Edition,
+   Gemini, Gilded Age, Deadline Extension, Galley Proof, Revision,
+   The Midnight Press. New epic trio fusion tiles (tap on the press
+   to flip) and the common Triptych draw-3 card. Twinsies is epic
+   and rarer. Explicit G.overtime flag feeds Midnight scoring.
+   v491h: Free jazz retired entirely (card, offer, validation
+   bypass, jazz submit state, exhaustion plumbing, jazzCharges);
+   saved runs strip lingering jazz cards on load; the legendary
+   tier is currently empty.
+   v491g: First-up / Finale list the faces of fused and combo tiles
+   (scoring already read the resolved edge letter, so rotation just
+   works); Clone and Copy cat duplicate fused pairs and -ING/-ATE
+   combos whole; a single word now pays at most $20.
    v491f: shelf split evenly (letter side / perk side) so a shop
    always carries three perk-pool offers; new Super Store perk
    widens every shop to 8; "chesty" keeps its definition hidden.
@@ -307,8 +324,6 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
 .btn:active{transform:translateY(1px)}
 .btn-primary{background:var(--moss);color:#fff}
 .btn-primary:disabled{background:var(--page-deep);color:var(--ink-soft);cursor:not-allowed}
-.btn-primary.jazzing{background:linear-gradient(110deg,#7A4FB0,#B98A2E,#9E3B2E);background-size:200% 100%;animation:jazzShift 2.4s linear infinite}
-@keyframes jazzShift{to{background-position:-200% 0}}
 /* ---- Set-the-word button juice (v43b) ---- */
 .btn-primary{position:relative;overflow:hidden}
 .btn-primary.ready{animation:btnGlow 1.5s ease-in-out infinite}
@@ -439,11 +454,17 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 .deck-tile.fuse-pending{outline:3px solid #3C9E84;outline-offset:2px;border-radius:10px}
 .tile.clone .clone-mark{position:absolute;right:2px;top:1px;font-size:.5em;line-height:1;color:#7A6CA8;z-index:3}
 
-/* Free jazz tile */
-.tile.jazz{background:linear-gradient(180deg,#2B2740,#43395E);border-color:#6B5A8E;color:#fff;box-shadow:0 2px 0 #1C1830,0 4px 11px rgba(60,40,100,.35)}
-.tile.jazz .glyph{font-size:1.3em;filter:drop-shadow(0 1px 2px rgba(0,0,0,.45))}
-.tile.jazz .glyph-sub{position:absolute;bottom:4px;left:0;right:0;text-align:center;font-family:var(--ui);font-size:.5rem;font-weight:900;letter-spacing:.12em;color:#E2B64B}
-.tile.jazz.spent{filter:grayscale(.75);opacity:.5}
+.tile.dealer.spent{filter:grayscale(.6);opacity:.55}
+.tile.triptych{background:linear-gradient(180deg,#F3EDE0,#E4D8BE);border-color:#C0AC7F}
+.tile.triptych .glyph{font-size:1.2em}
+.tile.triptych .glyph-sub{position:absolute;left:0;right:0;bottom:3px;text-align:center;font-family:var(--ui);font-size:.42em;font-weight:800;letter-spacing:.06em;color:#8A6D3B}
+.tile.trio .dom-letter{font-size:.82em}
+.tile.trio .dom-val{font-size:.5em}
+.post-actions{display:flex;gap:8px;justify-content:center;margin:6px 0 0}
+.post-actions .btn{font-size:.72rem;padding:7px 12px}
+#binderInput{display:block;width:100%;max-width:280px;margin:12px auto 4px;padding:10px 12px;font-family:var(--serif);font-weight:800;font-size:1.2rem;letter-spacing:.12em;text-transform:uppercase;text-align:center;border:2px solid var(--rule);border-radius:10px;background:var(--page);color:var(--ink)}
+#revisionWord .clone-choice.revtarget{outline:3px solid var(--brass-deep)}
+#revisionLetters{max-height:200px;overflow-y:auto}
 
 /* Wild vowel tile — tie-dye field with a combined-vowel glyph */
 .tile.wildvowel{border-color:#C77BB0;color:#fff;background:conic-gradient(from 0deg,#FE704E,#FFCF00,#48D3CD,#7A4FB0,#FE704E)}
@@ -857,6 +878,10 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
       <button class="btn btn-primary" id="submitBtn" disabled>Set the word</button>
     </div>
 
+    <div class="post-actions hidden" id="postActions">
+      <button class="btn btn-ghost" id="secondEdBtn">📚 Second Edition</button>
+      <button class="btn btn-ghost" id="revisionBtn">✒️ Revision</button>
+    </div>
     <div class="def-strip hidden" id="defStrip" aria-live="polite"></div>
     </div><!-- /play-center -->
 
@@ -979,6 +1004,37 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
     <div class="boss-intro" id="bossIntroLine"></div>
     <div class="boss-desc" id="bossDesc"></div>
     <button class="menu-btn" id="bossGoBtn" style="margin-top:20px">Go to press</button>
+  </div>
+</div>
+<div class="overlay hidden" id="trioPick">
+  <div class="clone-sheet">
+    <div class="clone-title">Arrange the trio</div>
+    <div class="clone-sub">Pick the order the three letters sit on the press. Tap the placed tile any time to rearrange.</div>
+    <div class="clone-choices" id="trioChoices"></div>
+    <button class="menu-btn alt" id="trioPickCancel" style="max-width:160px">Keep as is</button>
+  </div>
+</div>
+<div class="overlay hidden" id="binderOverlay">
+  <div class="clone-sheet">
+    <div class="clone-title">📖 Word Binder</div>
+    <div class="clone-sub" id="binderSub">Type a word to bind. Playing it scores its previous bound total on top; changing it later resets the binding.</div>
+    <input type="text" id="binderInput" autocomplete="off" autocapitalize="characters" spellcheck="false" maxlength="15" placeholder="TYPE A WORD">
+    <div class="clone-sub" id="binderErr" style="color:var(--oxblood)"></div>
+    <div class="gild-actions">
+      <button class="menu-btn ghost" id="binderCancel" style="max-width:150px">Cancel</button>
+      <button class="menu-btn" id="binderSave" style="max-width:170px">Bind it</button>
+    </div>
+  </div>
+</div>
+<div class="overlay hidden" id="revisionOverlay">
+  <div class="clone-sheet">
+    <div class="clone-title">✒️ Revision</div>
+    <div class="clone-sub" id="revisionSub">Tap the letter to rewrite.</div>
+    <div class="clone-choices" id="revisionWord"></div>
+    <div class="clone-choices" id="revisionLetters"></div>
+    <div class="gild-actions">
+      <button class="menu-btn ghost" id="revisionCancel" style="max-width:170px">Never mind</button>
+    </div>
   </div>
 </div>
 <div class="overlay hidden" id="runIntroScreen">
@@ -1317,7 +1373,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "491f";
+const VERSION = "492b";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -1424,7 +1480,7 @@ function challengeUpgradeLetterFor(level){
   return weightedLetter(rng,{E:3,A:2,S:3,R:3,T:3,N:2,L:2,D:2,M:2,H:2,P:2,C:2,B:1,W:1,Y:1});
 }
 // Pool the "featured epic" reward draws from. All grant cleanly with no extra
-// chooser popup, and stay on-brand (no free jazz). Rolled and shown up front.
+// chooser popup, and stay on-brand. Rolled and shown up front.
 const CHALLENGE_EPIC_POOL = [
   {name:"Wild consonant",   art:"✦",  desc:"A slug that becomes any consonant you choose.", d:{type:"wildCons"}},
   {name:"Wild vowel",       art:"✺",  desc:"A slug that becomes any vowel you choose.", d:{type:"wildVowel"}},
@@ -1466,7 +1522,8 @@ const DISCARDS_PER_LEVEL = 4;
 const PRICE_MULTIPLIER = 1.22; // per-round shop inflation (GGW used ~1.46)
 const SHOP_PRICE_SCALE = 0.8;  // v3a: 20% cheaper across the board (stacks on the base 35% off)
 const MAX_HEARTS = 3;
-const COIN_CAP = 12;           // economy guard rail (caps base payout only)
+const COIN_CAP = 12;
+const WORD_CASH_CAP = 20;   // v491g: most a single word can pay into the bank           // economy guard rail (caps base payout only)
 const LIQUIDITY_CAP = 2.0;     // max score multiplier from Liquidity (wealth -> mult)
 function liquidityMult(){ return G.perks.interest ? Math.min(LIQUIDITY_CAP, 1 + 0.01*Math.floor((G.coins||0)/5)) : 1; }   // +1% per $5 banked
 
@@ -1562,6 +1619,14 @@ function epicOwned(e){
   if(t==="interest")    return !!G.perks.interest;
   if(t==="fightingWords") return !!G.perks.fightingWords;
   if(t==="superStore")    return !!G.perks.superStore;
+  if(t==="wordBinder")    return !!G.perks.wordBinder;
+  if(t==="secondEdition") return !!G.perks.secondEdition;
+  if(t==="gemini")        return !!G.perks.gemini;
+  if(t==="gildedAge")     return !!G.perks.gildedAge;
+  if(t==="deadlineExt")   return !!G.perks.deadlineExt;
+  if(t==="galleyProof")   return !!G.perks.galleyProof;
+  if(t==="revision")      return !!G.perks.revision;
+  if(t==="midnightPress") return !!G.perks.midnightPress;
   return false;
 }
 // The featured epic offered at a given challenge level. Seeded by level (and the run
@@ -1592,9 +1657,6 @@ let cardSeq=0;
 function makeLetterCard(letter){ return {id:++cardSeq, kind:"letter", letter, base:LETTER_VALUES[letter], upLevel:0, mult:1}; }
 const CLONE_COPY_PROPS=["mult","growth","foil","watermark","encore","boldface","dropcap","serif","ditto","inkwell"];   // upgrades a clone inherits from its source tile
 function makeCloneCard(){ return {id:++cardSeq, kind:"clone", letter:null, base:0, upLevel:0, mult:1, cloneLetter:null, cloneBase:null, cloneUp:0}; }
-function makeJazzCard(){ return {id:++cardSeq, kind:"jazz", letter:null, base:0, upLevel:0, mult:1, jazzLeft:3}; }
-const JAZZ_USES=3;
-function canvasUsableJazz(){ return G.canvas.some(c=>c.kind==="jazz" && (c.jazzLeft||0)>0); }
 function makeWildVowelCard(){ return {id:++cardSeq, kind:"wildvowel", letter:null, base:0, upLevel:0, mult:1, vowel:null}; }
 function makeWildConsCard(){ return {id:++cardSeq, kind:"wildcons", letter:null, base:0, upLevel:0, mult:1, cons:null}; }
 function makeCopyCatCard(){ return {id:++cardSeq, kind:"copycat", letter:null, base:0, upLevel:0, mult:1}; }
@@ -1612,6 +1674,18 @@ function makeFusedCard(a,b){
   const sides=[side(a),side(b)];
   return {id:++cardSeq, kind:"fused", letter:null, base:0, upLevel:0, mult:1, sides, mode:2};   // defaults to the duo
 }
+/* ---- Trio tiles (v492a): three letters fused into one slug. Plays the run
+   forward or reversed; tap it on the press to flip. Gilding doubles all three. */
+const TRIO_POOL=["ENT","TER","EST","ERS","ONE","ART","RED","IST","AGE","ION"];
+function makeTrioCard(letters, upLevel, mult){ return {id:++cardSeq, kind:"trio", letters:letters.slice(), upLevel:upLevel||0, mult:mult||1, order:[0,1,2]}; }
+function trioSeq(c){
+  const ord = Array.isArray(c.order) ? c.order : (c.flipped ? [2,1,0] : [0,1,2]);   // legacy `flipped` saves migrate on read
+  return ord.map(i=>c.letters[i]);
+}
+const TRIO_ORDERS=[[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];
+function trioLabel(c){ return trioSeq(c).join(""); }
+function trioSideValue(c,L){ return (LETTER_VALUES[L]||0)*Math.pow(2,c.upLevel||0); }
+function trioValue(c){ return trioSeq(c).reduce((s,L)=>s+trioSideValue(c,L),0); }
 function fusedMode(c){ return (c.mode!=null) ? c.mode : (c.pick?1:0); }   // migrate legacy pick→mode
 function fusedIsDuo(c){ return fusedMode(c)>=2; }
 function fusedEntries(c){   // resolved letter(s): one for a solo, two for a duo
@@ -1645,6 +1719,7 @@ const COMBO_DEFS = {
 function makeComboCard(key){ const d=COMBO_DEFS[key]; return {id:++cardSeq, kind:"combo", combo:key, letter:null, base:d.seq.length, upLevel:0, mult:1}; }
 function makeLucky7Card(){ return {id:++cardSeq, kind:"lucky7", letter:null}; }
 function makeDealerCard(){ return {id:++cardSeq, kind:"dealer", letter:null}; }
+function makeTriptychCard(){ return {id:++cardSeq, kind:"triptych", letter:null}; }
 function comboSeq(c){ return COMBO_DEFS[c.combo].seq; }
 function comboLabel(c){ return COMBO_DEFS[c.combo].label; }
 function comboEntries(c){ const u=c.upLevel||0; return comboSeq(c).map(L=>({letter:L, value:1*Math.pow(2,u)})); }
@@ -1676,11 +1751,13 @@ const G = {
   perks:{ firstUp:{}, lastUp:{}, discardMoneyBoost:false, interest:false, twinsies:false,
           vowelPower:0, fireSale:false, bigWords:false, freeRerolls:false,
           proofSheet:false, twoOfAKind:false, shortKing:false,
-          kerning:false, fiveTimer:false, marginalia:false, mirror:false, reprint:false, repeater:false, powerTrio:false, verbose:false, fightingWords:false, superStore:false },
+          kerning:false, fiveTimer:false, marginalia:false, mirror:false, reprint:false, repeater:false, powerTrio:false, verbose:false, fightingWords:false, superStore:false, wordBinder:false, secondEdition:false, gemini:false, gildedAge:false, deadlineExt:false, galleyProof:false, revision:false, midnightPress:false },
   scoreMult:1,             // live "press multiplier", applied to every word score
   pressGrowth:0,           // v41a: each 6+ letter word raises scoreMult by this (per Press multiplier stack)
   challenge:null,          // active challenge-level descriptor {type,reward,banned[],active} or null
-  extraDiscards:0, extraTurns:0, jazzCharges:0, reprintUsed:false, foilUsed:[],
+  extraDiscards:0, extraTurns:0, reprintUsed:false, foilUsed:[],
+  overtime:false, deadlineExtRound:null, midnightRound:null,
+  secondEdRound:null, secondEdHalf:false, revisionRound:null, lastPlay:null,
   wordsPlayed:0, runScore:0, runBestWord:"", runBestScore:0, wordPlays:{}, levelStats:{bestWord:"",bestScore:0,words:0},
   // per-level
   attempt:0, target:0, score:0, handsLeft:0, discardsLeft:0,
@@ -1688,7 +1765,7 @@ const G = {
   // win / endless
   infinite:false, wonRun:false,
   // ui transient
-  paused:false, bonusKind:null, bonusOfferIdx:null, fuseOfferIdx:null, fusePending:null, stats:null, _curShop:null,
+  paused:false, bonusKind:null, bonusOfferIdx:null, fuseOfferIdx:null, trioPairPending:null, fusePending:null, stats:null, _curShop:null,
   // shop
   shopOffers:[], rerollCount:0, freeRerollUsed:false, shopUndo:[],
   // deck overlay select mode
@@ -1906,7 +1983,7 @@ function predLevel(P,seed,opts){
     }
     const {score:s,tiles}=predBest(hand,P,bo());
     if(!tiles){ hl--; if(hand.length){pile.push(hand.shift());draw();} continue; }
-    score+=s; words.push(s); cash+=Math.floor(s/wordCashDivisor(P.level));
+    score+=s; words.push(s); cash+=Math.min(WORD_CASH_CAP, Math.floor(s/wordCashDivisor(P.level)));   // v491g: mirrors the live per-word cap
     const wl=tiles.reduce((n,t)=>n+(t.fusedA?2:1),0);
     if(wl>=6 && (P.pressGrowth||0)>0){ P.scoreMult=Math.round(((P.scoreMult||1)+P.pressGrowth)*1000)/1000; }
     if(usedLens) usedLens.add(wl);
@@ -2410,16 +2487,19 @@ function renderHud(){
 }
 function renderProofPeek(){
   const row=$("proofRow"); if(!row) return;
-  if(!G.perks.proofSheet || !G.drawPile || G.drawPile.length===0){ row.classList.add("hidden"); return; }
+  if((!G.perks.proofSheet && !G.perks.galleyProof) || !G.drawPile || G.drawPile.length===0){ row.classList.add("hidden"); return; }
   row.classList.remove("hidden");
   const peek=$("proofPeek"); peek.innerHTML="";
-  const c=G.drawPile[0];
+  const n=G.perks.galleyProof?3:1;   // Galley Proof (v492a): three-tile lookahead
+  G.drawPile.slice(0,n).forEach(c=>{
   const mini=document.createElement("span"); mini.className="pp-tile";
   if(c.kind==="letter"){ mini.innerHTML=`${c.letter}<span class="pp-v">${cardValue(c)}</span>`; }
   else if(c.kind==="combo"){ mini.innerHTML=`${comboLabel(c)}<span class="pp-v">${comboValue(c)}</span>`; }
   else if(c.kind==="fused"){ mini.innerHTML=`${fusedLabel(c)}<span class="pp-v">${fusedValue(c)}</span>`; }
-  else { mini.textContent = c.kind==="clone"?"❖" : c.kind==="wildvowel"?"✺" : c.kind==="wildcons"?"✦" : c.kind==="copycat"?"⧉" : c.kind==="jazz"?"🎷" : "?"; }
+  else if(c.kind==="trio"){ mini.innerHTML=`${trioLabel(c)}<span class="pp-v">${trioValue(c)}</span>`; }
+  else { mini.textContent = c.kind==="clone"?"❖" : c.kind==="wildvowel"?"✺" : c.kind==="wildcons"?"✦" : c.kind==="copycat"?"⧉" : "?"; }
   peek.appendChild(mini);
+  });
 }
 
 /* ============================================================
@@ -2427,14 +2507,18 @@ function renderProofPeek(){
    ============================================================ */
 function copycatResolved(c){ const e=resolvedCanvas().find(r=>r.card===c); return e&&e.letter?{letter:e.letter,value:e.value}:null; }
 function tileGlyph(c){
-  if(c.kind==="clone") return c.cloneLetter ? c.cloneLetter : "❖";
-  if(c.kind==="jazz") return "🎷";
+  if(c.kind==="clone") return c.cloneTile ? (c.cloneTile.kind==="fused"?fusedLabel(c.cloneTile):comboLabel(c.cloneTile)) : (c.cloneLetter ? c.cloneLetter : "❖");
   if(c.kind==="wildvowel") return c.vowel ? c.vowel : "✺";
   if(c.kind==="wildcons") return c.cons ? c.cons : "✦";
   if(c.kind==="copycat"){ const r=copycatResolved(c); return r?r.letter:"⧉"; }
   return c.letter;
 }
-function isFirstUp(c){ return c.kind==="letter" && (G.perks.firstUp[c.letter]||0)>0; }
+function isFirstUp(c){
+  if(c.kind==="letter") return (G.perks.firstUp[c.letter]||0)>0;
+  if(c.kind==="fused" && Array.isArray(c.sides)) return c.sides.some(sd=>(G.perks.firstUp[sd.letter]||0)>0);
+  if(c.kind==="combo") return comboEntries(c).some(e=>(G.perks.firstUp[e.letter]||0)>0);
+  return false;
+}
 function isLastUp(c){ return c.kind==="letter" && (G.perks.lastUp[c.letter]||0)>0; }
 function tileBadges(t,c){
   if(isFirstUp(c)){ const s=document.createElement("span"); s.className="fu-star"; s.textContent="⭐"; t.appendChild(s); }
@@ -2465,26 +2549,18 @@ function tileBadges(t,c){
 }
 function buildTile(c,where){
   const t=document.createElement("button");
-  const assignedClone = c.kind==="clone" && c.cloneLetter;
+  const assignedClone = c.kind==="clone" && (c.cloneLetter || c.cloneTile);
   const wildSet = c.kind==="wildvowel" && c.vowel;
   const assignedWildCons = c.kind==="wildcons" && c.cons;
-  const jazzSpent = c.kind==="jazz" && (c.jazzLeft||0)<=0;
   t.className="tile "
     +(c.kind==="clone"?"clone ":"")
-    +(c.kind==="jazz"?"jazz ":"")
     +(c.kind==="wildvowel"?"wildvowel ":"")
     +(c.kind==="wildcons"?"wildcons ":"")
     +(c.kind==="copycat"?"copycat ":"")
-    +(jazzSpent?"spent ":"")
     +(gildLevel(c)>0?"upgraded ":"")+(cardMult(c)!==1?"multi ":"")
     +(isFirstUp(c)?"firstup ":"")+(isLastUp(c)?"lastup ":"");
   t.dataset.id=c.id;
 
-  if(c.kind==="jazz"){
-    const g=document.createElement("span"); g.className="glyph"; g.textContent="🎷"; t.appendChild(g);
-    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent=(c.jazzLeft||0)+"/"+JAZZ_USES; t.appendChild(s);
-    tileBadges(t,c); attachTileHandlers(t,c,where); return t;
-  }
   if(c.kind==="wildvowel" && !wildSet){
     const d=document.createElement("span"); d.className="wv-design"; d.innerHTML=wildVowelDesignHTML(); t.appendChild(d);
     const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="WILD"; t.appendChild(s);
@@ -2493,6 +2569,23 @@ function buildTile(c,where){
   if(c.kind==="wildcons" && !assignedWildCons){
     const d=document.createElement("span"); d.className="wv-design"; d.innerHTML=wildConsDesignHTML(); t.appendChild(d);
     const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="CONS"; t.appendChild(s);
+    tileBadges(t,c); attachTileHandlers(t,c,where); return t;
+  }
+  if(c.kind==="trio"){
+    t.classList.add("trio","domino");
+    trioSeq(c).forEach((L,i)=>{
+      if(i>0){ const d=document.createElement("span"); d.className="dom-div"; t.appendChild(d); }
+      const cd=document.createElement("span"); cd.className="dom-cell";
+      const g=document.createElement("span"); g.className="dom-letter"; g.textContent=L; cd.appendChild(g);
+      const v=document.createElement("span"); v.className="dom-val"; v.textContent=trioSideValue(c,L); cd.appendChild(v);
+      t.appendChild(cd);
+    });
+    if(where==="canvas"){
+      t.addEventListener("pointerdown",e=>onTileDown(e,t,c,"canvas"));
+      t.addEventListener("click",e=>{ if(justDragged){ e.preventDefault(); return; } e.preventDefault();
+        openTrioSelector(c); });   // tap on the press to rearrange the letters
+      tileBadges(t,c); return t;
+    }
     tileBadges(t,c); attachTileHandlers(t,c,where); return t;
   }
   if(c.kind==="fused"){
@@ -2517,6 +2610,13 @@ function buildTile(c,where){
     t.addEventListener("click",e=>{ if(justDragged){ e.preventDefault(); return; } e.preventDefault(); if(where==="hand") useLucky7(c); });
     return t;   // an action card: tap in the bank to use; it never enters the canvas
   }
+  if(c.kind==="triptych"){
+    t.classList.add("triptych");
+    const g=document.createElement("span"); g.className="glyph"; g.textContent="🖼️"; t.appendChild(g);
+    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="DRAW 3"; t.appendChild(s);
+    t.addEventListener("click",e=>{ if(justDragged){ e.preventDefault(); return; } e.preventDefault(); if(where==="hand") useTriptych(c); });
+    return t;
+  }
   if(c.kind==="dealer"){
     t.classList.add("dealer");
     if(!G.drawPile || G.drawPile.length===0) t.classList.add("spent");
@@ -2537,7 +2637,7 @@ function buildTile(c,where){
   }
   const g=document.createElement("span"); g.className="glyph";
   g.textContent = wildSet ? c.vowel : tileGlyph(c); t.appendChild(g);
-  if(c.kind==="clone" && !c.cloneLetter){
+  if(c.kind==="clone" && !c.cloneLetter && !c.cloneTile){
     const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="CLONE"; t.appendChild(s);
   } else if(assignedClone){
     const v=document.createElement("span"); v.className="val";
@@ -2639,6 +2739,25 @@ function attachFusedCanvasHandlers(el,c){
     removeFromCanvas(c.id);   // tap a placed fused tile to drop it back into the bank (its config is re-chosen on the next drop)
   });
 }
+let trioSelCard=null;
+function openTrioSelector(c){
+  trioSelCard=c;
+  const wrap=$("trioChoices"); wrap.innerHTML="";
+  const cur=(Array.isArray(c.order)?c.order:[0,1,2]).join("");
+  TRIO_ORDERS.forEach(ord=>{
+    const label=ord.map(i=>c.letters[i]).join("");
+    const b=document.createElement("button"); b.className="clone-choice fused-duo"+(ord.join("")===cur?" active":"");
+    b.innerHTML=`${label}<span class="cc-val">${trioValue(c)}</span>`;
+    b.addEventListener("click",()=>pickTrioOrder(ord));
+    wrap.appendChild(b);
+  });
+  $("trioPick").classList.remove("hidden");
+}
+function pickTrioOrder(ord){
+  if(trioSelCard){ trioSelCard.order=ord.slice(); delete trioSelCard.flipped; }
+  trioSelCard=null; $("trioPick").classList.add("hidden");
+  renderCanvas(); haptic(8); save();
+}
 function openFusedSelector(c){
   fusedSelCard=c;
   const wrap=$("fusedChoices"); wrap.innerHTML="";
@@ -2678,13 +2797,32 @@ function shuffleHand(){
 /* resolve clones: each clone becomes the letter to its left */
 function resolvedCanvas(){
   const out=[];
+  let lastSpan=null;   // [start,end) of the entries the previous card contributed
   for(let i=0;i<G.canvas.length;i++){
     const c=G.canvas[i];
-    if(c.kind==="jazz"){ continue; }   // marker, not a scored letter
+    const spanStart=out.length;
     if(c.kind==="clone"){
+      // v491g: a clone can carry a whole fused pair or -ING/-ATE combo. It resolves
+      // exactly as that tile would, including the fused tile's current rotation.
+      if(c.cloneTile){
+        const t=c.cloneTile;
+        if(t.kind==="fused"){
+          fusedEntries(t).forEach((e,i)=>{
+            const sd=e.side||{};
+            const sideCard={ id:c.id+":"+i, kind:"letter", letter:e.letter,
+              foil:sd.foil, watermark:sd.watermark, encore:sd.encore,
+              boldface:sd.boldface, dropcap:sd.dropcap, serif:sd.serif, ditto:sd.ditto, inkwell:sd.inkwell, _fusedParent:c };
+            out.push({ letter:e.letter, value:e.value+(sd.growth||0), mult:(sd.mult||1),
+              fused:true, fusedPart:i, clone:true, card:sideCard });
+          });
+        } else {
+          comboEntries(t).forEach((e,i)=>out.push({letter:e.letter,value:e.value,mult:1,combo:true,comboPart:i,clone:true,card:c}));
+        }
+      } else {
       const L=c.cloneLetter;
       const val = ((c.cloneBase!=null) ? (c.cloneBase*Math.pow(2,c.cloneUp||0)) : (LETTER_VALUES[L]||0)) + (c.growth||0);
       out.push(L?{letter:L,value:val,mult:(c.mult||1),clone:true,card:c}:{letter:null,value:0,mult:1,clone:true,card:c});
+      }
     } else if(c.kind==="wildvowel"){
       const L=c.vowel;
       out.push(L?{letter:L,value:LETTER_VALUES[L]||0,mult:1,wild:true,card:c}:{letter:null,value:0,mult:1,wild:true,card:c});
@@ -2692,9 +2830,17 @@ function resolvedCanvas(){
       const L=c.cons;
       out.push(L?{letter:L,value:LETTER_VALUES[L]||0,mult:1,wild:true,card:c}:{letter:null,value:0,mult:1,wild:true,card:c});
     } else if(c.kind==="copycat"){
-      const left=out.length>0?out[out.length-1]:null;   // copies the tile immediately to its left, exactly
-      out.push(left&&left.letter?{letter:left.letter,value:left.value,mult:left.mult||1,copycat:true,card:c}
-                                 :{letter:null,value:0,mult:1,copycat:true,card:c});
+      // v491g: copies the tile immediately to its left EXACTLY. A fused pair or an
+      // -ING/-ATE combo contributes several letters, so the copy reproduces all of
+      // them rather than only the last one.
+      const span=(out.length>0 && lastSpan) ? out.slice(lastSpan[0], lastSpan[1]) : [];
+      if(span.length && span.some(e=>e.letter)){
+        span.forEach(e=>out.push({letter:e.letter, value:e.value, mult:e.mult||1, copycat:true, card:c}));
+      } else {
+        out.push({letter:null,value:0,mult:1,copycat:true,card:c});
+      }
+    } else if(c.kind==="trio"){
+      trioSeq(c).forEach((L,i)=>out.push({letter:L, value:trioSideValue(c,L), mult:(c.mult||1), trio:true, trioPart:i, card:c}));
     } else if(c.kind==="fused"){
       const g=(typeof c.growth==="number")?c.growth:0;   // v45a: whole-tile growth still rides on the first slot
       fusedEntries(c).forEach((e,i)=>{
@@ -2715,10 +2861,10 @@ function resolvedCanvas(){
     } else {
       out.push({letter:c.letter,value:effValue(c),mult:cardMult(c),card:c});
     }
+    if(out.length>spanStart) lastSpan=[spanStart,out.length];
   }
   return out;
 }
-function canvasHasJazz(){ return G.canvas.some(c=>c.kind==="jazz"); }
 function isRealWord(){
   const res=resolvedCanvas();
   if(res.length<2 || res.some(r=>!r.letter)) return false;
@@ -2740,13 +2886,12 @@ function verbizedStem(w){
   }
   return null;
 }
-function jazzSubmit(){ return canvasUsableJazz() && !isRealWord() && resolvedCanvas().filter(r=>r.letter).length>=2; }
 function currentWord(){ return resolvedCanvas().map(r=>r.letter||"·").join(""); }
 function wordValid(){
   const res=resolvedCanvas();
   if(res.length<2) return false;
   if(res.some(r=>!r.letter)) return false; // unresolved clone / wild vowel
-  // challenge gates (v3a): these override even the free-jazz bypass
+  // challenge gates (v3a): absolute, no bypass
   const minL=challengeMinLen();
   if(minL && res.length<minL) return false;
   const banned=bannedLetterSet();
@@ -2762,7 +2907,6 @@ function wordValid(){
   const w=res.map(r=>r.letter.toLowerCase()).join("");
   if(WORDS.has(w)) return true;
   if(verbizedStem(w)!==null) return true;   // Verbizer: word+ER / word+ING / word+ED counts here too
-  if(canvasUsableJazz()) return true;   // free jazz: anything goes while uses remain
   return false;
 }
 function scoreOf(res){
@@ -2862,6 +3006,12 @@ function scoreOf(res){
   }
   let coloHit=false;
   if(G.perks.colophon && G.handsLeft===1){ coloHit=true; total*=2; }
+  // The Midnight Press (v492a): overtime words score double.
+  let midnightHit=false;
+  if(G.perks.midnightPress && G.overtime){ midnightHit=true; total*=2; }
+  // Second Edition (v492a): the encore word after a press reset scores half.
+  let secondEdHit=false;
+  if(G.secondEdHalf){ secondEdHit=true; total*=0.5; }
   // Fighting Words (v491a): +50% per lost heart. Backs to the wall, best work yet.
   let fwMult=1;
   if(G.perks.fightingWords){ const lost=Math.max(0,MAX_HEARTS-G.hearts); if(lost>0){ fwMult=1+0.5*lost; total*=fwMult; } }
@@ -2880,10 +3030,17 @@ function scoreOf(res){
   if(goldMult!==1) total*=goldMult;   // golden letters: compounding word multiplier
   total*=(G.scoreMult||1);
   let pulpAdd=0;
+  // Word Binder (v492a): playing the bound word also scores its banked total.
+  let binderAdd=0;
+  { const wb=G.perks.wordBinder;
+    if(wb && wb.word && res.length && !res.some(r=>!r.letter)){
+      const w=res.map(r=>r.letter.toLowerCase()).join("");
+      if(w===wb.word && (wb.banked||0)>0){ binderAdd=wb.banked; total+=binderAdd; }
+    } }
   if(G.perks.pulpMill && (G.pulpPending||0)>0){ pulpAdd=G.pulpPending; total+=pulpAdd; }
   let commissionAdd=0;
   if(G.perks.commission && (G.coins||0)>0){ commissionAdd=G.coins; total+=commissionAdd; }
-  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,fuMult,luMult,twinHit,pairHit,shortHit,shortMult,kernHit,fiveHit,bigHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit,effLen,ligHit,crossHit,alphaHit,coloHit,fwMult,movableHit,anthMult,vanityHit,liqMult,goldMult,pulpAdd,commissionAdd};
+  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,fuMult,luMult,twinHit,pairHit,shortHit,shortMult,kernHit,fiveHit,bigHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit,effLen,ligHit,crossHit,alphaHit,coloHit,fwMult,midnightHit,secondEdHit,binderAdd,movableHit,anthMult,vanityHit,liqMult,goldMult,pulpAdd,commissionAdd};
 }
 function updateLive(){
   const res=resolvedCanvas();
@@ -2895,7 +3052,7 @@ function updateLive(){
   lw.textContent=w;
   lw.className="live-word "+(valid?"ok":"bad");
   let label;
-  if(valid){ label = jazzSubmit()?"free jazz 🎷":""; }
+  if(valid){ label=""; }
   else {
     const minL=challengeMinLen(), banned=bannedLetterSet();
     if(minL && res.length>=2 && res.length<minL && res.every(r=>r.letter)) label="need "+minL+"+ letters";
@@ -2925,6 +3082,9 @@ function updateLive(){
   if(sc.alphaHit) parts.push(`×4 a to z`);
   if(sc.coloHit) parts.push(`×2 colophon`);
   if(sc.fwMult>1) parts.push(`×${sc.fwMult%1?sc.fwMult.toFixed(1):sc.fwMult} fighting`);
+  if(sc.midnightHit) parts.push(`×2 midnight`);
+  if(sc.secondEdHit) parts.push(`×0.5 second edition`);
+  if(sc.binderAdd>0) parts.push(`+${sc.binderAdd} bound`);
   if(sc.movableHit) parts.push(`×2 anagram`);
   if(sc.anthMult>1) parts.push(`×${sc.anthMult.toFixed(2)} anthology`);
   if(sc.vanityHit) parts.push(`×1.25 vanity`);
@@ -2936,17 +3096,106 @@ function updateLive(){
   updateChallengeBlockHint();
   updateButtons();
 }
+function updatePostActions(){
+  const row=$("postActions"); if(!row) return;
+  const inRound = !G.paused && G.lastPlay && G.handsLeft>0;
+  const standing = challengeActive() && G.challenge.type==="standing";
+  const canSE = G.perks.secondEdition && inRound && !standing && G.secondEdRound!==G.level && !G.secondEdHalf
+                && G.lastPlay.ids.length>0 && G.lastPlay.ids.every(id=>(G.played||[]).some(c=>c.id===id));
+  const canRev = G.perks.revision && inRound && G.revisionRound!==G.level;
+  $("secondEdBtn").classList.toggle("hidden", !canSE);
+  $("revisionBtn").classList.toggle("hidden", !canRev);
+  row.classList.toggle("hidden", !(canSE||canRev));
+}
+function useSecondEdition(){
+  if(!G.perks.secondEdition || !G.lastPlay || G.secondEdRound===G.level) return;
+  const ids=new Set(G.lastPlay.ids);
+  const back=(G.played||[]).filter(c=>ids.has(c.id));
+  if(!back.length) return;
+  G.played=(G.played||[]).filter(c=>!ids.has(c.id));
+  back.forEach(c=>G.hand.push(c));
+  G.secondEdRound=G.level;
+  G.secondEdHalf=true;            // the next word scores half
+  G.lastPlay=null;
+  renderHand(); renderHud(); updateLive();
+  toast("Second Edition: the type is back on the bank. Next word scores half.");
+  haptic([12,30,12]); save();
+}
+/* ---- Revision (v492a) ---- */
+let _revIdx=null;
+function openRevision(){
+  if(!G.perks.revision || !G.lastPlay || G.revisionRound===G.level) return;
+  _revIdx=null;
+  const wordWrap=$("revisionWord"); wordWrap.innerHTML="";
+  G.lastPlay.res.forEach((r,i)=>{
+    const b=document.createElement("button"); b.className="clone-choice";
+    b.innerHTML=`${r.letter}<span class="cc-val">${r.value}</span>`;
+    b.addEventListener("click",()=>{ _revIdx=i; renderRevisionTargets(); });
+    wordWrap.appendChild(b);
+  });
+  $("revisionLetters").innerHTML="";
+  $("revisionSub").textContent="Tap the letter to rewrite.";
+  $("revisionOverlay").classList.remove("hidden");
+}
+function renderRevisionTargets(){
+  const wordWrap=$("revisionWord");
+  [...wordWrap.children].forEach((el,i)=>el.classList.toggle("revtarget", i===_revIdx));
+  const wrap=$("revisionLetters"); wrap.innerHTML="";
+  const banned=bannedLetterSet();
+  const cur=G.lastPlay.res.map(r=>r.letter);
+  "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(L=>{
+    if(L===cur[_revIdx]) return;
+    if(banned && banned.has(L)) return;
+    const cand=cur.slice(); cand[_revIdx]=L;
+    const w=cand.join("").toLowerCase();
+    if(!WORDS.has(w)) return;
+    const diff=revisionDiff(_revIdx,L);
+    const b=document.createElement("button"); b.className="clone-choice"+(diff<=0?" disabled":"");
+    b.innerHTML=`${L}<span class="cc-val">${diff>0?"+"+diff:"±0"}</span>`;
+    b.addEventListener("click",()=>applyRevision(L));
+    wrap.appendChild(b);
+  });
+  $("revisionSub").textContent = wrap.children.length ? "Every real rewrite, with what it gains." : "No real word comes from rewriting that letter.";
+}
+function revisedRes(idx,L){
+  return G.lastPlay.res.map((r,i)=> i===idx
+    ? {letter:L, value:(LETTER_VALUES[L]||0), mult:1, card:r.card}
+    : {letter:r.letter, value:r.value, mult:r.mult, card:r.card});
+}
+function revisionDiff(idx,L){
+  const sc=scoreOf(revisedRes(idx,L));
+  return sc.total - G.lastPlay.total;
+}
+function applyRevision(L){
+  if(_revIdx==null || !G.lastPlay) return;
+  const diff=Math.max(0, revisionDiff(_revIdx,L));
+  const oldW=G.lastPlay.res.map(r=>r.letter).join("");
+  const newW=revisedRes(_revIdx,L).map(r=>r.letter).join("");
+  G.revisionRound=G.level;
+  $("revisionOverlay").classList.add("hidden");
+  _revIdx=null;
+  if(diff>0){
+    G.score+=diff; G.runScore=(G.runScore||0)+diff;
+    if(G.stats) G.stats.runScore=G.runScore;
+    toast("Revision: "+oldW+" becomes "+newW+", +"+diff);
+  } else {
+    toast("Revision: "+oldW+" becomes "+newW+". No points gained.");
+  }
+  G.lastPlay=null;
+  renderHud(); updatePostActions();
+  haptic([15,40,15]); save();
+  if(G.score>=G.target){ levelCleared(); }
+}
 function updateButtons(){
-  const jazz=jazzSubmit();
   const btn=$("submitBtn");
   const valid = wordValid() && G.handsLeft>0;
   btn.disabled = !valid;
-  btn.textContent = jazz ? "Free jazz 🎷" : "Set the word";
-  btn.classList.toggle("jazzing", jazz);
+  btn.textContent = "Set the word";
   // juice: shimmer + glow + squash on becoming settable; jiggle harder past 6 letters
-  const showReady = valid && !jazz;
+  const showReady = valid;
   const letters = showReady ? resolvedCanvas().filter(r=>r.letter).length : 0;
   btn.classList.toggle("ready", showReady);
+  updatePostActions();
   if(showReady && !_btnWasReady && !reduceMotion()){
     btn.classList.remove("just-ready"); void btn.offsetWidth; btn.classList.add("just-ready");
     setTimeout(()=>btn.classList.remove("just-ready"),470); haptic(8);
@@ -3077,7 +3326,7 @@ function returnToHandAt(id, idx){
   const i=G.canvas.findIndex(c=>c.id===id); if(i<0){ renderHand(); renderCanvas(); return; }
   checkpoint();
   const [c]=G.canvas.splice(i,1);
-  if(c.kind==="clone") c.cloneLetter=null; if(c.kind==="wildvowel") c.vowel=null; if(c.kind==="wildcons") c.cons=null;
+  if(c.kind==="clone"){ c.cloneLetter=null; c.cloneTile=null; } if(c.kind==="wildvowel") c.vowel=null; if(c.kind==="wildcons") c.cons=null;
   idx=Math.max(0,Math.min(idx,G.hand.length)); G.hand.splice(idx,0,c);
   renderHand(); renderCanvas(); save();
 }
@@ -3098,7 +3347,7 @@ function snapshotState(){
     pile:G.drawPile.map(c=>c.id),
     discardsLeft:G.discardsLeft,
     rf:G.canvas.reduce((m,c)=>{
-      if(c.kind==="clone") m[c.id]=["clone",c.cloneLetter,c.cloneBase,c.cloneUp];
+      if(c.kind==="clone") m[c.id]=["clone",c.cloneLetter,c.cloneBase,c.cloneUp,c.cloneTile||null];
       else if(c.kind==="wildvowel") m[c.id]=["vowel",c.vowel];
       else if(c.kind==="wildcons") m[c.id]=["cons",c.cons];
       return m;
@@ -3120,11 +3369,11 @@ function restoreState(s){
   G.discardsLeft=s.discardsLeft;
   // canvas tiles get their resolved letter back; loose tiles in hand carry none
   G.canvas.forEach(c=>{ const r=s.rf[c.id];
-    if(c.kind==="clone"){ c.cloneLetter=(r&&r[0]==="clone")?r[1]:null; c.cloneBase=(r&&r[0]==="clone")?r[2]:null; c.cloneUp=(r&&r[0]==="clone")?(r[3]||0):0; }
+    if(c.kind==="clone"){ c.cloneLetter=(r&&r[0]==="clone")?r[1]:null; c.cloneBase=(r&&r[0]==="clone")?r[2]:null; c.cloneUp=(r&&r[0]==="clone")?(r[3]||0):0; c.cloneTile=(r&&r[0]==="clone")?(r[4]||null):null; }
     if(c.kind==="wildvowel") c.vowel=     (r&&r[0]==="vowel")?r[1]:null;
     if(c.kind==="wildcons")  c.cons=      (r&&r[0]==="cons") ?r[1]:null;
   });
-  G.hand.forEach(c=>{ if(c.kind==="clone")c.cloneLetter=null; if(c.kind==="wildvowel")c.vowel=null; if(c.kind==="wildcons")c.cons=null; });
+  G.hand.forEach(c=>{ if(c.kind==="clone"){c.cloneLetter=null; c.cloneTile=null;} if(c.kind==="wildvowel")c.vowel=null; if(c.kind==="wildcons")c.cons=null; });
   renderHand(); renderCanvas(); renderHud();
 }
 function wiggleAll(){   // a quick rigid-body shudder so the restored word settles into place
@@ -3146,7 +3395,7 @@ function undoMove(){
 /* ---- state ops for placement ---- */
 function placeFromHand(id,idx){
   const c0=G.hand.find(c=>c.id===id);
-  if(c0 && c0.kind==="clone" && !c0.cloneLetter){ openCloneChooser(c0,idx); return; }
+  if(c0 && c0.kind==="clone" && !c0.cloneLetter && !c0.cloneTile){ openCloneChooser(c0,idx); return; }
   if(c0 && c0.kind==="wildvowel" && !c0.vowel){ openVowelChooser(c0,idx); return; }
   if(c0 && c0.kind==="wildcons" && !c0.cons){ openConsChooser(c0,idx); return; }
   const i=G.hand.findIndex(c=>c.id===id); if(i<0)return;
@@ -3162,13 +3411,14 @@ function placeFromHand(id,idx){
   if(placed) spawnCellJuice(placed,{n:5});
   haptic(12); save();
   if(c.kind==="fused"){ openFusedSelector(c); }   // choose the letter config on drop
+  if(c.kind==="trio"){ openTrioSelector(c); }     // arrange the trio on drop
 }
 function removeFromCanvas(id){
   const i=G.canvas.findIndex(c=>c.id===id); if(i<0)return;
   checkpoint();
   const first=tileRects();
   const [c]=G.canvas.splice(i,1);
-  if(c.kind==="clone") c.cloneLetter=null;   // unassign on return
+  if(c.kind==="clone"){ c.cloneLetter=null; c.cloneTile=null; }   // unassign on return
   if(c.kind==="wildvowel") c.vowel=null;
   if(c.kind==="wildcons") c.cons=null;
   G.hand.push(c);
@@ -3214,13 +3464,29 @@ function openCloneChooser(card,idx){
   const holding=G.hand.concat(G.canvas);
   if(holding.some(c=>c.kind==="wildvowel")) wildKinds.push({kind:"wildvowel", glyph:"✺", label:"vowel"});
   if(holding.some(c=>c.kind==="wildcons"))  wildKinds.push({kind:"wildcons",  glyph:"✦", label:"cons"});
-  if(letters.length===0 && wildKinds.length===0){ toast("No letters to copy yet"); return; }
+  if(letters.length===0 && wildKinds.length===0 && !holding.some(x=>x.kind==="fused"||x.kind==="combo")){ toast("No letters to copy yet"); return; }
   clonePending={cardId:card.id, idx};
   const wrap=$("cloneChoices"); wrap.innerHTML="";
   wildKinds.forEach(w=>{
     const b=document.createElement("button"); b.className="clone-choice wild";
     b.innerHTML=`${w.glyph}<span class="cc-val">wild</span><span class="cc-marks">${w.label}</span>`;
     b.addEventListener("click",()=>pickCloneWild(w.kind));
+    wrap.appendChild(b);
+  });
+  // v491g: fused pairs and -ING/-ATE combos copy whole, not letter by letter.
+  const tiles={};
+  holding.forEach(x=>{
+    if(x.kind!=="fused" && x.kind!=="combo") return;
+    const label = x.kind==="fused" ? fusedLabel(x) : comboLabel(x);
+    const val   = x.kind==="fused" ? fusedValue(x) : comboValue(x);
+    const cur=tiles[label];
+    if(!cur || val>cur.val) tiles[label]={card:x, label, val};
+  });
+  Object.values(tiles).forEach(t=>{
+    const g=gildLevel(t.card);
+    const b=document.createElement("button"); b.className="clone-choice tile"+(g>0?" upgraded":"");
+    b.innerHTML=`${t.label}<span class="cc-val">${t.val}${g>0?'<i class="up-sup">'+g+'</i>':''}</span><span class="cc-marks">whole</span>`;
+    b.addEventListener("click",()=>pickCloneTile(t.card.id));
     wrap.appendChild(b);
   });
   letters.sort().forEach(L=>{
@@ -3237,6 +3503,20 @@ function openCloneChooser(card,idx){
   });
   $("cloneChooser").classList.remove("hidden");
 }
+// Copy a fused pair or combo tile whole. A deep copy is taken so the clone keeps
+// the source's rotation and stamps even if the original is re-rotated afterwards.
+function pickCloneTile(srcId){
+  if(!clonePending) return;
+  const {cardId,idx}=clonePending; clonePending=null;
+  $("cloneChooser").classList.add("hidden");
+  const c=G.hand.find(x=>x.id===cardId); if(!c) return;
+  const src=G.hand.concat(G.canvas).find(x=>x.id===srcId); if(!src) return;
+  CLONE_COPY_PROPS.forEach(k=>{ delete c[k]; });
+  c.cloneLetter=null; c.cloneBase=null; c.cloneUp=0;
+  c.cloneTile=JSON.parse(JSON.stringify({kind:src.kind, sides:src.sides, mode:src.mode,
+    upLevel:src.upLevel, letters:src.letters, combo:src.combo, base:src.base, growth:src.growth}));
+  placeFromHand(cardId,idx);
+}
 // The clone becomes a wild of the chosen kind: hand off to that kind's chooser,
 // which writes the result back onto the clone.
 function pickCloneWild(kind){
@@ -3250,6 +3530,7 @@ function pickCloneWild(kind){
 // Assign a letter to a clone, copying the best matching tile's gild and stamps.
 // When no such tile exists (the wild path), the clone takes the plain letter value.
 function setCloneLetter(c,L){
+  c.cloneTile=null;
   let src=null;   // re-find the best source tile of this letter to copy its gild
   const rankS=x=>cardValue(x)*10 + CLONE_COPY_PROPS.reduce((n,k)=>n+((x[k]!==undefined&&x[k]!==false&&x[k]!==1)?1:0),0);
   G.hand.concat(G.canvas).forEach(x=>{ if(x.kind==="letter"&&x.letter===L){ if(!src||rankS(x)>rankS(src)) src=x; } });
@@ -3377,6 +3658,43 @@ function useLucky7(card){
 }
 // Dealer's Choice: tap in the hand to pull any tile from the draw pile. The
 // dealer card swaps into the pulled tile's spot in the pile, so counts never drift.
+/* ---- Word Binder (v492a) ---- */
+function openBinder(){
+  const wb=G.perks.wordBinder; if(!wb) return;
+  $("binderInput").value = wb.word ? wb.word.toUpperCase() : "";
+  $("binderErr").textContent="";
+  $("binderSub").textContent = wb.word
+    ? (wb.word.toUpperCase()+" is bound at "+(wb.banked||0)+" points. Binding a new word resets that to 0.")
+    : "Type a word to bind. Playing it scores its previous bound total on top; changing it later resets the binding.";
+  $("binderOverlay").classList.remove("hidden");
+  setTimeout(()=>{ try{$("binderInput").focus();}catch(e){} },50);
+}
+function saveBinder(){
+  const wb=G.perks.wordBinder; if(!wb) return;
+  const w=($("binderInput").value||"").trim().toLowerCase();
+  if(w.length<2){ $("binderErr").textContent="At least two letters."; return; }
+  if(!/^[a-z]+$/.test(w)){ $("binderErr").textContent="Letters only."; return; }
+  if(!WORDS.has(w)){ $("binderErr").textContent="Not in the dictionary."; return; }
+  if(wb.word!==w){ wb.word=w; wb.banked=0; }
+  $("binderOverlay").classList.add("hidden");
+  toast("Bound: "+w.toUpperCase());
+  haptic(15); save();
+}
+function useTriptych(card){
+  const i=G.hand.findIndex(c=>c.id===card.id); if(i<0) return;
+  G.hand.splice(i,1);
+  G.deck=G.deck.filter(c=>c.id!==card.id);     // vanishes for the rest of this round
+  if(!G.lucky7Stash) G.lucky7Stash=[];
+  G.lucky7Stash.push(card);                     // same stash Lucky 7 uses; returns next level
+  const {didReshuffle}=drawExtra(3);
+  if(didReshuffle) playReshuffleAnim();
+  renderHand(); renderHud(); updateLive();
+  toast("Triptych! Three extra tiles");
+  haptic([10,24,10]);
+  const tiles=[...$("hand").querySelectorAll(".tile")];
+  tiles.slice(-3).forEach((t,k)=>{ t.classList.add("dealing"); t.style.animationDelay=(k*45)+"ms"; });
+  save();
+}
 function useDealersChoice(card){
   if(!G.drawPile || G.drawPile.length===0){ toast("Your draw pile is empty"); haptic(8); return; }
   G._dealerCardId=card.id;
@@ -3419,22 +3737,20 @@ function drawIntoHand(){
 }
 // Can this hand legally satisfy the round's challenge at all? Only Long Form can
 // make a hand impossible (Locked pulls banned letters from the deck entirely, and
-// Steep is just a higher target). Flexible tiles (wilds, clone, fused, jazz) make
+// Steep is just a higher target). Flexible tiles (wilds, clone, fused) make
 // a play almost always reachable, so we treat their presence as "not dead" rather
 // than risk handing out an undeserved free re-deal.
 function handIsDeadForChallenge(){
   if(!challengeActive()) return false;
   const minL=challengeMinLen(); if(!minL) return false;
-  const letters=[]; let jazz=false, flexible=false, total=0;
+  const letters=[]; let flexible=false, total=0;
   for(const c of G.hand){
-    if(c.kind==="jazz"){ if((c.jazzLeft||0)>0) jazz=true; total++; continue; }
-    if(c.kind==="wildvowel"||c.kind==="wildcons"||c.kind==="clone"||c.kind==="copycat"||c.kind==="fused"){ flexible=true; total++; continue; }
+    if(c.kind==="wildvowel"||c.kind==="wildcons"||c.kind==="clone"||c.kind==="copycat"||c.kind==="fused"||c.kind==="trio"){ flexible=true; total++; continue; }
     if(c.kind==="combo"){ comboSeq(c).forEach(L=>letters.push(L.toLowerCase())); total+=comboSeq(c).length; continue; }
     if(c.kind==="letter"){ letters.push(c.letter.toLowerCase()); total++; continue; }
     flexible=true; total++;
   }
   if(total<minL) return true;          // not enough tiles to reach the minimum length
-  if(jazz) return false;               // free jazz can play any minL tiles as a non-word
   if(flexible) return false;           // wild/clone/fused: assume a long word is reachable
   return !handHasValidWord(letters, minL);
 }
@@ -3585,6 +3901,7 @@ function showBossIntro(){
   haptic([20,80,20,80,40]);
 }
 function startLevel(){
+  G.overtime=false; G.lastPlay=null; G.secondEdHalf=false;
   if(G.lucky7Stash && G.lucky7Stash.length){ G.deck.push(...G.lucky7Stash); G.lucky7Stash=[]; }   // Lucky 7 cards return next level
   G.target=targetFor(G.level);
   if(challengeActive() && G.challenge.type==="steep"){ G.target=Math.round(G.target*CHALLENGE_TARGET_MULT); }
@@ -3668,7 +3985,7 @@ function startLevel(){
 // pile. Encore tiles skip the discard and return straight to the top of the draw.
 function returnCanvasToPile(){
   if(G.canvas.length){
-    G.canvas.forEach(c=>{ if(c.kind==="clone") c.cloneLetter=null; if(c.kind==="wildvowel") c.vowel=null; if(c.kind==="wildcons") c.cons=null; });
+    G.canvas.forEach(c=>{ if(c.kind==="clone"){ c.cloneLetter=null; c.cloneTile=null; } if(c.kind==="wildvowel") c.vowel=null; if(c.kind==="wildcons") c.cons=null; });
     const standing=G.canvas.filter(c=>c._standingGone);   // Standing Type: these leave the round
     const live=G.canvas.filter(c=>!c._standingGone);
     const encore=live.filter(c=>c.encore), rest=live.filter(c=>!c.encore);
@@ -3692,14 +4009,13 @@ function reshuffleDiscardIntoDraw(){
 }
 function submitWord(){
   if(!wordValid()||G.handsLeft<=0) return;
-  const isJazz = canvasHasJazz() && !isRealWord();   // free-jazz play (non-word)
   const res=resolvedCanvas();
   const sc=scoreOf(res);
   const w=res.map(r=>r.letter.toLowerCase()).join("");
-  if(!isJazz){ if(!G.wordPlays) G.wordPlays={}; G.wordPlays[w]=(G.wordPlays[w]||0)+1; }   // v43a: Repeater history (after scoreOf read the prior count)
+  if(!G.wordPlays) G.wordPlays={}; G.wordPlays[w]=(G.wordPlays[w]||0)+1;   // v43a: Repeater history (after scoreOf read the prior count)
   if(!G.letterPlays) G.letterPlays={};
   res.forEach(r=>{ if(r.letter) G.letterPlays[r.letter]=(G.letterPlays[r.letter]||0)+1; });   // v491a: workhorse tracking for the gild offer
-  if(!isJazz){
+  {
     if(!G.anagramSigs) G.anagramSigs={};                                   // Movable Type history (after scoreOf read it)
     const sig=w.split("").sort().join("");
     if(!G.anagramSigs[sig]) G.anagramSigs[sig]=[];
@@ -3749,7 +4065,15 @@ function submitWord(){
     toast("Standing type: those "+G.canvas.length+" slugs stay set for this round.");
   }
   G.pulpPending=0;                                                          // Pulp Mill bonus is consumed by this word
-  if(isJazz){ G.canvas.forEach(c=>{ if(c.kind==="jazz" && (c.jazzLeft||0)>0) c.jazzLeft--; }); }
+  // Word Binder: the new bound total is this play's full score (which already
+  // included the previous banked total).
+  { const wb=G.perks.wordBinder;
+    if(wb && wb.word && w===wb.word){ wb.banked=sc.total; toast("Bound: "+w.toUpperCase()+" at "+wb.banked); } }
+  // Second Edition / Revision bookkeeping: remember what was just played.
+  G.lastPlay={ ids:res.map(r=>r.card&&r.card.id).filter(Boolean),
+               res:res.map(r=>({letter:r.letter, value:r.value, mult:r.mult||1, card:r.card})),
+               total:sc.total };
+  if(G.secondEdHalf) G.secondEdHalf=false;   // the half-score encore has now been played
   // highlights
   G.wordsPlayed=(G.wordsPlayed||0)+1;
   // v41a: Press multiplier builds up. Each word of 6+ letters raises the live
@@ -3766,8 +4090,8 @@ function submitWord(){
   }
   G.runScore=(G.runScore||0)+sc.total;
   G.levelStats.words++;
-  statWord(w.toUpperCase(), sc.total, res.length, isJazz);
-  showDefinition(w, isJazz);
+  statWord(w.toUpperCase(), sc.total, res.length);
+  showDefinition(w);
   if(sc.total>G.levelStats.bestScore){ G.levelStats.bestScore=sc.total; G.levelStats.bestWord=w.toUpperCase(); }
   if(sc.total>(G.runBestScore||0)){ G.runBestScore=sc.total; G.runBestWord=w.toUpperCase(); }
   G.handsLeft--;
@@ -3775,13 +4099,14 @@ function submitWord(){
   // by round so early words can actually earn: $1 per 50 pts in rounds 1 to 5,
   // per 100 in rounds 6 to 10, per 150 beyond that.
   let cash=Math.floor(sc.total/wordCashDivisor(G.level));
-  if(G.perks.footnote && !isJazz && res.length>=2 && res.length<=3) cash+=1;               // Footnote
+  if(G.perks.footnote && res.length>=2 && res.length<=3) cash+=1;                          // Footnote
   cash+=res.reduce((n,r)=>n+((r.card&&r.card.inkwell)?1:0),0);                             // Ink Well tiles
-  if(G.perks.abcs && !isJazz){                                                              // ABCs: first sighting of each letter
+  if(G.perks.abcs){                                                                         // ABCs: first sighting of each letter
     if(!G.abcSeen) G.abcSeen={};
     res.forEach(r=>{ if(r.letter && !G.abcSeen[r.letter]){ G.abcSeen[r.letter]=true; cash+=1; } });
   }
   if(challengeDoublePay()) cash=Math.round(cash*1.5);   // v48g: payout challenge reward is +50%
+  cash=Math.min(WORD_CASH_CAP, cash);                   // v491g: one word pays at most $20
   if(cash>0){ G.coins=Math.min(999,G.coins+cash); }
   renderHud();
   // juice — scaled by BOTH word length and score, ramping harder for big plays
@@ -3805,17 +4130,6 @@ function submitWord(){
   });
   returnCanvasToPile();
   clearUndo();   // a set word is a hard boundary: no undo across it
-  // a Free jazz card with no uses left is exhausted and leaves the deck for good
-  // v491e: a spent Free jazz must leave EVERY pile. It was only being pulled from
-  // the deck and draw pile, but returnCanvasToPile() had just put it in G.played,
-  // so the next reshuffle handed it back with zero charges left on it.
-  { const dead=G.deck.concat(G.played||[],G.hand||[],G.drawPile||[])
-      .filter(c=>c.kind==="jazz" && (c.jazzLeft||0)<=0);
-    if(dead.length){ const ids=new Set(dead.map(c=>c.id));
-      const strip=a=>Array.isArray(a)?a.filter(c=>!ids.has(c.id)):a;
-      G.deck=strip(G.deck); G.drawPile=strip(G.drawPile);
-      G.played=strip(G.played); G.hand=strip(G.hand);
-      toast("Free jazz exhausted"); } }
   animateScore(G.score, G.score+sc.total);
   G.score+=sc.total;
   setTimeout(()=>{
@@ -4034,16 +4348,26 @@ function heartBreakBurst(el){
 }
 function levelFailed(){
   clearSmudges();
-  G.hearts--;
+  G.overtime=true;
+  // Deadline Extension (v492a): the first failed round costs no hearts at all.
+  const deadlineFree = G.perks.deadlineExt && (G.deadlineExtRound==null || G.deadlineExtRound===G.level);
+  // The Midnight Press (v492a): the first overtime word each round is free.
+  const midnightFree = !deadlineFree && G.perks.midnightPress && G.midnightRound!==G.level;
+  if(deadlineFree){ G.deadlineExtRound=G.level; }
+  if(midnightFree){ G.midnightRound=G.level; }
+  const heartFree = deadlineFree || midnightFree;
+  if(!heartFree) G.hearts--;
   if(G.stats){ if(!G.stats.rounds) G.stats.rounds=[];
     G.stats.rounds.push({round:G.level, target:G.target, score:G.score, margin:G.score-G.target, cleared:false,
       heartsLeft:G.hearts, discardsLeft:G.discardsLeft, discardsSpent:(DISCARDS_PER_LEVEL+(G.extraDiscards||0))-G.discardsLeft,
       wordsLeft:G.handsLeft, payout:0}); }
-  const hs=[...$("hearts").querySelectorAll(".heart")];
-  const lost=hs[G.hearts];
-  if(lost){ lost.classList.add("breaking"); heartBreakBurst(lost); floatMinusOne(lost); }
-  screenShake();
-  haptic([40,70,40,70,40]);
+  if(!heartFree){
+    const hs=[...$("hearts").querySelectorAll(".heart")];
+    const lost=hs[G.hearts];
+    if(lost){ lost.classList.add("breaking"); heartBreakBurst(lost); floatMinusOne(lost); }
+    screenShake();
+    haptic([40,70,40,70,40]);
+  } else { haptic([15,40,15]); }
   setTimeout(()=>{
     renderHud();
     if(G.hearts<=0){
@@ -4059,7 +4383,9 @@ function levelFailed(){
     // Overtime: every time you're over the turn limit under target you spend a
     // heart for ONE more word. Score, hand, deck and discards all carry over.
     G.handsLeft=1;
-    toast("Overtime — a heart for one more word. "+G.hearts+" health left");
+    if(deadlineFree)      toast("Deadline extended. Overtime is free this round.");
+    else if(midnightFree) toast("The midnight press runs free. One more word, no heart.");
+    else toast("Overtime — a heart for one more word. "+G.hearts+" health left");
     renderHud();
     dealUpToHand(true);
     save();
@@ -4159,6 +4485,13 @@ function perkPool(rng){
   const e=[
     {make:()=>cloneOffer(),        weight:1.4},
     {make:()=>dealersChoiceOffer(), weight:1.0},
+    // v492b: building your own trio is the featured path; ready-made trios stay as
+    // the fallback and keep the archetype discoverable for decks with no pair yet.
+    ...(G.deck.some(c=>c.kind==="fused") && G.deck.some(c=>c.kind==="letter")
+        ? [{make:()=>trioUpgradeOffer(),  weight:1.2},
+           {make:()=>trioFusionOffer(rng), weight:0.3}]
+        : [{make:()=>trioFusionOffer(rng), weight:0.6}]),
+    {make:()=>triptychOffer(),     weight:1.4},
     {make:()=>copyCatOffer(),      weight:1.6},
     {make:()=>wildVowelOffer(),    weight:2},
     {make:()=>wildConsOffer(),     weight:1.0},
@@ -4180,7 +4513,6 @@ function perkPool(rng){
     {make:()=>fusedDoubleOffer("P"),weight:0.5},
     {make:()=>fusedDoubleOffer("R"),weight:0.5},
     {make:()=>lucky7Offer(),       weight:0.8},
-    {make:()=>freeJazzOffer(),     weight:0.5},
   ];
   // Encore + Watermark are strong on their own and oppressive together, so they sit at the
   // rare end of epic, cost a bit more, and each becomes very unlikely once you own the other.
@@ -4193,7 +4525,7 @@ function perkPool(rng){
   if(!G.perks.bigWords)          e.push({make:()=>bigWordsOffer(),    weight:1.1});
   if(!G.perks.freeRerolls)       e.push({make:()=>freeRerollOffer(),  weight:1.1});
   if(!G.perks.interest)          e.push({make:()=>interestOffer(),    weight:1.2});
-  if(!G.perks.twinsies)          e.push({make:()=>twinsiesOffer(),    weight:1.3});
+  if(!G.perks.twinsies)          e.push({make:()=>twinsiesOffer(),    weight:0.7});   // v492a: epic now, and rarer
   if(!G.perks.proofSheet)        e.push({make:()=>proofSheetOffer(),  weight:2.0});
   if(!G.perks.twoOfAKind)        e.push({make:()=>twoOfAKindOffer(),  weight:1.3});
   if(!G.perks.shortKing)         e.push({make:()=>shortKingOffer(),   weight:1.7});
@@ -4202,6 +4534,14 @@ function perkPool(rng){
   if(!G.perks.marginalia)        e.push({make:()=>marginaliaOffer(),  weight:1.3});
   if(!G.perks.fightingWords)     e.push({make:()=>fightingWordsOffer(), weight:1.2});
   if(!G.perks.superStore)        e.push({make:()=>superStoreOffer(),   weight:1.1});
+  if(!G.perks.wordBinder)        e.push({make:()=>wordBinderOffer(),    weight:0.3});
+  if(!G.perks.secondEdition)     e.push({make:()=>secondEditionOffer(), weight:0.3});
+  if(!G.perks.gemini)            e.push({make:()=>geminiOffer(),        weight:0.3});
+  if(!G.perks.gildedAge)         e.push({make:()=>gildedAgeOffer(),     weight:0.3});
+  if(!G.perks.deadlineExt)       e.push({make:()=>deadlineExtOffer(),   weight:0.3});
+  if(!G.perks.galleyProof)       e.push({make:()=>galleyProofOffer(),   weight:0.3});
+  if(!G.perks.revision)          e.push({make:()=>revisionOffer(),      weight:0.3});
+  if(!G.perks.midnightPress)     e.push({make:()=>midnightPressOffer(), weight:0.3});
   if(!G.perks.mirror)            e.push({make:()=>mirrorOffer(),      weight:0.8});
   if(!G.perks.verbose)           e.push({make:()=>verboseOffer(),     weight:1.2});
   if(!G.perks.verbizer)          e.push({make:()=>verbizerOffer(),    weight:0.8});
@@ -4242,6 +4582,22 @@ function letterOffer(L){
     price:px(2+Math.ceil(v/2)), art:`<span class="mini-tile">${L}<span class="mv">${v}</span></span>`,
     d:{type:"letter",L}};
 }
+function trioFusionOffer(rng){
+  const tri=TRIO_POOL[Math.floor((rng?rng():Math.random())*TRIO_POOL.length)];
+  return {kind:"Tile",rarity:"epic",name:"Fused "+tri,
+    desc:"Three letters in one slug, arranged however you like on the press.",
+    price:px(10), art:`<span class="mini-tile">${tri}</span>`, d:{type:"trio", letters:tri.split("")}};
+}
+function trioUpgradeOffer(){
+  return {kind:"Upgrade",rarity:"epic",name:"Triple fusion",
+    desc:"Add one of your letters to one of your fused pairs, forging a three letter slug you arrange at will. Gilds carry over.",
+    price:px(6), art:"⛓️", needsTarget:"triofuse", d:{type:"trioUpgrade"}};
+}
+function triptychOffer(){
+  return {kind:"Card",rarity:"common",name:"Triptych",
+    desc:"Play it from your hand to draw 3 extra tiles. It leaves your deck for the rest of the round.",
+    price:px(3), art:"🖼️", d:{type:"triptych"}};
+}
 function dealersChoiceOffer(){
   return {kind:"Card",rarity:"epic",name:"Dealer's Choice",
     desc:"Tap it in your hand to pull any tile from your draw pile. This card takes its place in the pile.",
@@ -4249,7 +4605,7 @@ function dealersChoiceOffer(){
     d:{type:"dealer"}};
 }
 function cloneOffer(){
-  return {kind:"Card",rarity:"epic",name:"Clone",desc:"Play it as a copy of any letter or wild you're holding, along with every upgrade on it.",
+  return {kind:"Card",rarity:"epic",name:"Clone",desc:"Play it as a copy of any letter, wild, fused pair or combo you're holding, along with every upgrade on it.",
     price:px(11), art:`<span class="mini-tile" style="background:linear-gradient(180deg,#EDEAF6,#DED8EE);border-color:#C3B8DD">❖</span>`,
     d:{type:"clone"}};
 }
@@ -4365,10 +4721,13 @@ function heartOffer(){
 function applyOffer(o){
   const d=o.d||{};
   switch(d.type){
-    case "letter":       { const card=makeLetterCard(d.L); if(d.gild) card.upLevel=d.gild|0; G.deck.push(card);
-                           if(d.L==="Q") G.deck.push(makeLetterCard("U")); } break;   // a Q never travels alone
+    case "letter":       { const card=makeLetterCard(d.L); if(d.gild) card.upLevel=d.gild|0; applyGildedAge(card); G.deck.push(card);
+                           if(d.L==="Q"){ const u=makeLetterCard("U"); applyGildedAge(u); G.deck.push(u); } } break;   // a Q never travels alone
     case "clone":        G.deck.push(makeCloneCard()); break;
     case "dealer":       G.deck.push(makeDealerCard()); break;
+    case "trio":         G.deck.push(makeTrioCard(d.letters||["E","N","T"])); break;
+    case "trioUpgrade":  openDeck("triofuse"); break;
+    case "triptych":     G.deck.push(makeTriptychCard()); break;
     case "firstUp":      openBonusChooser("firstUp"); break;
     case "lastUp":       openBonusChooser("lastUp"); break;
     case "fuller":       G.handSize++; break;
@@ -4378,7 +4737,7 @@ function applyOffer(o){
     case "interest":     G.perks.interest=true; break;
     case "pressMult":    G.pressGrowth=Math.round(((G.pressGrowth||0)+(d.g||0.025))*1000)/1000; break;
     case "heavyPress":   G.heavyPress=Math.round(((G.heavyPress||0)+(d.g||0.03))*1000)/1000; break;
-    case "goldenLetter": { const gc=makeLetterCard(d.L); gc.mult=1.25; G.deck.push(gc); } break;
+    case "goldenLetter": { const gc=makeLetterCard(d.L); gc.mult=1.25; applyGildedAge(gc); G.deck.push(gc); } break;
     case "gildLetter":   {
       // Re-resolve at purchase time: an earlier buy this shelf may have gilded
       // the very tile this offer was priced against.
@@ -4387,6 +4746,7 @@ function applyOffer(o){
       if(!c){ toast(d.label+" cannot take another gild"); break; }
       c.upLevel=(c.upLevel||0)+1;
       if(c.kind==="fused"){ c.sides.forEach(sd=>sd.upLevel=(sd.upLevel||0)+1); }
+      syncGemini(c);
       const val = c.kind==="fused" ? fusedValue(c) : cardValue(c);
       toast(d.label+" now "+val+" pts");
       haptic(24);
@@ -4400,7 +4760,6 @@ function applyOffer(o){
     case "combo":        G.deck.push(makeComboCard(d.key)); break;
     case "fusedPair":    G.deck.push(makeFusedCard(makeLetterCard(d.a), makeLetterCard(d.b))); break;
     case "lucky7":       G.deck.push(makeLucky7Card()); break;
-    case "freeJazz":     G.deck.push(makeJazzCard()); break;
     case "vowelPower":   G.perks.vowelPower=(+G.perks.vowelPower||0)+1; break;
     case "fireSale":     G.perks.fireSale=true;
                          // discount the rest of THIS shop immediately (future shops bake it into px)
@@ -4416,6 +4775,14 @@ function applyOffer(o){
     case "fiveTimer":    G.perks.fiveTimer=true; break;
     case "marginalia":   G.perks.marginalia=true; break;
     case "fightingWords": G.perks.fightingWords=true; break;
+    case "wordBinder":   G.perks.wordBinder={word:null, banked:0}; openBinder(); break;
+    case "secondEdition": G.perks.secondEdition=true; break;
+    case "gemini":       G.perks.gemini=true; openDeck("gemini"); break;
+    case "gildedAge":    openDeck("gildedAge"); break;
+    case "deadlineExt":  G.perks.deadlineExt=true; break;
+    case "galleyProof":  G.perks.galleyProof=true; renderProofPeek(); break;
+    case "revision":     G.perks.revision=true; break;
+    case "midnightPress": G.perks.midnightPress=true; break;
     case "superStore":   G.perks.superStore=true;
       // widen the shelf immediately: restock in place so the new seats are usable now
       { const keep=(G.shopOffers||[]).filter(o=>o.sold);
@@ -4476,9 +4843,46 @@ function shortKingOffer(){
   return {kind:"Perk",rarity:"rare",name:"Short King",desc:"Short words score big: 2 letters ×4, 3 letters ×3, 4 letters ×2.5, 5 letters ×2.",
     price:px(8), art:"👑", d:{type:"shortKing"}};
 }
-function freeJazzOffer(){
-  return {kind:"Card",rarity:"legendary",name:"Free jazz",desc:"Set ANY combination of letters — real word or not. 3 uses, then it leaves your deck.",
-    price:px(14), art:"🎷", d:{type:"freeJazz"}};
+/* ============ Legendary shelf (v492a) ============ */
+function wordBinderOffer(){
+  return {kind:"Perk",rarity:"legendary",name:"Word Binder",
+    desc:"Bind a word of your choosing. Each time you play it, it also scores its previous bound total, and the new total is bound. Change the word any time, resetting the binding.",
+    price:px(16), art:"📖", d:{type:"wordBinder"}};
+}
+function secondEditionOffer(){
+  return {kind:"Perk",rarity:"legendary",name:"Second Edition",
+    desc:"Once per round, right after a word scores, reset the press: those tiles return to your hand and your next word scores half.",
+    price:px(15), art:"📚", d:{type:"secondEdition"}};
+}
+function geminiOffer(){
+  return {kind:"Perk",rarity:"legendary",name:"Gemini",
+    desc:"Copy a letter in your deck. The twin stays in sync: when either gets an upgrade, both do.",
+    price:px(14), art:"♊", d:{type:"gemini"}};
+}
+function gildedAgeOffer(){
+  return {kind:"Perk",rarity:"legendary",name:"Gilded Age",
+    desc:"Choose a letter. Every copy in your deck, now and in the future, arrives gilded once and golden.",
+    price:px(16), art:"🏛️", d:{type:"gildedAge"}};
+}
+function deadlineExtOffer(){
+  return {kind:"Perk",rarity:"legendary",name:"Deadline Extension",
+    desc:"The first round you fail this run costs no hearts: overtime words are free that round.",
+    price:px(15), art:"🕰️", d:{type:"deadlineExt"}};
+}
+function galleyProofOffer(){
+  return {kind:"Perk",rarity:"legendary",name:"Galley Proof",
+    desc:"See the next three tiles of your draw pile at all times.",
+    price:px(13), art:"🔭", d:{type:"galleyProof"}};
+}
+function revisionOffer(){
+  return {kind:"Perk",rarity:"legendary",name:"Revision",
+    desc:"Once per round, rewrite one letter of the word you just set. If the new word is real, score the improvement.",
+    price:px(15), art:"✒️", d:{type:"revision"}};
+}
+function midnightPressOffer(){
+  return {kind:"Perk",rarity:"legendary",name:"The Midnight Press",
+    desc:"Overtime words score double, and the first overtime word each round costs no heart.",
+    price:px(16), art:"🌙", d:{type:"midnightPress"}};
 }
 function fightingWordsOffer(){
   return {kind:"Perk",rarity:"epic",name:"Fighting Words",desc:"Words score +50% for every heart you have lost.",
@@ -4679,7 +5083,7 @@ function bigWordsOffer(){
     price:px(12), art:"📏", d:{type:"bigWords"}};
 }
 function twinsiesOffer(){
-  return {kind:"Perk",rarity:"rare",name:"Twinsies",desc:"×2 the whole word when two identical letters sit side by side (e.g. LE\u200bTTER).",
+  return {kind:"Perk",rarity:"epic",name:"Twinsies",desc:"×2 the whole word when two identical letters sit side by side (e.g. LE\u200bTTER).",
     price:px(10), art:"👯", d:{type:"twinsies"}};
 }
 function freeRerollOffer(){
@@ -4714,7 +5118,7 @@ function openShop(){
 function shopSnapshot(){
   return {
     coins:G.coins, handSize:G.handSize, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns,
-    scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, heavyPress:G.heavyPress||0, jazzCharges:G.jazzCharges, hearts:G.hearts, rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed,
+    scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, heavyPress:G.heavyPress||0, hearts:G.hearts, rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed,
     fuseOfferIdx:G.fuseOfferIdx,
     perks:JSON.parse(JSON.stringify(G.perks)),
     deck:G.deck.map(c=>({...c, ...(c.sides?{sides:c.sides.map(sd=>({...sd}))}:{})})),
@@ -4726,7 +5130,7 @@ function shopUndo(){
   if(!G.shopUndo.length) return;
   const s=G.shopUndo.pop();
   G.coins=s.coins; G.handSize=s.handSize; G.extraDiscards=s.extraDiscards; G.extraTurns=s.extraTurns;
-  G.scoreMult=s.scoreMult; G.pressGrowth=s.pressGrowth||0; G.heavyPress=s.heavyPress||0; G.jazzCharges=s.jazzCharges; G.hearts=s.hearts; G.rerollCount=s.rerollCount; G.freeRerollUsed=s.freeRerollUsed;
+  G.scoreMult=s.scoreMult; G.pressGrowth=s.pressGrowth||0; G.heavyPress=s.heavyPress||0; G.hearts=s.hearts; G.rerollCount=s.rerollCount; G.freeRerollUsed=s.freeRerollUsed;
   G.fuseOfferIdx=(s.fuseOfferIdx!=null?s.fuseOfferIdx:null); G.fusePending=null; G.perks=s.perks; G.deck=s.deck; G.shopOffers=s.offers;
   haptic(12); toast("Undone");
   renderShop(); save();
@@ -4761,6 +5165,17 @@ function rerollCost(){ if(G.perks.freeRerolls && !G.freeRerollUsed) return 0; re
 function buyOffer(i){
   const o=G.shopOffers[i];
   if(o.sold) return;
+  if(o.d && o.d.type==="trioUpgrade"){
+    if(G.coins<o.price) return;
+    pushShopUndo();
+    G.coins-=o.price;              // the offer price opens the forge; the letter's acquire cost is charged at confirm
+    o.sold=true;
+    statShopBuy(o.name, o.price, "trioUpgradeOpen");
+    G.trioPairPending=null;
+    openDeck("triofuse");
+    renderShop(); save();
+    return;
+  }
   if(o.d && o.d.type==="fuse"){
     if(G.coins<o.price) return;     // base fee gate; the real combined cost is charged at confirm
     pushShopUndo();
@@ -4893,6 +5308,9 @@ function openDeck(mode){
   else if(mode==="watermark"){ hint.textContent="Tap a letter. It is always in your opening hand each round."; hint.className="select-hint"; }
   else if(mode==="fuse"){ hint.textContent="Tap two letters to fuse into one tile. Pick the first."; hint.className="select-hint gild"; }
   else if(mode==="dealer"){ hint.textContent="Tap a tile in your draw pile to pull it into your hand."; hint.className="select-hint gild"; }
+  else if(mode==="gemini"){ hint.textContent="Tap a letter to twin. The copy shares every upgrade with the original, both ways."; hint.className="select-hint gild"; }
+  else if(mode==="gildedAge"){ hint.textContent="Tap a letter. Every copy of it, present and future, arrives gilded once and golden."; hint.className="select-hint gild"; }
+  else if(mode==="triofuse"){ hint.textContent="Tap the fused pair to build on."; hint.className="select-hint gild"; }
   else hint.classList.add("hidden");
   if(mode){ hint.classList.remove("hidden"); }
   renderDeck();
@@ -4905,6 +5323,8 @@ function deckTileEl(c){
   if(G.selectMode==="remove"){ wrap.classList.add("selectable","danger"); wrap.addEventListener("click",()=>doRemove(c.id)); }
   if(G.selectMode==="growth"    && upgradable && typeof c.growth!=="number"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"growth")); }
   if(G.selectMode==="dealer"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doDealerSwap(c.id)); }
+  if(G.selectMode==="gemini" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doGemini(c.id)); }
+  if(G.selectMode==="gildedAge" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doGildedAge(c.id)); }
   if(G.selectMode==="encore"    && c.kind!=="lucky7" && c.kind!=="dealer" && !c.encore){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"encore")); }
   if(G.selectMode==="foil"      && upgradable && !c.foil){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"foil")); }
   if(G.selectMode==="watermark" && upgradable && !c.watermark){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"watermark")); }
@@ -4912,10 +5332,17 @@ function deckTileEl(c){
     if(G.selectMode===k && c.kind==="letter" && !c[k]){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,k)); }
   });
   if(G.selectMode==="fuse" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); if(G.fusePending===c.id) wrap.classList.add("fuse-pending"); wrap.addEventListener("click",()=>tapFuse(c.id)); }
+  if(G.selectMode==="triofuse"){
+    if(G.trioPairPending==null && c.kind==="fused"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>tapTrioFuse(c.id)); }
+    if(G.trioPairPending!=null){
+      if(c.id===G.trioPairPending){ wrap.classList.add("fuse-pending"); wrap.addEventListener("click",()=>tapTrioFuse(c.id)); }
+      else if(c.kind==="letter"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>tapTrioFuse(c.id)); }
+    }
+  }
   return wrap;
 }
 function deckSortKey(){
-  const rank=c=>({letter:0,combo:1,fused:2,clone:3,wildvowel:4,wildcons:5,copycat:6,jazz:7}[c.kind]??8);
+  const rank=c=>({letter:0,combo:1,fused:2,trio:2.5,clone:3,wildvowel:4,wildcons:5,copycat:6}[c.kind]??8);
   return (a,b)=>{
     if(rank(a)!==rank(b)) return rank(a)-rank(b);
     if(a.kind==="letter") return a.letter.localeCompare(b.letter) || (cardValue(b)-cardValue(a));
@@ -4969,16 +5396,17 @@ function renderDeck(){
   renderDeckWords();
 }
 function deckSummaryHtml(){
-  let pts=0, clones=0, jazz=0, wilds=0, wconst=0, copies=0, fused=0, combos=0, lucky=0, dealer=0;
+  let pts=0, clones=0, wilds=0, wconst=0, copies=0, fused=0, trios=0, combos=0, lucky=0, dealer=0, trip=0;
   G.deck.forEach(c=>{
     if(c.kind==="clone"){clones++;return;}
-    if(c.kind==="jazz"){jazz++;return;}
     if(c.kind==="wildvowel"){wilds++;return;}
     if(c.kind==="wildcons"){wconst++;return;}
     if(c.kind==="copycat"){copies++;return;}
     if(c.kind==="lucky7"){lucky++;return;}
     if(c.kind==="dealer"){dealer++;return;}
+    if(c.kind==="triptych"){trip++;return;}
     if(c.kind==="fused"){fused++; pts+=fusedValue(c); return;}
+    if(c.kind==="trio"){trios++; pts+=trioValue(c); return;}
     if(c.kind==="combo"){combos++; pts+=comboValue(c); return;}
     pts+=cardValue(c);
   });
@@ -4986,13 +5414,14 @@ function deckSummaryHtml(){
   const extras=[];
   if(combos) extras.push(`${combos} combo${combos>1?"s":""}`);
   if(fused)  extras.push(`${fused} fused`);
+  if(trios)  extras.push(`${trios} trio${trios>1?"s":""}`);
   if(lucky)  extras.push(`${lucky} Lucky 7`);
   if(dealer) extras.push(`${dealer} Dealer's Choice`);
+  if(trip)   extras.push(`${trip} Triptych${trip>1?"s":""}`);
   if(clones) extras.push(`${clones} clone${clones>1?"s":""}`);
   if(wilds)  extras.push(`${wilds} wild vowel${wilds>1?"s":""}`);
   if(wconst) extras.push(`${wconst} wild consonant${wconst>1?"s":""}`);
   if(copies) extras.push(`${copies} copy cat${copies>1?"s":""}`);
-  if(jazz)   extras.push(`${jazz} free jazz`);
   return `${vowels} vowels · ${G.deck.filter(c=>c.kind==="letter").length-vowels} consonants${extras.length?" · "+extras.join(" · "):""}<br>total face value ${pts}`;
 }
 function renderDeckPerks(){
@@ -5000,8 +5429,10 @@ function renderDeckPerks(){
   const cards=ownedPerkCards();
   if(!cards.length){ dp.innerHTML='<div class="dp-title">Perks owned</div><span class="dp-none">None yet — buy some in the print shop.</span>'; return; }
   dp.innerHTML='<div class="dp-title">Perks owned</div><div class="dp-grid">'+cards.map(p=>
-    `<div class="perk-card"><span class="pc-art">${p.art}</span><span class="pc-body"><span class="pc-name">${escHtml(p.name)}</span><span class="pc-desc">${escHtml(p.desc)}</span></span></div>`
+    `<div class="perk-card${p.name==="Word Binder"?" tappable":""}" data-perk="${escHtml(p.name)}"><span class="pc-art">${p.art}</span><span class="pc-body"><span class="pc-name">${escHtml(p.name)}</span><span class="pc-desc">${escHtml(p.desc)}</span></span></div>`
   ).join("")+'</div>';
+  const bc=dp.querySelector('.perk-card[data-perk="Word Binder"]');
+  if(bc) bc.addEventListener("click",openBinder);   // change the bound word any time
 }
 function renderDeckWords(){
   const dw=$("deckWords"); if(!dw) return;
@@ -5019,12 +5450,7 @@ function renderDeckWords(){
 }
 function buildStaticTile(c){
   const t=document.createElement("div");
-  t.className="tile "+(c.kind==="clone"?"clone ":"")+(c.kind==="jazz"?"jazz ":"")+(c.kind==="wildvowel"?"wildvowel ":"")+(c.kind==="wildcons"?"wildcons ":"")+(c.kind==="copycat"?"copycat ":"")+(gildLevel(c)>0?"upgraded ":"")+(cardMult(c)!==1?"multi ":"")+(isFirstUp(c)?"firstup ":"")+(isLastUp(c)?"lastup ":"");
-  if(c.kind==="jazz"){
-    const g=document.createElement("span"); g.className="glyph"; g.textContent="🎷"; t.appendChild(g);
-    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent=(c.jazzLeft||0)+"/"+JAZZ_USES; t.appendChild(s);
-    return t;
-  }
+  t.className="tile "+(c.kind==="clone"?"clone ":"")+(c.kind==="wildvowel"?"wildvowel ":"")+(c.kind==="wildcons"?"wildcons ":"")+(c.kind==="copycat"?"copycat ":"")+(gildLevel(c)>0?"upgraded ":"")+(cardMult(c)!==1?"multi ":"")+(isFirstUp(c)?"firstup ":"")+(isLastUp(c)?"lastup ":"");
   if(c.kind==="wildvowel"){
     const d=document.createElement("span"); d.className="wv-design"; d.innerHTML=wildVowelDesignHTML(); t.appendChild(d);
     const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="WILD"; t.appendChild(s);
@@ -5033,6 +5459,17 @@ function buildStaticTile(c){
   if(c.kind==="wildcons"){
     const d=document.createElement("span"); d.className="wv-design"; d.innerHTML=wildConsDesignHTML(); t.appendChild(d);
     const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="CONS"; t.appendChild(s);
+    return t;
+  }
+  if(c.kind==="trio"){
+    t.classList.add("trio","domino");
+    trioSeq(c).forEach((L,i)=>{
+      if(i>0){ const d=document.createElement("span"); d.className="dom-div"; t.appendChild(d); }
+      const cd=document.createElement("span"); cd.className="dom-cell";
+      const g=document.createElement("span"); g.className="dom-letter"; g.textContent=L; cd.appendChild(g);
+      const v=document.createElement("span"); v.className="dom-val"; v.textContent=trioSideValue(c,L); cd.appendChild(v);
+      t.appendChild(cd);
+    });
     return t;
   }
   if(c.kind==="fused"){
@@ -5069,6 +5506,12 @@ function buildStaticTile(c){
     const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="DEALER"; t.appendChild(s);
     return t;
   }
+  if(c.kind==="triptych"){
+    t.classList.add("triptych");
+    const g=document.createElement("span"); g.className="glyph"; g.textContent="🖼️"; t.appendChild(g);
+    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="DRAW 3"; t.appendChild(s);
+    return t;
+  }
   const g=document.createElement("span"); g.textContent=(c.kind==="copycat"?"⧉":tileGlyph(c)); t.appendChild(g);
   if(c.kind==="clone"){ const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="CLONE"; t.appendChild(s); }
   else if(c.kind==="copycat"){ const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="COPY"; t.appendChild(s); }
@@ -5085,13 +5528,30 @@ function tileShortName(c){
   if(c.kind==="wildvowel") return "the wild vowel";
   if(c.kind==="wildcons") return "the wild consonant";
   if(c.kind==="copycat") return "the copy cat";
-  if(c.kind==="jazz") return "free jazz";
   if(c.kind==="lucky7") return "Lucky 7";
   return "the tile";
 }
+/* Gemini (v492a): twinned letters share upgrades. Sync the partner whenever
+   an upgrade lands on either twin. Growth syncs the stamp, never the counter. */
+const GEMINI_SYNC=["upLevel","mult","foil","watermark","encore","boldface","dropcap","serif","ditto","inkwell"];
+function syncGemini(c){
+  if(!c || !c.geminiWith) return;
+  const p=G.deck.find(x=>x.id===c.geminiWith);
+  if(!p){ c.geminiWith=null; return; }
+  GEMINI_SYNC.forEach(k=>{ if(c[k]!==undefined) p[k]=c[k]; });
+  if(typeof c.growth==="number" && typeof p.growth!=="number") p.growth=0;
+}
+/* Gilded Age (v492a): the chosen letter arrives gilded once and golden, for
+   every copy present and future. Called on selection and on every new letter. */
+function applyGildedAge(card){
+  const L=G.perks.gildedAge;
+  if(!L || !card || card.kind!=="letter" || card.letter!==L) return;
+  card.upLevel=Math.min(GILD_CAP,(card.upLevel||0)+1);
+  if((card.mult||1)<1.25) card.mult=1.25;
+}
 function doTileUpgrade(id,kind){
   const c=G.deck.find(x=>x.id===id); if(!c) return;
-  // Encore now works on ANY playable tile (letters, combos, fused, wilds, free jazz...);
+  // Encore now works on ANY playable tile (letters, combos, fused, wilds...);
   // the other stamps still target letters and fused tiles only.
   const NEW_STAMPS=["boldface","dropcap","serif","ditto","inkwell"];
   if(kind==="encore"){ if(c.kind==="lucky7"||c.kind==="dealer") return; }
@@ -5108,6 +5568,7 @@ function doTileUpgrade(id,kind){
   else if(kind==="inkwell"){ c.inkwell=true; }
   G.selectMode=null;
   const label={growth:"Growth Mindset",encore:"Encore",foil:"Foil Stamp",watermark:"Watermark",boldface:"Bold Face",dropcap:"Drop Cap",serif:"Serif Stamp",ditto:"Ditto Mark",inkwell:"Ink Well"}[kind];
+  syncGemini(c);
   toast(label+" applied to "+tileShortName(c));
   haptic(20);
   closeDeck(); save();
@@ -5129,6 +5590,57 @@ function tapFuse(id){
   if(!a){ G.fusePending=null; renderDeck(); return; }
   if(G.deck.length<=4){ toast("Deck can't go below 4 cards"); return; }
   showFuseConfirm(a,c);
+}
+let trioFusePendingPair=null;
+function tapTrioFuse(id){
+  const c=G.deck.find(x=>x.id===id); if(!c) return;
+  if(G.trioPairPending==null){
+    if(c.kind!=="fused") return;
+    G.trioPairPending=id;
+    $("selectHint").textContent="Now pick the letter to add to "+fusedLabel(c)+".";
+    renderDeck(); return;
+  }
+  if(G.trioPairPending===id){   // tapped the pair again -> deselect
+    G.trioPairPending=null;
+    $("selectHint").textContent="Tap the fused pair to build on.";
+    renderDeck(); return;
+  }
+  if(c.kind!=="letter") return;
+  const pair=G.deck.find(x=>x.id===G.trioPairPending);
+  if(!pair){ G.trioPairPending=null; renderDeck(); return; }
+  if(G.deck.length<=4){ toast("Deck can't go below 4 cards"); return; }
+  showTrioFuseConfirm(pair,c);
+}
+function showTrioFuseConfirm(pair,letter){
+  const cost=letterAcquireCost(letter.letter, letter.upLevel||0);
+  trioFusePendingPair={pairId:pair.id, letterId:letter.id, cost};
+  fusePendingPair=null;
+  $("fuseMsg").innerHTML=`<b>${fusedLabel(pair)}</b> ${fusedValue(pair)} pts &nbsp;+&nbsp; <b>${letter.letter}</b> ${fusedSideValue(letter)} pts<br><span class="gild-note">one three letter slug, arranged at will · gilds carry over</span>`;
+  $("fusePrice").innerHTML=`<span class="c-ico">◉</span>${cost}`;
+  const yes=$("fuseYes"); yes.disabled=G.coins<cost;
+  yes.textContent = G.coins<cost ? "Not enough ◉" : "Forge for ◉"+cost;
+  $("fuseConfirm").classList.remove("hidden");
+}
+function confirmTrioFuse(){
+  if(!trioFusePendingPair) return;
+  const {pairId,letterId,cost}=trioFusePendingPair;
+  const pi=G.deck.findIndex(c=>c.id===pairId), li=G.deck.findIndex(c=>c.id===letterId);
+  if(pi<0||li<0){ closeFuseConfirm(); trioFusePendingPair=null; return; }
+  if(G.coins<cost){ toast("Not enough coins"); return; }
+  const pair=G.deck[pi], letter=G.deck[li];
+  // the trio inherits the better of the two gilds and the better golden multiplier
+  const up=Math.max(pair.upLevel||0, letter.upLevel||0);
+  const mult=Math.max(pair.mult||1, letter.mult||1, ...(pair.sides||[]).map(sd=>sd.mult||1));
+  const trio=makeTrioCard([pair.sides[0].letter, pair.sides[1].letter, letter.letter], up, mult);
+  if(letter.geminiWith){ const p=G.deck.find(x=>x.id===letter.geminiWith); if(p) p.geminiWith=null; }   // the twin survives, unlinked
+  G.coins-=cost;
+  [pi,li].sort((x,y)=>y-x).forEach(idx=>G.deck.splice(idx,1));
+  G.deck.push(trio);
+  if(typeof G.fuseOfferIdx==="number" && G.shopOffers[G.fuseOfferIdx]) G.shopOffers[G.fuseOfferIdx].sold=true;
+  statShopBuy("Triple fuse "+trioLabel(trio), cost, "trioUpgrade");
+  G.fuseOfferIdx=null; G.trioPairPending=null; trioFusePendingPair=null; G.selectMode=null;
+  haptic(24); toast("Forged "+trioLabel(trio));
+  closeFuseConfirm(); closeDeck(); save();
 }
 function showFuseConfirm(a,b){
   const cost=letterAcquireCost(a.letter,a.upLevel||0)+letterAcquireCost(b.letter,b.upLevel||0);
@@ -5158,10 +5670,31 @@ function confirmFuse(){
   closeFuseConfirm(); closeDeck(); save();
 }
 function closeFuseConfirm(){ $("fuseConfirm").classList.add("hidden"); }
+function doGemini(id){
+  const src=G.deck.find(x=>x.id===id); if(!src||src.kind!=="letter") return;
+  const copy={...src, id:++cardSeq};
+  src.geminiWith=copy.id; copy.geminiWith=src.id;
+  G.deck.push(copy);
+  G.selectMode=null;
+  toast("Gemini: a twin "+src.letter+" joins the deck");
+  haptic([12,30,12]);
+  closeDeck(); save();
+}
+function doGildedAge(id){
+  const src=G.deck.find(x=>x.id===id); if(!src||src.kind!=="letter") return;
+  G.perks.gildedAge=src.letter;
+  G.deck.forEach(c=>applyGildedAge(c));
+  G.selectMode=null;
+  toast("Gilded Age: every "+src.letter+" arrives gilded and golden");
+  haptic([12,30,12]);
+  closeDeck(); save();
+}
 function doRemove(id){
   if(G.deck.length<=4){ toast("Deck can't go below 4 cards"); return; }
   const i=G.deck.findIndex(c=>c.id===id); if(i<0)return;
+  const gone=G.deck[i];
   G.deck.splice(i,1);
+  if(gone && gone.geminiWith){ const p=G.deck.find(x=>x.id===gone.geminiWith); if(p) p.geminiWith=null; }   // the twin survives, unlinked
   G.selectMode=null;
   toast("Removed");
   closeDeck(); save();
@@ -5177,6 +5710,18 @@ function gildCostFor(c){
 /* ============================================================
    First-up / Finale letter chooser (stackable)
    ============================================================ */
+// Every distinct letter the deck can actually put at the edge of a word,
+// including the individual faces of fused pairs and combo tiles.
+function deckLetterFaces(){
+  const out=[];
+  G.deck.forEach(c=>{
+    if(c.kind==="letter"){ out.push(c.letter); return; }
+    if(c.kind==="fused" && Array.isArray(c.sides)){ c.sides.forEach(sd=>{ if(sd.letter) out.push(sd.letter); }); return; }
+    if(c.kind==="trio"){ c.letters.forEach(L=>out.push(L)); return; }
+    if(c.kind==="combo"){ comboEntries(c).forEach(e=>{ if(e.letter) out.push(e.letter); }); return; }
+  });
+  return out;
+}
 function bonusCostFor(kind, L){ const stacks=(G.perks[kind][L]||0); return px(7*Math.pow(2,stacks)); }
 function openBonusChooser(kind){
   G.bonusKind=kind;
@@ -5185,7 +5730,11 @@ function openBonusChooser(kind){
     ? "Words that START with it score +50% per stack."
     : "Words that END with it score +50% per stack.";
   const wrap=$("bonusChoices"); wrap.innerHTML="";
-  const letters=[...new Set(G.deck.filter(c=>c.kind==="letter").map(c=>c.letter))].sort();
+  // v491g: letters that only exist inside a fused pair or an -ING/-ATE combo are
+  // still letters a word can start or end with, so they belong in this list. They
+  // appear individually; scoring already reads the resolved first/last letter, so a
+  // fused tile rotated to face its bonus letter outward triggers the stack normally.
+  const letters=[...new Set(deckLetterFaces())].sort();
   letters.forEach(L=>{
     const stacks=(G.perks[kind][L]||0), cost=bonusCostFor(kind,L);
     const b=document.createElement("button");
@@ -5205,7 +5754,7 @@ function chooseBonus(L){
   G.bonusOfferIdx=null;
   statShopBuy((kind==="firstUp"?"First-up ":"Finale ")+L, cost, kind);
   haptic(24);
-  toast((kind==="firstUp"?"First-up ":"Finale ")+L+" → ×"+(1+G.perks[kind][L]));
+  toast((kind==="firstUp"?"First-up ":"Finale ")+L+" → ×"+(1+0.5*G.perks[kind][L]));
   closeBonusChooser(); renderShop(); save();
 }
 function cancelBonus(){
@@ -5224,10 +5773,10 @@ function statInit(seed){
     finalRound:1, finalDeck:null, runMs:0, runScore:0, bestWord:"", bestScore:0 };
   G._curShop=null;
 }
-function statWord(word, score, len, isJazz){
+function statWord(word, score, len){
   if(!G.stats) return;
   G.stats.runScore=G.runScore||0;   // mirror the canonical run score (set in submitWord)
-  G.stats.words.push({ round:G.level, word, score, len, jazz:!!isJazz,
+  G.stats.words.push({ round:G.level, word, score, len, jazz:false,
     overtime: G.handsLeft<=0 || G.hearts<MAX_HEARTS });
 }
 function statShopOpen(offers){
@@ -5263,7 +5812,7 @@ function statFinish(result){
   G.stats.runScore=G.runScore||0;
   G.stats.bestWord=G.runBestWord||""; G.stats.bestScore=G.runBestScore||0;
   G.stats.perks={ firstUp:G.perks.firstUp, lastUp:G.perks.lastUp, vowelPower:G.perks.vowelPower,
-    bigWords:G.perks.bigWords, fireSale:G.perks.fireSale, interest:G.perks.interest, fightingWords:!!G.perks.fightingWords, superStore:!!G.perks.superStore,
+    bigWords:G.perks.bigWords, fireSale:G.perks.fireSale, interest:G.perks.interest, fightingWords:!!G.perks.fightingWords, superStore:!!G.perks.superStore, wordBinder:(G.perks.wordBinder?{word:G.perks.wordBinder.word,banked:G.perks.wordBinder.banked}:false), gemini:!!G.perks.gemini, gildedAge:G.perks.gildedAge||false, deadlineExt:!!G.perks.deadlineExt, galleyProof:!!G.perks.galleyProof, revision:!!G.perks.revision, midnightPress:!!G.perks.midnightPress, secondEdition:!!G.perks.secondEdition,
     scoreMult:G.scoreMult, handSize:G.handSize, extraTurns:G.extraTurns };
   try{ localStorage.setItem("letterati_laststats", JSON.stringify(G.stats)); }catch(e){}
   try{ const arr=JSON.parse(localStorage.getItem("letterati_runs")||"[]"); arr.push(G.stats);
@@ -5458,12 +6007,11 @@ async function lookupDefinition(word){
   if(!res){ try{ res=await defFromDictDev(key); }catch(e){ res=null; } }   // resilience fallback
   defCache[key]=res; return res;
 }
-function showDefinition(word, isJazz){
+function showDefinition(word){
   const el=$("defStrip"); if(!el) return;
   const w=escHtml(String(word||"").toUpperCase());
   if(!w){ el.classList.add("hidden"); return; }
   el.classList.remove("hidden");
-  if(isJazz){ el.innerHTML=`<span class="dw">${w}</span><span class="dd muted">free-jazz word, no dictionary entry</span>`; return; }
   el.innerHTML=`<span class="dw">${w}</span><span class="dd muted">looking up…</span>`;
   const token=String(Date.now()+Math.random()); el.dataset.token=token;
   lookupDefinition(word).then(res=>{
@@ -5536,6 +6084,14 @@ function ownedPerksList(){
   if(G.perks.marginalia) out.push("Marginalia · 1 coin per 15 over target, max 15");
   if(G.perks.fightingWords) out.push("Fighting Words · +50% per lost heart");
   if(G.perks.superStore) out.push("Super Store · 8 shop offers");
+  if(G.perks.wordBinder) out.push("Word Binder · "+(G.perks.wordBinder.word?G.perks.wordBinder.word.toUpperCase()+" bound at "+(G.perks.wordBinder.banked||0):"no word bound yet"));
+  if(G.perks.secondEdition) out.push("Second Edition · replay a word's tiles, next word half score");
+  if(G.perks.gemini) out.push("Gemini · twinned letters share upgrades");
+  if(G.perks.gildedAge) out.push("Gilded Age · every "+G.perks.gildedAge+" arrives gilded and golden");
+  if(G.perks.deadlineExt) out.push("Deadline Extension · first failed round costs no hearts"+(G.deadlineExtRound!=null?" (used)":""));
+  if(G.perks.galleyProof) out.push("Galley Proof · see the next 3 tiles");
+  if(G.perks.revision) out.push("Revision · rewrite one letter per round");
+  if(G.perks.midnightPress) out.push("The Midnight Press · overtime words ×2, first is free");
   if(G.perks.mirror)     out.push("Mirror · ×3 palindromes");
   if(G.perks.verbose)    out.push("Verbose · ×1.5 verbs");
   if(G.perks.verbizer)   out.push("Verbizer · add er/ing/ed to any word");
@@ -5581,6 +6137,14 @@ function ownedPerkCards(){
   if(P.marginalia) push("🪙","Marginalia","1 coin for every 15 points past the target, up to 15 coins.");
   if(P.fightingWords) push("🥊","Fighting Words","Words score +50% for every heart you have lost.");
   if(P.superStore) push("🏬","Super Store","Every shop stocks 8 offers instead of 6.");
+  if(P.wordBinder) push("📖","Word Binder", P.wordBinder.word ? ("Bound: "+P.wordBinder.word.toUpperCase()+" at "+(P.wordBinder.banked||0)+" points. Tap to change (resets the binding).") : "No word bound yet. Tap to bind one.");
+  if(P.secondEdition) push("📚","Second Edition","Once per round, replay a scored word's tiles. The next word scores half.");
+  if(P.gemini) push("♊","Gemini","Twinned letters share every upgrade.");
+  if(P.gildedAge) push("🏛️","Gilded Age","Every "+P.gildedAge+" in your deck, present and future, arrives gilded once and golden.");
+  if(P.deadlineExt) push("🕰️","Deadline Extension","Your first failed round costs no hearts."+(G.deadlineExtRound!=null?" Used.":""));
+  if(P.galleyProof) push("🔭","Galley Proof","The next three tiles of your draw pile are always visible.");
+  if(P.revision) push("✒️","Revision","Once per round, rewrite one letter of the word you just set and score the improvement.");
+  if(P.midnightPress) push("🌙","The Midnight Press","Overtime words score double. The first overtime word each round costs no heart.");
   if(P.mirror)     push("🪞","Mirror","×3 on palindromes.");
   if(P.verbose)    push("🅥","Verbose","×1.5 on verbs, in any form.");
   if(P.verbizer)   push("🪄","Verbizer","Add er, ing or ed to any valid word to make it a verb.");
@@ -5658,7 +6222,7 @@ function closeOptions(){ $("optionsScreen").classList.add("hidden"); }
 function closeDeck(){
   $("deckScreen").classList.add("hidden");
   $("selectHint").classList.add("hidden");
-  G.selectMode=null; G.fuseOfferIdx=null; G.fusePending=null; fusePendingPair=null;
+  G.selectMode=null; G.fuseOfferIdx=null; G.fusePending=null; fusePendingPair=null; G.trioPairPending=null; trioFusePendingPair=null;
   if(!$("shopScreen").classList.contains("hidden")) renderShop();
 }
 
@@ -5725,10 +6289,10 @@ function save(){
     const data={
       v:SAVE_VERSION, phase, seed:G.seed, level:G.level, hearts:G.hearts, coins:G.coins, handSize:G.handSize,
       infinite:G.infinite, wonRun:G.wonRun,
-      perks:G.perks, scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, reprintUsed:G.reprintUsed, foilUsed:G.foilUsed, challenge:G.challenge, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, jazzCharges:G.jazzCharges, runMs:G.runMs, stats:G.stats,
+      perks:G.perks, scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, reprintUsed:G.reprintUsed, foilUsed:G.foilUsed, challenge:G.challenge, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, runMs:G.runMs, stats:G.stats,
       wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, wordPlays:G.wordPlays, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
       attempt:G.attempt, target:G.target, score:G.score, handsLeft:G.handsLeft, discardsLeft:G.discardsLeft,
-      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), roundLengths:(G.roundLengths||[]), standingDone:!!G.standingDone, _marginsApplied:(+G._marginsApplied||0), boss:(G.boss||null), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0,
+      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), roundLengths:(G.roundLengths||[]), standingDone:!!G.standingDone, _marginsApplied:(+G._marginsApplied||0), overtime:!!G.overtime, deadlineExtRound:(G.deadlineExtRound==null?null:G.deadlineExtRound), midnightRound:(G.midnightRound==null?null:G.midnightRound), secondEdRound:(G.secondEdRound==null?null:G.secondEdRound), secondEdHalf:!!G.secondEdHalf, revisionRound:(G.revisionRound==null?null:G.revisionRound), boss:(G.boss||null), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0,
       rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed, letterPlays:G.letterPlays||{}, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
     };
     localStorage.setItem(SAVE_KEY,JSON.stringify(data));
@@ -5742,7 +6306,7 @@ function continueRun(){
   cardSeq=d.cardSeq||0;
   G.seed=d.seed; G.level=d.level; G.hearts=d.hearts; G.coins=d.coins; G.handSize=d.handSize;
   G.infinite=!!d.infinite; G.wonRun=!!d.wonRun;
-  G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false,superStore:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
+  G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false,superStore:false,wordBinder:false, secondEdition:false, gemini:false, gildedAge:false, deadlineExt:false, galleyProof:false, revision:false, midnightPress:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
   if(G.perks.vowelPower===true) G.perks.vowelPower=1;   // v42a: legacy boolean -> 1 stack
   G.reprintUsed=!!d.reprintUsed;
   G.foilUsed=Array.isArray(d.foilUsed)?d.foilUsed.slice():[];
@@ -5751,9 +6315,14 @@ function continueRun(){
   G.lucky7Stash=Array.isArray(d.lucky7Stash)?d.lucky7Stash:[];
   G.shopSeen=Array.isArray(d.shopSeen)?d.shopSeen:[];
   G.roundLengths=Array.isArray(d.roundLengths)?d.roundLengths:[]; G.standingDone=!!d.standingDone; G._marginsApplied=(d._marginsApplied===true?2:(+d._marginsApplied||0));   // legacy saves stored a boolean for the old 2-tile cut
+  G.overtime=!!d.overtime; G.deadlineExtRound=(d.deadlineExtRound==null?null:d.deadlineExtRound); G.midnightRound=(d.midnightRound==null?null:d.midnightRound);
+  G.secondEdRound=(d.secondEdRound==null?null:d.secondEdRound); G.secondEdHalf=!!d.secondEdHalf; G.revisionRound=(d.revisionRound==null?null:d.revisionRound); G.lastPlay=null;
   G.boss=d.boss||null; normalizeBoss(); if(G.boss&&G.boss.active&&G.level===WIN_LEVEL) document.body.classList.add("boss-round");
   G.anagramSigs=d.anagramSigs||{}; G.anthologyCount=d.anthologyCount||0; G.letterPlays=d.letterPlays||{}; G.abcSeen=d.abcSeen||{}; G.lastWordLetters=d.lastWordLetters||null; G.pulpPending=d.pulpPending||0;
-  G.jazzCharges=(typeof d.jazzCharges==="number")?d.jazzCharges:0;
+  // v491h migration: Free jazz is retired; strip any lingering jazz cards from a
+  // saved run so nothing unplayable sits in a pile.
+  { const noJazz=a=>Array.isArray(a)?a.filter(c=>c.kind!=="jazz"):a;
+    G.deck=noJazz(G.deck); G.hand=noJazz(G.hand); G.drawPile=noJazz(G.drawPile); G.played=noJazz(G.played); G.canvas=noJazz(G.canvas); }
   G.wordsPlayed=d.wordsPlayed||0; G.runScore=d.runScore||0; G.runBestWord=d.runBestWord||""; G.runBestScore=d.runBestScore||0; G.wordPlays=d.wordPlays||{};
   G.levelStats=d.levelStats||{bestWord:"",bestScore:0,words:0};
   G.best=d.best||1; G.lastReward=d.lastReward||null;
@@ -5818,9 +6387,9 @@ function newRun(seed){
   cardSeq=0;
   G.seed=seed;
   G.level=1; G.hearts=MAX_HEARTS; G.coins=0; G.handSize=START_HAND;
-  G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false,superStore:false};
+  G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false,superStore:false,wordBinder:false, secondEdition:false, gemini:false, gildedAge:false, deadlineExt:false, galleyProof:false, revision:false, midnightPress:false};
   G.reprintUsed=false;
-  G.scoreMult=1; G.pressGrowth=0; G.heavyPress=0; G.extraDiscards=0; G.extraTurns=0; G.jazzCharges=0; G.lastReward=null;
+  G.scoreMult=1; G.pressGrowth=0; G.heavyPress=0; G.extraDiscards=0; G.extraTurns=0; G.lastReward=null; G.overtime=false; G.deadlineExtRound=null; G.midnightRound=null; G.secondEdRound=null; G.secondEdHalf=false; G.revisionRound=null; G.lastPlay=null;
   G.infinite=false; G.wonRun=false;
   G.rerollCount=0; G.freeRerollUsed=false;   // reroll-price ladder resets each run
   G.wordsPlayed=0; G.runScore=0; G.runBestWord=""; G.runBestScore=0; G.wordPlays={}; G.levelStats={bestWord:"",bestScore:0,words:0};
@@ -5900,8 +6469,8 @@ refreshContinue();
 $("cloneCancel").addEventListener("click",cancelClone);
 $("consCancel").addEventListener("click",cancelCons);
 $("vowelCancel").addEventListener("click",cancelVowel);
-$("fuseYes").addEventListener("click",confirmFuse);
-$("fuseNo").addEventListener("click",()=>{ fusePendingPair=null; closeFuseConfirm(); });
+$("fuseYes").addEventListener("click",()=>{ if(trioFusePendingPair) confirmTrioFuse(); else confirmFuse(); });
+$("fuseNo").addEventListener("click",()=>{ fusePendingPair=null; trioFusePendingPair=null; closeFuseConfirm(); });
 $("fusedPickCancel").addEventListener("click",closeFusedSelector);
 $("seedBtn").addEventListener("click",()=>{
   const s=($("seedInput").value||"").trim().toUpperCase();
@@ -5955,6 +6524,12 @@ function applyTheme(t){
 function toggleTheme(){ applyTheme(currentTheme()==="dark"?"light":"dark"); haptic(12); }
 (function initTheme(){ let t="light"; try{ t=localStorage.getItem(THEME_KEY)||"light"; }catch(e){} applyTheme(t); })();
 ["themeSwitch","themeSwitchP"].forEach(id=>{ const b=$(id); if(b) b.addEventListener("click",toggleTheme); });
+$("trioPickCancel").addEventListener("click",()=>{ trioSelCard=null; $("trioPick").classList.add("hidden"); });
+$("binderSave").addEventListener("click",saveBinder);
+$("binderCancel").addEventListener("click",()=>{ $("binderOverlay").classList.add("hidden"); });
+$("revisionCancel").addEventListener("click",()=>{ $("revisionOverlay").classList.add("hidden"); _revIdx=null; });
+$("secondEdBtn").addEventListener("click",useSecondEdition);
+$("revisionBtn").addEventListener("click",openRevision);
 $("introGoBtn").addEventListener("click",()=>{
   $("runIntroScreen").classList.add("hidden"); haptic(15);
   startLevel();
