@@ -27,6 +27,10 @@
    v491b: Tight Margins renamed Small Margins, now takes one tile
    instead of two (diff 2 -> 1); the restore stores the actual
    delta so hand size can never drift across a save.
+   v492d: legendary weights halved to 0.15; the reroll price
+   ladder now restores on every resume phase, not only shop; the
+   endless curve walls up super-exponentially past round 10
+   (ENDLESS_WALL_BASE/STEP) so no engine prints forever.
    v492c: Word Binder retains half the played score (BINDER_RETAIN);
    Lucky 7 and Triptych carry 3 charges across the run and are spent
    for good at 0; Lucky 7 is legendary and rarer.
@@ -1376,7 +1380,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "492c";
+const VERSION = "492d";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -1538,7 +1542,18 @@ function lenMult(n){ return n<=3?1 : n===4?1.5 : (n-3); }   // 5→2,6→3,7→4
 // is a deliberate floor-raise that helps weaker seeds. Set to 1 to disable.
 const TARGET_SCALE = 1.04;
 const GOAL_SCALE = 1.656;  // v3d +15%, v41a +20%, v48g +20% more (1.15*1.20*1.20) point goal across every level
-function targetFor(level){ return Math.round((20 + 8*(level-1)) * Math.pow(1.28, level-1) * TARGET_SCALE * GOAL_SCALE); }
+const ENDLESS_WALL_BASE = 1.5;   // v492d: post-win escalation starts here...
+const ENDLESS_WALL_STEP = 0.25;  // ...and each endless round multiplies by 0.25 more than the last
+function targetFor(level){
+  let t = (20 + 8*(level-1)) * Math.pow(1.28, level-1) * TARGET_SCALE * GOAL_SCALE;
+  if(level > WIN_LEVEL){
+    // Endless walls up super-exponentially, Balatro-style: R11 ×1.75, R12 a further
+    // ×2.0, R13 ×2.25 and so on, compounding. Every engine dies eventually; the
+    // question the mode asks is how far yours carries you.
+    for(let k=WIN_LEVEL+1; k<=level; k++) t *= (ENDLESS_WALL_BASE + ENDLESS_WALL_STEP*(k-WIN_LEVEL));
+  }
+  return Math.round(t);
+}
 
 /* ---- Victory ranks (v4a) -------------------------------------------------
    Spelling Bee style ladder. Clearing a round at level N earns the rank for N.
@@ -4528,7 +4543,7 @@ function perkPool(rng){
     {make:()=>fusedDoubleOffer("G"),weight:0.5},
     {make:()=>fusedDoubleOffer("P"),weight:0.5},
     {make:()=>fusedDoubleOffer("R"),weight:0.5},
-    {make:()=>lucky7Offer(),       weight:0.3},   // v492c: legendary now
+    {make:()=>lucky7Offer(),       weight:0.15},   // v492c legendary; v492d rarer with the rest of the tier
   ];
   // Encore + Watermark are strong on their own and oppressive together, so they sit at the
   // rare end of epic, cost a bit more, and each becomes very unlikely once you own the other.
@@ -4550,14 +4565,14 @@ function perkPool(rng){
   if(!G.perks.marginalia)        e.push({make:()=>marginaliaOffer(),  weight:1.3});
   if(!G.perks.fightingWords)     e.push({make:()=>fightingWordsOffer(), weight:1.2});
   if(!G.perks.superStore)        e.push({make:()=>superStoreOffer(),   weight:1.1});
-  if(!G.perks.wordBinder)        e.push({make:()=>wordBinderOffer(),    weight:0.3});
-  if(!G.perks.secondEdition)     e.push({make:()=>secondEditionOffer(), weight:0.3});
-  if(!G.perks.gemini)            e.push({make:()=>geminiOffer(),        weight:0.3});
-  if(!G.perks.gildedAge)         e.push({make:()=>gildedAgeOffer(),     weight:0.3});
-  if(!G.perks.deadlineExt)       e.push({make:()=>deadlineExtOffer(),   weight:0.3});
-  if(!G.perks.galleyProof)       e.push({make:()=>galleyProofOffer(),   weight:0.3});
-  if(!G.perks.revision)          e.push({make:()=>revisionOffer(),      weight:0.3});
-  if(!G.perks.midnightPress)     e.push({make:()=>midnightPressOffer(), weight:0.3});
+  if(!G.perks.wordBinder)        e.push({make:()=>wordBinderOffer(),    weight:0.15});
+  if(!G.perks.secondEdition)     e.push({make:()=>secondEditionOffer(), weight:0.15});
+  if(!G.perks.gemini)            e.push({make:()=>geminiOffer(),        weight:0.15});
+  if(!G.perks.gildedAge)         e.push({make:()=>gildedAgeOffer(),     weight:0.15});
+  if(!G.perks.deadlineExt)       e.push({make:()=>deadlineExtOffer(),   weight:0.15});
+  if(!G.perks.galleyProof)       e.push({make:()=>galleyProofOffer(),   weight:0.15});
+  if(!G.perks.revision)          e.push({make:()=>revisionOffer(),      weight:0.15});
+  if(!G.perks.midnightPress)     e.push({make:()=>midnightPressOffer(), weight:0.15});
   if(!G.perks.mirror)            e.push({make:()=>mirrorOffer(),      weight:0.8});
   if(!G.perks.verbose)           e.push({make:()=>verboseOffer(),     weight:1.2});
   if(!G.perks.verbizer)          e.push({make:()=>verbizerOffer(),    weight:0.8});
@@ -6331,6 +6346,7 @@ function continueRun(){
   G.lucky7Stash=Array.isArray(d.lucky7Stash)?d.lucky7Stash:[];
   G.shopSeen=Array.isArray(d.shopSeen)?d.shopSeen:[];
   G.roundLengths=Array.isArray(d.roundLengths)?d.roundLengths:[]; G.standingDone=!!d.standingDone; G._marginsApplied=(d._marginsApplied===true?2:(+d._marginsApplied||0));   // legacy saves stored a boolean for the old 2-tile cut
+  G.rerollCount=d.rerollCount||0; G.freeRerollUsed=!!d.freeRerollUsed;   // v492d: the reroll price ladder was only restored on shop-phase resumes
   G.overtime=!!d.overtime; G.deadlineExtRound=(d.deadlineExtRound==null?null:d.deadlineExtRound); G.midnightRound=(d.midnightRound==null?null:d.midnightRound);
   G.secondEdRound=(d.secondEdRound==null?null:d.secondEdRound); G.secondEdHalf=!!d.secondEdHalf; G.revisionRound=(d.revisionRound==null?null:d.revisionRound); G.lastPlay=null;
   G.boss=d.boss||null; normalizeBoss(); if(G.boss&&G.boss.active&&G.level===WIN_LEVEL) document.body.classList.add("boss-round");
@@ -6358,8 +6374,6 @@ function continueRun(){
     hideGame();
     showLevelSummary(d.summaryInfo);
   } else if(d.phase==="shop"){
-    G.rerollCount=d.rerollCount||0;
-    G.freeRerollUsed=!!d.freeRerollUsed;
     G.shopOffers=d.offers||[];
     setShopHeader();
     hideGame(); $("shopScreen").classList.remove("hidden");
