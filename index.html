@@ -27,6 +27,9 @@
    v491b: Tight Margins renamed Small Margins, now takes one tile
    instead of two (diff 2 -> 1); the restore stores the actual
    delta so hand size can never drift across a save.
+   v492c: Word Binder retains half the played score (BINDER_RETAIN);
+   Lucky 7 and Triptych carry 3 charges across the run and are spent
+   for good at 0; Lucky 7 is legendary and rarer.
    v492b: trios are arranged freely (6 orders, tap the placed tile
    to rearrange); Triple fusion upgrade forges a trio from one of
    your fused pairs plus a letter (gilds and golden carry over) and
@@ -1373,7 +1376,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "492b";
+const VERSION = "492c";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -1523,7 +1526,8 @@ const PRICE_MULTIPLIER = 1.22; // per-round shop inflation (GGW used ~1.46)
 const SHOP_PRICE_SCALE = 0.8;  // v3a: 20% cheaper across the board (stacks on the base 35% off)
 const MAX_HEARTS = 3;
 const COIN_CAP = 12;
-const WORD_CASH_CAP = 20;   // v491g: most a single word can pay into the bank           // economy guard rail (caps base payout only)
+const WORD_CASH_CAP = 20;   // v491g: most a single word can pay into the bank
+const BINDER_RETAIN = 0.5;  // v492c: the binding keeps half the played score (full retention compounded too hard)           // economy guard rail (caps base payout only)
 const LIQUIDITY_CAP = 2.0;     // max score multiplier from Liquidity (wealth -> mult)
 function liquidityMult(){ return G.perks.interest ? Math.min(LIQUIDITY_CAP, 1 + 0.01*Math.floor((G.coins||0)/5)) : 1; }   // +1% per $5 banked
 
@@ -1717,9 +1721,9 @@ const COMBO_DEFS = {
   er:  { seq:["E","R"],     label:"-ER",  rarity:"rare", price:7  }   // retired from the shop (now sold as a fused E+R); kept so any old -ER tiles still render
 };
 function makeComboCard(key){ const d=COMBO_DEFS[key]; return {id:++cardSeq, kind:"combo", combo:key, letter:null, base:d.seq.length, upLevel:0, mult:1}; }
-function makeLucky7Card(){ return {id:++cardSeq, kind:"lucky7", letter:null}; }
+function makeLucky7Card(){ return {id:++cardSeq, kind:"lucky7", letter:null, charges:3}; }
 function makeDealerCard(){ return {id:++cardSeq, kind:"dealer", letter:null}; }
-function makeTriptychCard(){ return {id:++cardSeq, kind:"triptych", letter:null}; }
+function makeTriptychCard(){ return {id:++cardSeq, kind:"triptych", letter:null, charges:3}; }
 function comboSeq(c){ return COMBO_DEFS[c.combo].seq; }
 function comboLabel(c){ return COMBO_DEFS[c.combo].label; }
 function comboEntries(c){ const u=c.upLevel||0; return comboSeq(c).map(L=>({letter:L, value:1*Math.pow(2,u)})); }
@@ -2606,14 +2610,14 @@ function buildTile(c,where){
   if(c.kind==="lucky7"){
     t.classList.add("lucky7");
     const g=document.createElement("span"); g.className="glyph"; g.textContent="🍀"; t.appendChild(g);
-    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="LUCKY 7"; t.appendChild(s);
+    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="LUCKY 7 · "+(typeof c.charges==="number"?c.charges:3)+"/3"; t.appendChild(s);
     t.addEventListener("click",e=>{ if(justDragged){ e.preventDefault(); return; } e.preventDefault(); if(where==="hand") useLucky7(c); });
     return t;   // an action card: tap in the bank to use; it never enters the canvas
   }
   if(c.kind==="triptych"){
     t.classList.add("triptych");
     const g=document.createElement("span"); g.className="glyph"; g.textContent="🖼️"; t.appendChild(g);
-    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="DRAW 3"; t.appendChild(s);
+    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="DRAW 3 · "+(typeof c.charges==="number"?c.charges:3)+"/3"; t.appendChild(s);
     t.addEventListener("click",e=>{ if(justDragged){ e.preventDefault(); return; } e.preventDefault(); if(where==="hand") useTriptych(c); });
     return t;
   }
@@ -3643,10 +3647,16 @@ function drawExtra(n){
 // next level (stashed and restored at startLevel, so it returns next round).
 function useLucky7(card){
   const i=G.hand.findIndex(c=>c.id===card.id); if(i<0) return;
+  if(typeof card.charges!=="number") card.charges=3;   // legacy cards migrate on use
+  card.charges--;
   G.hand.splice(i,1);
   G.deck=G.deck.filter(c=>c.id!==card.id);     // vanishes from the deck for the rest of this level
-  if(!G.lucky7Stash) G.lucky7Stash=[];
-  G.lucky7Stash.push(card);
+  if(card.charges>0){                          // v492c: 3 uses across the run, then it is spent for good
+    if(!G.lucky7Stash) G.lucky7Stash=[];
+    G.lucky7Stash.push(card);
+  } else {
+    toast("Lucky 7 spent");
+  }
   const {didReshuffle}=drawExtra(7);
   if(didReshuffle) playReshuffleAnim();
   renderHand(); renderHud(); updateLive();
@@ -3664,8 +3674,8 @@ function openBinder(){
   $("binderInput").value = wb.word ? wb.word.toUpperCase() : "";
   $("binderErr").textContent="";
   $("binderSub").textContent = wb.word
-    ? (wb.word.toUpperCase()+" is bound at "+(wb.banked||0)+" points. Binding a new word resets that to 0.")
-    : "Type a word to bind. Playing it scores its previous bound total on top; changing it later resets the binding.";
+    ? (wb.word.toUpperCase()+" holds "+(wb.banked||0)+" points. Binding a new word resets that to 0.")
+    : "Type a word to bind. Playing it scores its bound total on top, and half the new score is bound. Changing it later resets the binding.";
   $("binderOverlay").classList.remove("hidden");
   setTimeout(()=>{ try{$("binderInput").focus();}catch(e){} },50);
 }
@@ -3682,10 +3692,16 @@ function saveBinder(){
 }
 function useTriptych(card){
   const i=G.hand.findIndex(c=>c.id===card.id); if(i<0) return;
+  if(typeof card.charges!=="number") card.charges=3;   // legacy cards migrate on use
+  card.charges--;
   G.hand.splice(i,1);
   G.deck=G.deck.filter(c=>c.id!==card.id);     // vanishes for the rest of this round
-  if(!G.lucky7Stash) G.lucky7Stash=[];
-  G.lucky7Stash.push(card);                     // same stash Lucky 7 uses; returns next level
+  if(card.charges>0){                          // v492c: 3 uses across the run, then it is spent for good
+    if(!G.lucky7Stash) G.lucky7Stash=[];
+    G.lucky7Stash.push(card);                   // same stash Lucky 7 uses; returns next level
+  } else {
+    toast("Triptych spent");
+  }
   const {didReshuffle}=drawExtra(3);
   if(didReshuffle) playReshuffleAnim();
   renderHand(); renderHud(); updateLive();
@@ -4068,7 +4084,7 @@ function submitWord(){
   // Word Binder: the new bound total is this play's full score (which already
   // included the previous banked total).
   { const wb=G.perks.wordBinder;
-    if(wb && wb.word && w===wb.word){ wb.banked=sc.total; toast("Bound: "+w.toUpperCase()+" at "+wb.banked); } }
+    if(wb && wb.word && w===wb.word){ wb.banked=Math.round(sc.total*BINDER_RETAIN); toast("Bound: "+w.toUpperCase()+" holds "+wb.banked); } }
   // Second Edition / Revision bookkeeping: remember what was just played.
   G.lastPlay={ ids:res.map(r=>r.card&&r.card.id).filter(Boolean),
                res:res.map(r=>({letter:r.letter, value:r.value, mult:r.mult||1, card:r.card})),
@@ -4512,7 +4528,7 @@ function perkPool(rng){
     {make:()=>fusedDoubleOffer("G"),weight:0.5},
     {make:()=>fusedDoubleOffer("P"),weight:0.5},
     {make:()=>fusedDoubleOffer("R"),weight:0.5},
-    {make:()=>lucky7Offer(),       weight:0.8},
+    {make:()=>lucky7Offer(),       weight:0.3},   // v492c: legendary now
   ];
   // Encore + Watermark are strong on their own and oppressive together, so they sit at the
   // rare end of epic, cost a bit more, and each becomes very unlikely once you own the other.
@@ -4595,7 +4611,7 @@ function trioUpgradeOffer(){
 }
 function triptychOffer(){
   return {kind:"Card",rarity:"common",name:"Triptych",
-    desc:"Play it from your hand to draw 3 extra tiles. It leaves your deck for the rest of the round.",
+    desc:"Play it from your hand to draw 3 extra tiles. Once per level, 3 uses across the run.",
     price:px(3), art:"🖼️", d:{type:"triptych"}};
 }
 function dealersChoiceOffer(){
@@ -4846,7 +4862,7 @@ function shortKingOffer(){
 /* ============ Legendary shelf (v492a) ============ */
 function wordBinderOffer(){
   return {kind:"Perk",rarity:"legendary",name:"Word Binder",
-    desc:"Bind a word of your choosing. Each time you play it, it also scores its previous bound total, and the new total is bound. Change the word any time, resetting the binding.",
+    desc:"Bind a word of your choosing. Each time you play it, it also scores its bound total, and half the new score is bound. Change the word any time, resetting the binding.",
     price:px(16), art:"📖", d:{type:"wordBinder"}};
 }
 function secondEditionOffer(){
@@ -5049,8 +5065,8 @@ function fusedEROffer(){
     d:{type:"fusedPair", a:"E", b:"R"}};
 }
 function lucky7Offer(){
-  return {kind:"Card",rarity:"epic",name:"Lucky 7",
-    desc:"Play it from your hand to deal yourself seven extra tiles. Once per level. It leaves your deck for the rest of that level after use.",
+  return {kind:"Card",rarity:"legendary",name:"Lucky 7",
+    desc:"Play it from your hand to deal yourself seven extra tiles. Once per level, 3 uses across the run.",
     price:px(7),
     art:`<span class="mini-tile" style="background:linear-gradient(180deg,#F1F8EE,#DCEFD6);border-color:#AFD3A2">🍀</span>`,
     d:{type:"lucky7"}};
@@ -5497,7 +5513,7 @@ function buildStaticTile(c){
   if(c.kind==="lucky7"){
     t.classList.add("lucky7");
     const g=document.createElement("span"); g.className="glyph"; g.textContent="🍀"; t.appendChild(g);
-    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="LUCKY 7"; t.appendChild(s);
+    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="LUCKY 7 · "+(typeof c.charges==="number"?c.charges:3)+"/3"; t.appendChild(s);
     return t;
   }
   if(c.kind==="dealer"){
@@ -5509,7 +5525,7 @@ function buildStaticTile(c){
   if(c.kind==="triptych"){
     t.classList.add("triptych");
     const g=document.createElement("span"); g.className="glyph"; g.textContent="🖼️"; t.appendChild(g);
-    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="DRAW 3"; t.appendChild(s);
+    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="DRAW 3 · "+(typeof c.charges==="number"?c.charges:3)+"/3"; t.appendChild(s);
     return t;
   }
   const g=document.createElement("span"); g.textContent=(c.kind==="copycat"?"⧉":tileGlyph(c)); t.appendChild(g);
@@ -6137,7 +6153,7 @@ function ownedPerkCards(){
   if(P.marginalia) push("🪙","Marginalia","1 coin for every 15 points past the target, up to 15 coins.");
   if(P.fightingWords) push("🥊","Fighting Words","Words score +50% for every heart you have lost.");
   if(P.superStore) push("🏬","Super Store","Every shop stocks 8 offers instead of 6.");
-  if(P.wordBinder) push("📖","Word Binder", P.wordBinder.word ? ("Bound: "+P.wordBinder.word.toUpperCase()+" at "+(P.wordBinder.banked||0)+" points. Tap to change (resets the binding).") : "No word bound yet. Tap to bind one.");
+  if(P.wordBinder) push("📖","Word Binder", P.wordBinder.word ? ("Bound: "+P.wordBinder.word.toUpperCase()+" holds "+(P.wordBinder.banked||0)+" points. Half of each play is bound. Tap to change (resets the binding).") : "No word bound yet. Tap to bind one.");
   if(P.secondEdition) push("📚","Second Edition","Once per round, replay a scored word's tiles. The next word scores half.");
   if(P.gemini) push("♊","Gemini","Twinned letters share every upgrade.");
   if(P.gildedAge) push("🏛️","Gilded Age","Every "+P.gildedAge+" in your deck, present and future, arrives gilded once and golden.");
