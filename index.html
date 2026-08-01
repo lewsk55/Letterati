@@ -27,6 +27,13 @@
    v491b: Tight Margins renamed Small Margins, now takes one tile
    instead of two (diff 2 -> 1); the restore stores the actual
    delta so hand size can never drift across a save.
+   v492e: every stamp (Ink Well, Foil Stamp, Watermark, Growth,
+   Bold Face, Drop Cap, Serif, Ditto) now targets fused pairs and
+   trios; on a multi-letter tile the stamp applies to each letter it
+   contributes. Trios gild via the shop, forged trios inherit stamps
+   and growth, side stamps show badges and drive whole-tile mechanics
+   (watermark, encore, foil spend keyed to the parent tile). Trio
+   tiles widen to 2.6 slots and the arrange chooser cards to 84px.
    v492d: legendary weights halved to 0.15; the reroll price
    ladder now restores on every resume phase, not only shop; the
    endless curve walls up super-exponentially past round 10
@@ -406,13 +413,15 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
 .tile .up-badge.foil.spent{opacity:.35}
 .tile .up-badge.wm{color:#3E78A0}
 /* v42c Letter Fusion */
-.tile.fused{background:linear-gradient(180deg,#EAF3F0,#D3E7E0);border-color:#9FC4B8}
-.tile.fused.domino{width:calc(var(--tw,40px)*2 + var(--tgap,7px));padding:0;align-items:stretch}
-.tile.fused.domino .dom-cell{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
-.tile.fused.domino .dom-cell.dim{opacity:.3}
-.tile.fused.domino .dom-letter{font-family:var(--serif);font-weight:700;font-size:var(--tfs,1.5rem);color:var(--ink);line-height:1}
-.tile.fused.domino .dom-val{font-family:var(--ui);font-size:.5rem;font-weight:800;color:var(--ink-soft);margin-top:2px}
-.tile.fused.domino .dom-div{flex:0 0 2px;align-self:stretch;margin:6px 0;background:#7FB0A2;border-radius:1px}
+.tile.fused,.tile.trio{background:linear-gradient(180deg,#EAF3F0,#D3E7E0);border-color:#9FC4B8}
+.tile.domino{padding:0;align-items:stretch}
+.tile.fused.domino{width:calc(var(--tw,40px)*2 + var(--tgap,7px))}
+.tile.trio.domino{width:calc(var(--tw,40px)*2.6 + var(--tgap,7px)*2)}   /* v492e: three cells need real room */
+.tile.domino .dom-cell{flex:1 1 0;min-width:0;display:flex;flex-direction:column;align-items:center;justify-content:center;line-height:1}
+.tile.domino .dom-cell.dim{opacity:.3}
+.tile.domino .dom-letter{font-family:var(--serif);font-weight:700;font-size:var(--tfs,1.5rem);color:var(--ink);line-height:1}
+.tile.domino .dom-val{font-family:var(--ui);font-size:.5rem;font-weight:800;color:var(--ink-soft);margin-top:2px}
+.tile.domino .dom-div{flex:0 0 2px;align-self:stretch;margin:6px 0;background:#7FB0A2;border-radius:1px}
 .boss-sheet{border-color:var(--oxblood)!important;box-shadow:0 0 0 2px rgba(142,59,59,.25),0 12px 40px rgba(0,0,0,.35)}
 .boss-kicker{font-size:.62rem;font-weight:900;letter-spacing:.22em;color:var(--oxblood);text-transform:uppercase;margin-bottom:6px}
 .boss-art{font-size:3rem;line-height:1;margin:6px 0}
@@ -428,21 +437,21 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 :root[data-theme="dark"] .tile.smudged::after{mix-blend-mode:normal;background:linear-gradient(115deg,transparent 26%,rgba(0,0,0,.16) 38%,rgba(0,0,0,.30) 47%,rgba(0,0,0,.34) 53%,rgba(0,0,0,.18) 62%,transparent 76%)}
 
 
-.tile.fused.goldside{border-color:#C9A94E;box-shadow:0 0 0 2px rgba(201,169,78,.4),0 2px 0 var(--tile-edge),0 3px 8px rgba(35,32,46,.10)}
-.tile.fused.domino .dom-cell.goldcell .dom-letter{color:#8A6418}
-.tile.fused.domino .dom-cell.goldcell{background:linear-gradient(180deg,rgba(251,224,138,.55),rgba(226,182,75,.35));border-radius:8px}
+.tile.fused.goldside,.tile.trio.goldside{border-color:#C9A94E;box-shadow:0 0 0 2px rgba(201,169,78,.4),0 2px 0 var(--tile-edge),0 3px 8px rgba(35,32,46,.10)}
+.tile.domino .dom-cell.goldcell .dom-letter{color:#8A6418}
+.tile.domino .dom-cell.goldcell{background:linear-gradient(180deg,rgba(251,224,138,.55),rgba(226,182,75,.35));border-radius:8px}
 :root[data-theme="dark"] 
 
 
-.tile.fused.goldside{border-color:#D8AA4E;box-shadow:0 0 0 2px rgba(216,170,78,.45),0 2px 0 #191621}
-:root[data-theme="dark"] .tile.fused.domino .dom-cell.goldcell{background:linear-gradient(180deg,rgba(216,170,78,.30),rgba(179,137,47,.20))}
-:root[data-theme="dark"] .tile.fused.domino .dom-cell.goldcell .dom-letter{color:#F0C868}
+.tile.fused.goldside,:root[data-theme="dark"] .tile.trio.goldside{border-color:#D8AA4E;box-shadow:0 0 0 2px rgba(216,170,78,.45),0 2px 0 #191621}
+:root[data-theme="dark"] .tile.domino .dom-cell.goldcell{background:linear-gradient(180deg,rgba(216,170,78,.30),rgba(179,137,47,.20))}
+:root[data-theme="dark"] .tile.domino .dom-cell.goldcell .dom-letter{color:#F0C868}
 /* locked letters this round: crossed out on the tile itself */
 .tile.locked-letter .glyph{opacity:.5}
-.tile.locked-letter::after,.tile.fused.domino .dom-cell.locked::after{content:"";position:absolute;left:14%;right:14%;top:48%;height:3px;background:var(--oxblood);transform:rotate(-13deg);border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,.45);pointer-events:none;z-index:4}
-.tile.fused.domino .dom-cell{position:relative}
-.tile.fused.domino .dom-cell.locked{opacity:.55}
-.tile.fused.domino .dom-cell.locked::after{left:8%;right:8%;top:46%}
+.tile.locked-letter::after,.tile.domino .dom-cell.locked::after{content:"";position:absolute;left:14%;right:14%;top:48%;height:3px;background:var(--oxblood);transform:rotate(-13deg);border-radius:2px;box-shadow:0 0 0 1px rgba(255,255,255,.45);pointer-events:none;z-index:4}
+.tile.domino .dom-cell{position:relative}
+.tile.domino .dom-cell.locked{opacity:.55}
+.tile.domino .dom-cell.locked::after{left:8%;right:8%;top:46%}
 .tile.fused .clone-mark{position:absolute;right:3px;top:2px;font-size:.5em;color:#3C7E6E;z-index:3}
 /* combo tiles (-ING / -ER) */
 .tile.combo{background:linear-gradient(180deg,#F3EEFB,#E4DAF4);border-color:#C3B2E0}
@@ -456,7 +465,8 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 .tile.dealer{background:linear-gradient(180deg,#EEF3FA,#D8E4F2);border-color:#9FB9D6}
 .tile.dealer .glyph{font-size:1.25em}
 .tile.dealer .glyph-sub{position:absolute;left:0;right:0;bottom:3px;text-align:center;font-family:var(--ui);font-size:.42em;font-weight:800;letter-spacing:.06em;color:#3D6288}
-.clone-choice.fused-duo{background:linear-gradient(180deg,#EAF3F0,#D3E7E0);border-color:#9FC4B8}
+.clone-choice.fused-duo{background:linear-gradient(180deg,#EAF3F0,#D3E7E0);border-color:#9FC4B8;width:64px}
+.clone-choice.trio-choice{width:84px;font-size:1.28rem;letter-spacing:-.01em}   /* v492e: three serif caps need the extra room */
 .clone-choice.active{outline:2px solid #3C9E84;outline-offset:1px}
 .deck-tile.fuse-pending{outline:3px solid #3C9E84;outline-offset:2px;border-radius:10px}
 .tile.clone .clone-mark{position:absolute;right:2px;top:1px;font-size:.5em;line-height:1;color:#7A6CA8;z-index:3}
@@ -1380,7 +1390,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "492d";
+const VERSION = "492e";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -1686,6 +1696,9 @@ function fusedSideValue(s){ return (s.base|0)*Math.pow(2, s.upLevel||0); }
 // mode: 0 = solo side0, 1 = solo side1, 2 = duo [0,1], 3 = duo [1,0]
 // upgrades that live on a letter and now survive fusion, attached to their own side
 const FUSE_KEEP_PROPS=["mult","growth","foil","watermark","encore","boldface","dropcap","serif","ditto","inkwell"];
+// v492e: a stamp counts if it sits on the tile itself OR on either fused side
+// (sides keep their pre-fusion stamps). Every whole-tile mechanic checks here.
+function tileHas(c,k){ return !!(c && (c[k] || (Array.isArray(c.sides) && c.sides.some(sd=>sd && sd[k])))); }
 function makeFusedCard(a,b){
   const side=c=>{ const o={letter:c.letter, base:c.base, upLevel:c.upLevel||0};
     FUSE_KEEP_PROPS.forEach(k=>{ if(c[k]!==undefined && c[k]!==false && c[k]!==null) o[k]=c[k]; });
@@ -2550,15 +2563,15 @@ function tileBadges(t,c){
   const railR=document.createElement("span"); railR.className="up-rail right";
   const add=(rail,cls,txt)=>{ const s=document.createElement("span"); s.className="up-badge "+cls; s.textContent=txt; rail.appendChild(s); };
   if(typeof c.growth==="number") add(railL,"grow","↑"+(c.growth>0?c.growth:""));
-  if(c.encore) add(railL,"encore","↻");
-  if(c.inkwell) add(railL,"ink","$");
-  if(c.foil) add(railR,"foil"+((G.foilUsed||[]).includes(c.id)?" spent":""),"✦");
-  if(c.watermark) add(railR,"wm","◊");
+  if(tileHas(c,"encore")) add(railL,"encore","↻");
+  if(tileHas(c,"inkwell")) add(railL,"ink","$");
+  if(tileHas(c,"foil")) add(railR,"foil"+((G.foilUsed||[]).includes(c.id)?" spent":""),"✦");
+  if(tileHas(c,"watermark")) add(railR,"wm","◊");
   if(c._smudged && challengeActive() && G.challenge.type==="smudged"){ t.classList.add("smudged"); }
-  if(c.boldface) add(railR,"bold","2L");
-  if(c.dropcap) add(railR,"dcap","1st");
-  if(c.serif) add(railR,"serif","⇥");
-  if(c.ditto) add(railR,"ditto","〃");
+  if(tileHas(c,"boldface")) add(railR,"bold","2L");
+  if(tileHas(c,"dropcap")) add(railR,"dcap","1st");
+  if(tileHas(c,"serif")) add(railR,"serif","⇥");
+  if(tileHas(c,"ditto")) add(railR,"ditto","〃");
   // balance: if one side is empty and the other is crowded, move the overflow across
   if(!railL.childNodes.length && railR.childNodes.length>3){
     while(railR.childNodes.length>3) railL.appendChild(railR.childNodes[railR.childNodes.length-1]);
@@ -2592,6 +2605,7 @@ function buildTile(c,where){
   }
   if(c.kind==="trio"){
     t.classList.add("trio","domino");
+    if((c.mult||1)!==1) t.classList.add("goldside");
     trioSeq(c).forEach((L,i)=>{
       if(i>0){ const d=document.createElement("span"); d.className="dom-div"; t.appendChild(d); }
       const cd=document.createElement("span"); cd.className="dom-cell";
@@ -2719,7 +2733,7 @@ function fitRow(el,count,o){
   el.style.setProperty("--tfs",fs+"rem");
   el.style.setProperty("--tgap",gap+"px");
 }
-function slotCount(arr){ return arr.reduce((n,c)=>n+(c.kind==="fused"?2:1),0); }   // fused dominoes are double-width
+function slotCount(arr){ return arr.reduce((n,c)=>n+(c.kind==="fused"?2:(c.kind==="trio"?3:1)),0); }   // fused dominoes are double-width, trios triple (v492e)
 function fitHand(){
   const eff=slotCount(G.hand), el=$("hand");
   const two = eff>10;                     // past 10 slots, spill into a second row below
@@ -2765,7 +2779,7 @@ function openTrioSelector(c){
   const cur=(Array.isArray(c.order)?c.order:[0,1,2]).join("");
   TRIO_ORDERS.forEach(ord=>{
     const label=ord.map(i=>c.letters[i]).join("");
-    const b=document.createElement("button"); b.className="clone-choice fused-duo"+(ord.join("")===cur?" active":"");
+    const b=document.createElement("button"); b.className="clone-choice fused-duo trio-choice"+(ord.join("")===cur?" active":"");
     b.innerHTML=`${label}<span class="cc-val">${trioValue(c)}</span>`;
     b.addEventListener("click",()=>pickTrioOrder(ord));
     wrap.appendChild(b);
@@ -2829,8 +2843,9 @@ function resolvedCanvas(){
           fusedEntries(t).forEach((e,i)=>{
             const sd=e.side||{};
             const sideCard={ id:c.id+":"+i, kind:"letter", letter:e.letter,
-              foil:sd.foil, watermark:sd.watermark, encore:sd.encore,
-              boldface:sd.boldface, dropcap:sd.dropcap, serif:sd.serif, ditto:sd.ditto, inkwell:sd.inkwell, _fusedParent:c };
+              foil:sd.foil||t.foil, watermark:sd.watermark||t.watermark, encore:sd.encore||t.encore,
+              boldface:sd.boldface||t.boldface, dropcap:sd.dropcap||t.dropcap, serif:sd.serif||t.serif,
+              ditto:sd.ditto||t.ditto, inkwell:sd.inkwell||t.inkwell, _fusedParent:c };
             out.push({ letter:e.letter, value:e.value+(sd.growth||0), mult:(sd.mult||1),
               fused:true, fusedPart:i, clone:true, card:sideCard });
           });
@@ -2859,7 +2874,16 @@ function resolvedCanvas(){
         out.push({letter:null,value:0,mult:1,copycat:true,card:c});
       }
     } else if(c.kind==="trio"){
-      trioSeq(c).forEach((L,i)=>out.push({letter:L, value:trioSideValue(c,L), mult:(c.mult||1), trio:true, trioPart:i, card:c}));
+      // v492e: stamps bought on the trio apply to every letter it contributes,
+      // same as a fused pair. Growth rides the first slot, like fused tiles.
+      const g=(typeof c.growth==="number")?c.growth:0;
+      trioSeq(c).forEach((L,i)=>{
+        const sideCard={ id:c.id+":"+i, kind:"letter", letter:L,
+          foil:c.foil, watermark:c.watermark, encore:c.encore,
+          boldface:c.boldface, dropcap:c.dropcap, serif:c.serif, ditto:c.ditto, inkwell:c.inkwell,
+          _smudged:c._smudged, _fusedParent:c };
+        out.push({letter:L, value:trioSideValue(c,L)+(i===0?g:0), mult:(c.mult||1), trio:true, trioPart:i, card:sideCard});
+      });
     } else if(c.kind==="fused"){
       const g=(typeof c.growth==="number")?c.growth:0;   // v45a: whole-tile growth still rides on the first slot
       fusedEntries(c).forEach((e,i)=>{
@@ -2867,8 +2891,10 @@ function resolvedCanvas(){
         // build a lightweight per-side "card" so scoreOf applies the stamps that
         // belong to THIS letter (a golden A fused with a plain E gilds only the A)
         const sideCard={ id:c.id+":"+i, kind:"letter", letter:e.letter,
-          foil:sd.foil, watermark:sd.watermark, encore:sd.encore,
-          boldface:sd.boldface, dropcap:sd.dropcap, serif:sd.serif, ditto:sd.ditto, inkwell:sd.inkwell, _fusedParent:c };
+          foil:sd.foil||c.foil, watermark:sd.watermark||c.watermark, encore:sd.encore||c.encore,
+          boldface:sd.boldface||c.boldface, dropcap:sd.dropcap||c.dropcap, serif:sd.serif||c.serif,
+          ditto:sd.ditto||c.ditto, inkwell:sd.inkwell||c.inkwell,
+          _smudged:c._smudged, _fusedParent:c };
         out.push({ letter:e.letter,
           value:e.value+(i===0?g:0)+(sd.growth||0),
           mult:(sd.mult||1),
@@ -2938,7 +2964,7 @@ function scoreOf(res){
     goldMult*= (r.mult||1);
     let v=r.value;
     if(G.perks.vowelPower && VOWELS.has(r.letter)) v+=(+G.perks.vowelPower||0);   // v42a: +1 per vowel per stack
-    if(r.card && r.card.foil && !(G.foilUsed||[]).includes(r.card.id)) v*=2;       // v42b: Foil Stamp, once per round
+    if(r.card && r.card.foil && !(G.foilUsed||[]).includes((r.card._fusedParent||r.card).id)) v*=2;   // v42b: Foil Stamp, once per round (v492e: fused/trio sides key off the parent tile)
     if(challengeActive() && G.challenge.type==="heavy" && r.letter && VOWELS.has(r.letter)) v=0;   // Heavy Stock
     if(r.card && r.card._smudged && challengeActive() && G.challenge.type==="smudged") v=0;   // Smudged Ink (this round only)
     return v;
@@ -3533,7 +3559,9 @@ function pickCloneTile(srcId){
   CLONE_COPY_PROPS.forEach(k=>{ delete c[k]; });
   c.cloneLetter=null; c.cloneBase=null; c.cloneUp=0;
   c.cloneTile=JSON.parse(JSON.stringify({kind:src.kind, sides:src.sides, mode:src.mode,
-    upLevel:src.upLevel, letters:src.letters, combo:src.combo, base:src.base, growth:src.growth}));
+    upLevel:src.upLevel, letters:src.letters, combo:src.combo, base:src.base, growth:src.growth,
+    foil:src.foil, watermark:src.watermark, encore:src.encore, boldface:src.boldface,
+    dropcap:src.dropcap, serif:src.serif, ditto:src.ditto, inkwell:src.inkwell}));
   placeFromHand(cardId,idx);
 }
 // The clone becomes a wild of the chosen kind: hand off to that kind's chooser,
@@ -3998,7 +4026,7 @@ function startLevel(){
   }
   G.drawPile=shuffle(deckForLevel,rng).map(c=>c); // same card objects, fresh order
   // v42b: Watermark tiles are guaranteed into the opening hand (moved to the front of the pile).
-  { const wm=G.drawPile.filter(c=>c.watermark), rest=G.drawPile.filter(c=>!c.watermark);
+  { const wm=G.drawPile.filter(c=>tileHas(c,"watermark")), rest=G.drawPile.filter(c=>!tileHas(c,"watermark"));
     if(wm.length) G.drawPile=[...wm,...rest]; }
   G.foilUsed=[];   // v42b: Foil Stamp doubles refresh each round
   G.hand=[]; G.canvas=[]; G.played=[];
@@ -4019,7 +4047,7 @@ function returnCanvasToPile(){
     G.canvas.forEach(c=>{ if(c.kind==="clone"){ c.cloneLetter=null; c.cloneTile=null; } if(c.kind==="wildvowel") c.vowel=null; if(c.kind==="wildcons") c.cons=null; });
     const standing=G.canvas.filter(c=>c._standingGone);   // Standing Type: these leave the round
     const live=G.canvas.filter(c=>!c._standingGone);
-    const encore=live.filter(c=>c.encore), rest=live.filter(c=>!c.encore);
+    const encore=live.filter(c=>tileHas(c,"encore")), rest=live.filter(c=>!tileHas(c,"encore"));
     if(!G.played) G.played=[];
     G.played.push(...rest);                       // v45a: played slugs go to the discard pile
     standing.forEach(c=>{ delete c._standingGone; });   // clear the mark; the tile simply is not returned
@@ -4101,7 +4129,10 @@ function submitWord(){
   { const wb=G.perks.wordBinder;
     if(wb && wb.word && w===wb.word){ wb.banked=Math.round(sc.total*BINDER_RETAIN); toast("Bound: "+w.toUpperCase()+" holds "+wb.banked); } }
   // Second Edition / Revision bookkeeping: remember what was just played.
-  G.lastPlay={ ids:res.map(r=>r.card&&r.card.id).filter(Boolean),
+  // v492e: fused/trio side cards resolve to their parent deck tile, so Second
+  // Edition works on words containing fused pairs and trios (it never did for
+  // fused before; the composite side ids could not match the discard pile).
+  G.lastPlay={ ids:[...new Set(res.map(r=>r.card&&(r.card._fusedParent?r.card._fusedParent.id:r.card.id)).filter(Boolean))],
                res:res.map(r=>({letter:r.letter, value:r.value, mult:r.mult||1, card:r.card})),
                total:sc.total };
   if(G.secondEdHalf) G.secondEdHalf=false;   // the half-score encore has now been played
@@ -4157,7 +4188,7 @@ function submitWord(){
   // v42b: on play, grow Growth-Mindset tiles by +1, and spend each Foil tile's once-per-round double.
   G.canvas.forEach(c=>{
     if(typeof c.growth==="number") c.growth++;
-    if(c.foil){ if(!G.foilUsed) G.foilUsed=[]; if(!G.foilUsed.includes(c.id)) G.foilUsed.push(c.id); }
+    if(tileHas(c,"foil")){ if(!G.foilUsed) G.foilUsed=[]; if(!G.foilUsed.includes(c.id)) G.foilUsed.push(c.id); }
   });
   returnCanvasToPile();
   clearUndo();   // a set word is a hard boundary: no undo across it
@@ -4707,11 +4738,13 @@ function heavyPressOffer(rng){
 function gildTargets(){
   const byLabel={};
   G.deck.forEach(c=>{
-    if(c.kind!=="letter" && c.kind!=="fused") return;
+    if(c.kind!=="letter" && c.kind!=="fused" && c.kind!=="trio") return;   // v492e: trios gild too
     if((c.upLevel||0)>=GILD_CAP) return;
-    const label = c.kind==="fused" ? fusedLabel(c) : c.letter;
+    const label = c.kind==="fused" ? fusedLabel(c) : (c.kind==="trio" ? trioLabel(c) : c.letter);
     const use = c.kind==="fused"
       ? Math.max(...c.sides.map(sd=>(G.letterPlays||{})[sd.letter]||0))
+      : c.kind==="trio"
+      ? Math.max(...c.letters.map(L=>(G.letterPlays||{})[L]||0))
       : ((G.letterPlays||{})[c.letter]||0);
     const cost = gildCostFor(c);
     const prev = byLabel[label];
@@ -4778,7 +4811,7 @@ function applyOffer(o){
       c.upLevel=(c.upLevel||0)+1;
       if(c.kind==="fused"){ c.sides.forEach(sd=>sd.upLevel=(sd.upLevel||0)+1); }
       syncGemini(c);
-      const val = c.kind==="fused" ? fusedValue(c) : cardValue(c);
+      const val = c.kind==="fused" ? fusedValue(c) : (c.kind==="trio" ? trioValue(c) : cardValue(c));
       toast(d.label+" now "+val+" pts");
       haptic(24);
       repriceGildOffers();
@@ -5328,15 +5361,15 @@ function openDeck(mode){
   $("deckScreen").classList.remove("hidden");
   const hint=$("selectHint");
   if(mode==="remove"){ hint.textContent="Tap a letter to remove it from your deck."; hint.className="select-hint"; }
-  else if(mode==="growth"){ hint.textContent="Tap a letter. It gains +1 point every time you play it."; hint.className="select-hint"; }
+  else if(mode==="growth"){ hint.textContent="Tap a tile. It gains +1 point every time you play it."; hint.className="select-hint"; }
   else if(mode==="encore"){ hint.textContent="Tap any tile. After you play it, it returns to the top of your pile."; hint.className="select-hint"; }
-  else if(mode==="boldface"){ hint.textContent="Tap a letter. It will count as two letters toward word length."; hint.className="select-hint"; }
-  else if(mode==="dropcap"){ hint.textContent="Tap a letter. It scores triple as the first letter of a word."; hint.className="select-hint"; }
-  else if(mode==="serif"){ hint.textContent="Tap a letter. Its value doubles as the first or last letter of a word."; hint.className="select-hint"; }
-  else if(mode==="ditto"){ hint.textContent="Tap a letter. It will copy the highest value of the other tiles in the word."; hint.className="select-hint"; }
-  else if(mode==="inkwell"){ hint.textContent="Tap a letter. You earn $1 every time you play it."; hint.className="select-hint"; }
-  else if(mode==="foil"){ hint.textContent="Tap a letter. Its value is doubled the first time you play it each round."; hint.className="select-hint"; }
-  else if(mode==="watermark"){ hint.textContent="Tap a letter. It is always in your opening hand each round."; hint.className="select-hint"; }
+  else if(mode==="boldface"){ hint.textContent="Tap a tile. Each of its letters counts as two toward word length."; hint.className="select-hint"; }
+  else if(mode==="dropcap"){ hint.textContent="Tap a tile. It scores triple as the first letter of a word."; hint.className="select-hint"; }
+  else if(mode==="serif"){ hint.textContent="Tap a tile. Its value doubles as the first or last letter of a word."; hint.className="select-hint"; }
+  else if(mode==="ditto"){ hint.textContent="Tap a tile. It will copy the highest value of the other tiles in the word."; hint.className="select-hint"; }
+  else if(mode==="inkwell"){ hint.textContent="Tap a tile. You earn $1 for every letter on it each time you play it."; hint.className="select-hint"; }
+  else if(mode==="foil"){ hint.textContent="Tap a tile. Its value is doubled the first time you play it each round."; hint.className="select-hint"; }
+  else if(mode==="watermark"){ hint.textContent="Tap a tile. It is always in your opening hand each round."; hint.className="select-hint"; }
   else if(mode==="fuse"){ hint.textContent="Tap two letters to fuse into one tile. Pick the first."; hint.className="select-hint gild"; }
   else if(mode==="dealer"){ hint.textContent="Tap a tile in your draw pile to pull it into your hand."; hint.className="select-hint gild"; }
   else if(mode==="gemini"){ hint.textContent="Tap a letter to twin. The copy shares every upgrade with the original, both ways."; hint.className="select-hint gild"; }
@@ -5350,17 +5383,17 @@ function deckTileEl(c){
   const wrap=document.createElement("div");
   wrap.className="deck-tile";
   wrap.appendChild(buildStaticTile(c));
-  const upgradable = c.kind==="letter" || c.kind==="fused";
+  const upgradable = c.kind==="letter" || c.kind==="fused" || c.kind==="trio";   // v492e: trios take every stamp
   if(G.selectMode==="remove"){ wrap.classList.add("selectable","danger"); wrap.addEventListener("click",()=>doRemove(c.id)); }
   if(G.selectMode==="growth"    && upgradable && typeof c.growth!=="number"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"growth")); }
   if(G.selectMode==="dealer"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doDealerSwap(c.id)); }
   if(G.selectMode==="gemini" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doGemini(c.id)); }
   if(G.selectMode==="gildedAge" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doGildedAge(c.id)); }
-  if(G.selectMode==="encore"    && c.kind!=="lucky7" && c.kind!=="dealer" && !c.encore){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"encore")); }
-  if(G.selectMode==="foil"      && upgradable && !c.foil){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"foil")); }
-  if(G.selectMode==="watermark" && upgradable && !c.watermark){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"watermark")); }
+  if(G.selectMode==="encore"    && c.kind!=="lucky7" && c.kind!=="dealer" && !tileHas(c,"encore")){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"encore")); }
+  if(G.selectMode==="foil"      && upgradable && !tileHas(c,"foil")){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"foil")); }
+  if(G.selectMode==="watermark" && upgradable && !tileHas(c,"watermark")){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"watermark")); }
   ["boldface","dropcap","serif","ditto","inkwell"].forEach(k=>{
-    if(G.selectMode===k && c.kind==="letter" && !c[k]){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,k)); }
+    if(G.selectMode===k && upgradable && !tileHas(c,k)){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,k)); }
   });
   if(G.selectMode==="fuse" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); if(G.fusePending===c.id) wrap.classList.add("fuse-pending"); wrap.addEventListener("click",()=>tapFuse(c.id)); }
   if(G.selectMode==="triofuse"){
@@ -5494,6 +5527,7 @@ function buildStaticTile(c){
   }
   if(c.kind==="trio"){
     t.classList.add("trio","domino");
+    if((c.mult||1)!==1) t.classList.add("goldside");
     trioSeq(c).forEach((L,i)=>{
       if(i>0){ const d=document.createElement("span"); d.className="dom-div"; t.appendChild(d); }
       const cd=document.createElement("span"); cd.className="dom-cell";
@@ -5582,12 +5616,11 @@ function applyGildedAge(card){
 }
 function doTileUpgrade(id,kind){
   const c=G.deck.find(x=>x.id===id); if(!c) return;
-  // Encore now works on ANY playable tile (letters, combos, fused, wilds...);
-  // the other stamps still target letters and fused tiles only.
-  const NEW_STAMPS=["boldface","dropcap","serif","ditto","inkwell"];
+  // Encore works on ANY playable tile (letters, combos, fused, wilds...);
+  // every other stamp targets letters, fused pairs and trios (v492e). On a
+  // multi-letter tile the stamp applies to each letter the tile contributes.
   if(kind==="encore"){ if(c.kind==="lucky7"||c.kind==="dealer") return; }
-  else if(NEW_STAMPS.includes(kind)){ if(c.kind!=="letter") return; }
-  else if(c.kind!=="letter" && c.kind!=="fused") return;
+  else if(c.kind!=="letter" && c.kind!=="fused" && c.kind!=="trio") return;
   if(kind==="growth"){ if(typeof c.growth!=="number") c.growth=0; }
   else if(kind==="encore"){ c.encore=true; }
   else if(kind==="foil"){ c.foil=true; }
@@ -5660,9 +5693,17 @@ function confirmTrioFuse(){
   if(G.coins<cost){ toast("Not enough coins"); return; }
   const pair=G.deck[pi], letter=G.deck[li];
   // the trio inherits the better of the two gilds and the better golden multiplier
-  const up=Math.max(pair.upLevel||0, letter.upLevel||0);
+  // (v492e: gilds carried on fused SIDES count too, matching the mult scan below)
+  const up=Math.max(pair.upLevel||0, letter.upLevel||0, ...(pair.sides||[]).map(sd=>sd.upLevel||0));
   const mult=Math.max(pair.mult||1, letter.mult||1, ...(pair.sides||[]).map(sd=>sd.mult||1));
   const trio=makeTrioCard([pair.sides[0].letter, pair.sides[1].letter, letter.letter], up, mult);
+  // v492e: stamps carry over too, from the pair (either side or the whole tile)
+  // and from the letter. Growth keeps the highest counter already earned.
+  ["foil","watermark","encore","boldface","dropcap","serif","ditto","inkwell"].forEach(k=>{
+    if(tileHas(pair,k) || letter[k]) trio[k]=true;
+  });
+  { const gs=[pair.growth, letter.growth, ...(pair.sides||[]).map(sd=>sd.growth)].filter(g=>typeof g==="number");
+    if(gs.length) trio.growth=Math.max(...gs); }
   if(letter.geminiWith){ const p=G.deck.find(x=>x.id===letter.geminiWith); if(p) p.geminiWith=null; }   // the twin survives, unlinked
   G.coins-=cost;
   [pi,li].sort((x,y)=>y-x).forEach(idx=>G.deck.splice(idx,1));
@@ -5734,7 +5775,10 @@ const GILD_CAP = 3;   // a letter can be gilded at most 3 times
 function gildCostFor(c){
   const u=c.upLevel||0;
   // A fused tile gilds both sides at once (v45a); its base value is the pair's.
-  const base = c.kind==="fused" ? fusedValue(c)/Math.pow(2,u) : (c.base|0);
+  // A trio (v492e) prices the same way: the full tile value before gilds.
+  const base = c.kind==="fused" ? fusedValue(c)/Math.pow(2,u)
+             : c.kind==="trio"  ? trioValue(c)/Math.pow(2,u)
+             : (c.base|0);
   return gildStepCost(base, u);
 }
 
