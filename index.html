@@ -27,6 +27,16 @@
    v491b: Tight Margins renamed Small Margins, now takes one tile
    instead of two (diff 2 -> 1); the restore stores the actual
    delta so hand size can never drift across a save.
+   v495b: Mystery Words are drawn from letterati-common.js, a
+   frequency-ranked common-word pool intersected with the game
+   dictionary, so the hidden word is always guessable. Falls back to
+   the full dictionary if the file is absent.
+   v495a: Mystery Word. Each deal shows the definition of a word the
+   hand can definitely spell, without naming it; spelling it doubles
+   the word, once per level. Candidates are drawn from plain letter
+   tiles only and respect the round's challenge. Dealer's Choice now
+   reaches the discard as well as the draw pile. Copy takes only the
+   rightmost active letter of a trio (fused pairs still copy whole).
    v494a: seventeen new perks across three tiers. Common: Vowel
    Puller, Slug Line, Eye Level, Type-high, Blind Faith, Ink Ball.
    Rare: Vowel Movement, Consonant Cluster, Justified, Em Quad,
@@ -317,6 +327,8 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
 .def-strip .dpos{font-style:italic;font-family:var(--serif);font-size:.78rem;color:var(--brass-deep);margin-left:6px}
 .def-strip .dd{display:block;font-size:.82rem;color:var(--ink-soft);margin-top:3px;line-height:1.4}
 .def-strip .dd.muted{font-style:italic}
+.def-strip .dw.mys{color:var(--brass-deep);letter-spacing:.14em}
+.def-strip .dmy{display:block;margin-top:6px;font-family:var(--ui);font-size:.66rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--brass-deep);opacity:.85}
 .eyebrow{font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft);font-weight:800;text-align:center}
 
 /* word canvas */
@@ -1241,6 +1253,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 
 <script src="letterati-dictionary.js"></script>
 <script src="letterati-verbs.js"></script>
+<script src="letterati-common.js"></script>
 <script>
 /* ============================================================
    WORD LIST — ENABLE ∪ open word list (words_alpha), family-filtered,
@@ -1250,6 +1263,8 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
    ============================================================ */
 const WORD_BLOB = (typeof window!=="undefined" && window.WORD_BLOB) ? window.WORD_BLOB : "";
 const WORDS = new Set(WORD_BLOB.split("\n"));
+const COMMON_BLOB = (typeof window!=="undefined" && window.COMMON_BLOB) ? window.COMMON_BLOB : "";
+const COMMON = new Set(COMMON_BLOB ? COMMON_BLOB.split("\n") : []);   // Mystery Word pool; empty if the file is absent
 const VERB_BLOB = (typeof window!=="undefined" && window.VERB_BLOB) ? window.VERB_BLOB : "";
 const VERBS = new Set(VERB_BLOB ? VERB_BLOB.split("\n") : []);   // verb forms (Verbose perk); empty if the file is absent
 function isVerbWord(){ const w=resolvedCanvas().map(r=>r.letter||"").join("").toLowerCase(); if(w.length>=2 && VERBS.has(w)) return true; return verbizedStem(w)!==null; }   // verbized words count as verbs
@@ -1413,7 +1428,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "494a";
+const VERSION = "495b";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -2888,6 +2903,7 @@ function shuffleHand(){
 function resolvedCanvas(){
   const out=[];
   let lastSpan=null;   // [start,end) of the entries the previous card contributed
+  let lastSpanKind=null;   // v495a: what kind of card produced that span
   for(let i=0;i<G.canvas.length;i++){
     const c=G.canvas[i];
     const spanStart=out.length;
@@ -2924,7 +2940,11 @@ function resolvedCanvas(){
       // v491g: copies the tile immediately to its left EXACTLY. A fused pair or an
       // -ING/-ATE combo contributes several letters, so the copy reproduces all of
       // them rather than only the last one.
-      const span=(out.length>0 && lastSpan) ? out.slice(lastSpan[0], lastSpan[1]) : [];
+      // v495a: a trio is three separate sorts on one body, so Copy takes only the
+      // letter physically next to it (the rightmost ACTIVE one). Fused pairs and
+      // -ING/-ATE combos are single sorts and still copy whole.
+      let span=(out.length>0 && lastSpan) ? out.slice(lastSpan[0], lastSpan[1]) : [];
+      if(lastSpanKind==="trio" && span.length>1) span=span.slice(-1);
       if(span.length && span.some(e=>e.letter)){
         span.forEach(e=>out.push({letter:e.letter, value:e.value, mult:e.mult||1, copycat:true, card:c}));
       } else {
@@ -2963,7 +2983,7 @@ function resolvedCanvas(){
     } else {
       out.push({letter:c.letter,value:effValue(c),mult:cardMult(c),card:c});
     }
-    if(out.length>spanStart) lastSpan=[spanStart,out.length];
+    if(out.length>spanStart){ lastSpan=[spanStart,out.length]; lastSpanKind=c.kind; }
   }
   return out;
 }
@@ -3130,6 +3150,11 @@ function scoreOf(res){
   if(G.perks.anthology && (G.anthologyCount||0)>0){ anthMult=1+0.005*G.anthologyCount; total*=anthMult; }
   let vanityHit=false;
   if(G.perks.vanityPress){ vanityHit=true; total*=1.25; }
+  // Mystery Word (v495a): spell the hand's hidden word and the whole word doubles.
+  let mysteryHit=false;
+  if(G.mystery && G.mystery.word && G.mysterySolvedLevel!==G.level && res.length>=2 && res.every(r=>r.letter)){
+    if(res.map(r=>r.letter.toLowerCase()).join("")===G.mystery.word){ mysteryHit=true; total*=2; }
+  }
   // v494a perk wave
   let inkBallHit=false;
   if(G.perks.inkBall && G.levelStats && (G.levelStats.words||0)===0){ inkBallHit=true; total*=1.25; }
@@ -3174,7 +3199,7 @@ function scoreOf(res){
   if(G.perks.blindFaith && (G.discardsLeft||0)>0){ bfAdd=8*G.discardsLeft; total+=bfAdd; }
   let inkPts=0;
   if(G.perks.indiaInk && (G.inkPtsPending||0)>0){ inkPts=G.inkPtsPending; total+=inkPts; }
-  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,fuMult,luMult,twinHit,pairHit,shortHit,shortMult,kernHit,fiveHit,bigHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit,effLen,ligHit,crossHit,alphaHit,coloHit,fwMult,midnightHit,secondEdHit,binderAdd,movableHit,anthMult,vanityHit,liqMult,goldMult,pulpAdd,commissionAdd,inkBallHit,vmSurplus,ccSurplus,justMult,emQuadHit,wetHit,deptMult,eyeAdd,slugAdd,bfAdd,inkPts};
+  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,fuMult,luMult,twinHit,pairHit,shortHit,shortMult,kernHit,fiveHit,bigHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit,effLen,ligHit,crossHit,alphaHit,coloHit,fwMult,midnightHit,secondEdHit,binderAdd,movableHit,anthMult,vanityHit,liqMult,goldMult,mysteryHit,pulpAdd,commissionAdd,inkBallHit,vmSurplus,ccSurplus,justMult,emQuadHit,wetHit,deptMult,eyeAdd,slugAdd,bfAdd,inkPts};
 }
 function updateLive(){
   const res=resolvedCanvas();
@@ -3237,6 +3262,7 @@ function updateLive(){
   if(sc.slugAdd) parts.push(`+${sc.slugAdd} slug line`);
   if(sc.bfAdd) parts.push(`+${sc.bfAdd} blind faith`);
   if(sc.inkPts) parts.push(`+${sc.inkPts} india ink`);
+  if(sc.mysteryHit) parts.push(`×2 mystery word`);
   ls.innerHTML = `${sc.total} <span class="mult">${parts.join(" ")}${label?" • "+label:""}</span>`;
   updateChallengeBlockHint();
   updateButtons();
@@ -3890,12 +3916,17 @@ function useDealersChoice(card){
   openDeck("dealer");
 }
 function doDealerSwap(id){
-  const pi=G.drawPile.findIndex(c=>c.id===id); if(pi<0) return;
+  // v495a: the dealer reaches into the draw pile OR the discard, i.e. any tile in
+  // the deck that is not already in your hand or on the press. It takes the spot
+  // of whatever it pulls, so pile and discard counts never change.
+  let src=G.drawPile, pi=G.drawPile.findIndex(c=>c.id===id);
+  if(pi<0){ src=(G.played||[]); pi=src.findIndex(c=>c.id===id); }
+  if(pi<0) return;
   const hi=G.hand.findIndex(c=>c.id===G._dealerCardId);
   if(hi<0){ G._dealerCardId=null; closeDeck(); return; }
-  const pulled=G.drawPile[pi];
+  const pulled=src[pi];
   const dealer=G.hand[hi];
-  G.drawPile[pi]=dealer;          // dealer takes the pulled tile's spot in the pile
+  src[pi]=dealer;                 // dealer takes the pulled tile's spot
   G.hand[hi]=pulled;              // pulled tile lands in the hand
   G._dealerCardId=null;
   if(G.stats){ (G.stats.dealer=G.stats.dealer||[]).push({round:G.level,
@@ -4033,6 +4064,7 @@ function dealUpToHand(animate){
   }
   if(didReshuffle) playReshuffleAnim();
   renderHand(); renderHud();
+  refreshMystery();   // v495a: every new hand gets its own mystery word
   if(freeRedeals>0){
     showChallengeFreeDiscard(challengeMinLen());
     haptic([10,40,10]);
@@ -4169,6 +4201,7 @@ function startLevel(){
   G._rescues=0;
   G.lastWordLetters=null; G.pulpPending=0;
   G.justStacks=0; G.lastWordLen=null; G.wetProofPending=false; G.inkPtsPending=0;
+  G.mystery=null;   // a fresh mystery is drawn with the opening hand
   G.levelStats={bestWord:"",bestScore:0,words:0};
   const rng=makeRng("lvl:"+G.level+":"+G.attempt);
   // Locked challenge: pull the banned letters out of the deck for this level only,
@@ -4326,6 +4359,11 @@ function submitWord(){
   G.runScore=(G.runScore||0)+sc.total;
   G.levelStats.words++;
   statWord(w.toUpperCase(), sc.total, res.length);
+  if(sc.mysteryHit){
+    G.mysterySolvedLevel=G.level;
+    toast("Mystery word! "+String(G.mystery.word).toUpperCase()+" scores double");
+    G.mystery=null; haptic([14,40,14]);
+  }
   showDefinition(w);
   if(sc.total>G.levelStats.bestScore){ G.levelStats.bestScore=sc.total; G.levelStats.bestWord=w.toUpperCase(); }
   if(sc.total>(G.runBestScore||0)){ G.runBestScore=sc.total; G.runBestWord=w.toUpperCase(); }
@@ -4858,7 +4896,7 @@ function triptychOffer(){
 }
 function dealersChoiceOffer(){
   return {kind:"Card",rarity:"epic",name:"Dealer's Choice",
-    desc:"Tap it in your hand to pull any tile from your draw pile. This card takes its place in the pile.",
+    desc:"Tap it in your hand to pull any tile from your draw pile or discard. This card takes its place.",
     price:px(13), art:`<span class="mini-tile" style="background:linear-gradient(180deg,#EEF3FA,#D8E4F2);border-color:#9FB9D6">🎴</span>`,
     d:{type:"dealer"}};
 }
@@ -5617,7 +5655,7 @@ function deckTileEl(c){
   const upgradable = c.kind==="letter" || c.kind==="fused" || c.kind==="trio";   // v492e: trios take every stamp
   if(G.selectMode==="remove"){ wrap.classList.add("selectable","danger"); wrap.addEventListener("click",()=>doRemove(c.id)); }
   if(G.selectMode==="growth"    && upgradable && typeof c.growth!=="number"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"growth")); }
-  if(G.selectMode==="dealer"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doDealerSwap(c.id)); }
+  if(G.selectMode==="dealer" && !G.hand.includes(c) && !G.canvas.includes(c)){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doDealerSwap(c.id)); }
   if(G.selectMode==="gemini" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doGemini(c.id)); }
   if(G.selectMode==="gildedAge" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doGildedAge(c.id)); }
   if(G.selectMode==="encore"    && c.kind!=="lucky7" && c.kind!=="dealer" && !tileHas(c,"encore")){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"encore")); }
@@ -5652,7 +5690,7 @@ function renderDeck(){
   const grouped = inPlay && !G.selectMode;   // pile split only mid-round, never while picking a target
   if(G.selectMode==="dealer"){
     list.className="deck-list";
-    G.drawPile.slice().sort(sortFn).forEach(c=>list.appendChild(deckTileEl(c)));
+    [...G.drawPile, ...(G.played||[])].sort(sortFn).forEach(c=>list.appendChild(deckTileEl(c)));   // v495a: draw pile AND discard
   } else if(grouped){
     list.classList.remove("deck-list");
     const inHand=[...G.hand,...G.canvas];
@@ -5682,7 +5720,7 @@ function renderDeck(){
     G.deck.slice().sort(sortFn).forEach(c=>list.appendChild(deckTileEl(c)));
   }
   // header count
-  $("deckCount").textContent = G.selectMode==="dealer" ? (G.drawPile.length+" in your draw pile")
+  $("deckCount").textContent = G.selectMode==="dealer" ? ((G.drawPile.length+(G.played||[]).length)+" outside your hand")
     : grouped ? (G.drawPile.length+" / "+G.deck.length+" in draw") : (G.deck.length+" cards");
   $("deckSummary").innerHTML=deckSummaryHtml();
   // v491e: the final proof sits at the foot of the deck sheet, so it reads as
@@ -6324,11 +6362,113 @@ async function lookupDefinition(word){
   if(!res){ try{ res=await defFromDictDev(key); }catch(e){ res=null; } }   // resilience fallback
   defCache[key]=res; return res;
 }
+/* ===== Mystery Word (v495a) =====================================================
+   After every deal the definition strip shows the meaning of a word the current
+   hand can definitely spell, without naming it. Spelling it doubles the word.
+   One per level. Candidates come from plain letter tiles only, so the promise
+   ("you can definitely spell this") is never broken by a wild or fusion that
+   still needs a choice made. */
+let _MWORDS=null, _MMASK=null;
+function mysteryIndex(){
+  if(_MWORDS) return;
+  const words=[], masks=[];
+  // v495b: candidates come from the COMMON list intersected with the game
+  // dictionary, so a Mystery Word is always a word a player could plausibly
+  // guess. If letterati-common.js is missing we fall back to the full
+  // dictionary rather than losing the feature.
+  const src = COMMON.size ? COMMON : WORDS;
+  for(const w of src){
+    if(COMMON.size && !WORDS.has(w)) continue;     // must be legal in this game too
+    if(w.length<3 || w.length>9 || !/^[a-z]+$/.test(w)) continue;
+    let m=0; for(let i=0;i<w.length;i++) m|=(1<<(w.charCodeAt(i)-97));
+    words.push(w); masks.push(m);
+  }
+  _MWORDS=words; _MMASK=Int32Array.from(masks);
+}
+/* Uniform reservoir sample of the words this hand can spell. Two reservoirs so
+   longer words are preferred when the hand has them. Uses its own rng instance,
+   so the seeded shop/deal streams are never advanced by this. */
+function mysteryCandidates(k){
+  mysteryIndex();
+  const pool=G.hand.filter(c=>c.kind==="letter" && c.letter);
+  if(pool.length<3) return [];
+  const counts={}; let hm=0;
+  pool.forEach(c=>{ const l=c.letter.toLowerCase(); counts[l]=(counts[l]||0)+1; hm|=(1<<(l.charCodeAt(0)-97)); });
+  const minL=Math.max(3, challengeMinLen()||3);
+  const ban=bannedLetterSet();
+  const rng=makeRng("mystery:"+G.seed+":"+G.level+":"+G.handsLeft+":"+G.discardsLeft+":"+pool.map(c=>c.id).join(","));
+  const longR=[], shortR=[]; let nLong=0, nShort=0;
+  for(let i=0;i<_MWORDS.length;i++){
+    if((_MMASK[i] & ~hm)!==0) continue;              // uses a letter the hand lacks
+    const w=_MWORDS[i];
+    if(w.length<minL || w.length>pool.length) continue;
+    if(DEF_BLOCKLIST.has(w)) continue;
+    if(ban && [...w].some(ch=>ban.has(ch.toUpperCase()))) continue;
+    const need={}; let fit=true;
+    for(const ch of w){ need[ch]=(need[ch]||0)+1; if(need[ch]>(counts[ch]||0)){ fit=false; break; } }
+    if(!fit) continue;
+    if(w.length>=5){ nLong++; if(longR.length<k) longR.push(w); else { const j=Math.floor(rng()*nLong); if(j<k) longR[j]=w; } }
+    else           { nShort++; if(shortR.length<k) shortR.push(w); else { const j=Math.floor(rng()*nShort); if(j<k) shortR[j]=w; } }
+  }
+  return longR.concat(shortR).slice(0,k);
+}
+/* A definition that spells out its own word gives the game away. Reject those,
+   and reject near misses that share a long stem. */
+function defRevealsWord(def, w){
+  const d=String(def||"").toLowerCase(), esc=String(w||"").replace(/[^a-z]/g,"");
+  if(!esc) return true;
+  // Whole-word match plus a short inflection tail, so "cat" is not given away by
+  // "domesticated" but IS given away by "cats". A shared long stem also counts.
+  if(new RegExp("\\b"+esc+"\\w{0,3}\\b").test(d)) return true;
+  if(esc.length>=5){
+    const stem=esc.slice(0, Math.max(4, esc.length-2));
+    if(new RegExp("\\b"+stem+"\\w{0,4}\\b").test(d)) return true;
+  }
+  return false;
+}
+function mysteryHtml(){
+  const m=G.mystery; if(!m) return "";
+  const pos=m.pos?`<span class="dpos">${escHtml(m.pos)}</span>`:"";
+  return `<span class="dw mys">Mystery word</span>${pos}<span class="dd">${escHtml(m.def)}</span>`
+       + `<span class="dmy">Spell the mystery word for double points (one mystery word per level).</span>`;
+}
+function renderMystery(){
+  const el=$("defStrip"); if(!el) return;
+  const html=mysteryHtml();
+  const hold=+(el.dataset.hold||0);
+  if(hold>Date.now()){                       // a just-played word owns the strip for a moment
+    setTimeout(renderMystery, (hold-Date.now())+30);
+    return;
+  }
+  if(el.dataset.chalblock==="1"){             // challenge hint is up; queue the mystery behind it
+    el.dataset.savedHtml=html; el.dataset.savedHidden=html?"0":"1";
+    return;
+  }
+  el.dataset.token="";                        // cancel any in-flight word lookup
+  if(!html){ el.classList.add("hidden"); el.innerHTML=""; return; }
+  el.classList.remove("hidden","chal-free");
+  el.innerHTML=html;
+}
+async function refreshMystery(){
+  const token=String(Date.now()+Math.random()); G._mysteryToken=token;
+  if(G.mysterySolvedLevel===G.level){ G.mystery=null; renderMystery(); return; }
+  G.mystery=null; renderMystery();
+  const cands=mysteryCandidates(8);
+  for(const w of cands){
+    let d=null; try{ d=await lookupDefinition(w); }catch(e){ d=null; }
+    if(G._mysteryToken!==token) return;        // a newer hand superseded this one
+    if(!d || !d.def || defRevealsWord(d.def,w)) continue;
+    G.mystery={word:w, pos:d.pos||"", def:d.def};
+    renderMystery(); save(); return;
+  }
+  renderMystery();                             // nothing clean: this hand simply has no mystery
+}
 function showDefinition(word){
   const el=$("defStrip"); if(!el) return;
   const w=escHtml(String(word||"").toUpperCase());
   if(!w){ el.classList.add("hidden"); return; }
   el.classList.remove("hidden");
+  el.dataset.hold=String(Date.now()+7000);   // v495a: the played word owns the strip before the mystery returns
   el.innerHTML=`<span class="dw">${w}</span><span class="dd muted">looking up…</span>`;
   const token=String(Date.now()+Math.random()); el.dataset.token=token;
   lookupDefinition(word).then(res=>{
@@ -6644,7 +6784,7 @@ function save(){
       perks:G.perks, scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, reprintUsed:G.reprintUsed, foilUsed:G.foilUsed, challenge:G.challenge, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, runMs:G.runMs, stats:G.stats,
       wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, wordPlays:G.wordPlays, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
       attempt:G.attempt, target:G.target, score:G.score, handsLeft:G.handsLeft, discardsLeft:G.discardsLeft,
-      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), roundLengths:(G.roundLengths||[]), standingDone:!!G.standingDone, _marginsApplied:(+G._marginsApplied||0), overtime:!!G.overtime, deadlineExtRound:(G.deadlineExtRound==null?null:G.deadlineExtRound), midnightRound:(G.midnightRound==null?null:G.midnightRound), secondEdRound:(G.secondEdRound==null?null:G.secondEdRound), secondEdHalf:!!G.secondEdHalf, revisionRound:(G.revisionRound==null?null:G.revisionRound), boss:(G.boss||null), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0, justStacks:G.justStacks||0, lastWordLen:(G.lastWordLen==null?null:G.lastWordLen), wetProofPending:!!G.wetProofPending, inkPtsPending:G.inkPtsPending||0, compositorRound:(G.compositorRound==null?null:G.compositorRound),
+      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), roundLengths:(G.roundLengths||[]), standingDone:!!G.standingDone, _marginsApplied:(+G._marginsApplied||0), overtime:!!G.overtime, deadlineExtRound:(G.deadlineExtRound==null?null:G.deadlineExtRound), midnightRound:(G.midnightRound==null?null:G.midnightRound), secondEdRound:(G.secondEdRound==null?null:G.secondEdRound), secondEdHalf:!!G.secondEdHalf, revisionRound:(G.revisionRound==null?null:G.revisionRound), boss:(G.boss||null), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0, justStacks:G.justStacks||0, lastWordLen:(G.lastWordLen==null?null:G.lastWordLen), wetProofPending:!!G.wetProofPending, inkPtsPending:G.inkPtsPending||0, compositorRound:(G.compositorRound==null?null:G.compositorRound), mystery:(G.mystery||null), mysterySolvedLevel:(G.mysterySolvedLevel==null?null:G.mysterySolvedLevel),
       rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed, letterPlays:G.letterPlays||{}, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
     };
     localStorage.setItem(SAVE_KEY,JSON.stringify(data));
@@ -6671,7 +6811,7 @@ function continueRun(){
   G.overtime=!!d.overtime; G.deadlineExtRound=(d.deadlineExtRound==null?null:d.deadlineExtRound); G.midnightRound=(d.midnightRound==null?null:d.midnightRound);
   G.secondEdRound=(d.secondEdRound==null?null:d.secondEdRound); G.secondEdHalf=!!d.secondEdHalf; G.revisionRound=(d.revisionRound==null?null:d.revisionRound); G.lastPlay=null;
   G.boss=d.boss||null; normalizeBoss(); if(G.boss&&G.boss.active&&G.level===WIN_LEVEL) document.body.classList.add("boss-round");
-  G.anagramSigs=d.anagramSigs||{}; G.anthologyCount=d.anthologyCount||0; G.letterPlays=d.letterPlays||{}; G.abcSeen=d.abcSeen||{}; G.lastWordLetters=d.lastWordLetters||null; G.pulpPending=d.pulpPending||0; G.justStacks=d.justStacks||0; G.lastWordLen=(d.lastWordLen==null?null:d.lastWordLen); G.wetProofPending=!!d.wetProofPending; G.inkPtsPending=d.inkPtsPending||0; G.compositorRound=(d.compositorRound==null?null:d.compositorRound);
+  G.anagramSigs=d.anagramSigs||{}; G.anthologyCount=d.anthologyCount||0; G.letterPlays=d.letterPlays||{}; G.abcSeen=d.abcSeen||{}; G.lastWordLetters=d.lastWordLetters||null; G.pulpPending=d.pulpPending||0; G.justStacks=d.justStacks||0; G.lastWordLen=(d.lastWordLen==null?null:d.lastWordLen); G.wetProofPending=!!d.wetProofPending; G.inkPtsPending=d.inkPtsPending||0; G.compositorRound=(d.compositorRound==null?null:d.compositorRound); G.mystery=d.mystery||null; G.mysterySolvedLevel=(d.mysterySolvedLevel==null?null:d.mysterySolvedLevel);
   // v491h migration: Free jazz is retired; strip any lingering jazz cards from a
   // saved run so nothing unplayable sits in a pile.
   { const noJazz=a=>Array.isArray(a)?a.filter(c=>c.kind!=="jazz"):a;
@@ -6754,6 +6894,7 @@ function newRun(seed){
   G.wordsPlayed=0; G.runScore=0; G.runBestWord=""; G.runBestScore=0; G.wordPlays={}; G.levelStats={bestWord:"",bestScore:0,words:0};
   G.attempt=0; G.best=1; G.shopOffers=[]; G.runMs=0;
   G.challenge=null; G.challengePending=null; G._rescues=0;   // never carry a challenge into a fresh run
+  G.mystery=null; G.mysterySolvedLevel=null;
   G.letterPlays={}; G._dealerCardId=null;
   G.shopSeen=[];
   G.boss=null; document.body.classList.remove("boss-round");
