@@ -610,6 +610,30 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 .deck-group .dg-empty{font-size:.76rem;font-style:italic;color:var(--ink-soft);text-align:center;width:100%}
 .deck-group.muted .dg-row{opacity:.62}
 .deck-group + .deck-group{margin-top:14px;padding-top:12px;border-top:1px dashed var(--tile-edge)}
+/* character select (v496a) */
+.cs-eyebrow{font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);font-weight:800;text-align:center;margin-bottom:12px}
+.cs-grid{display:flex;flex-direction:column;gap:10px}
+.cs-card{display:flex;gap:11px;align-items:flex-start;text-align:left;width:100%;cursor:pointer;
+  background:var(--paper);border:1.5px solid var(--tile-edge);border-radius:14px;padding:12px 13px;font-family:inherit}
+.cs-card.picked{border-color:var(--brass);box-shadow:0 0 0 2px rgba(184,140,58,.22)}
+.cs-card .cs-art{font-size:1.5rem;line-height:1;flex:0 0 auto;width:42px;height:42px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(180deg,#FBF6EA,#EFE4CC);border:1px solid var(--tile-edge);border-radius:10px}
+.cs-card .cs-body{min-width:0;flex:1}
+.cs-card .cs-name{font-family:var(--serif);font-weight:700;font-size:1.05rem;color:var(--ink)}
+.cs-card .cs-blurb{font-size:.74rem;color:var(--ink-soft);line-height:1.35;margin-top:3px}
+.cs-card .cs-line{font-size:.72rem;line-height:1.3;margin-top:5px;display:flex;gap:6px;align-items:baseline}
+.cs-card .cs-plus{color:var(--moss);font-weight:900;flex:0 0 auto}
+.cs-card .cs-minus{color:var(--oxblood);font-weight:900;flex:0 0 auto}
+.cs-card .cs-best{font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;font-weight:800;color:var(--brass-deep);margin-top:6px}
+.cs-asc-head{font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);font-weight:800;text-align:center;margin:20px 0 9px}
+.cs-asc-row{display:flex;gap:7px;justify-content:center;flex-wrap:wrap}
+.cs-asc-chip{min-width:46px;padding:9px 8px;border-radius:10px;border:1.5px solid var(--tile-edge);background:var(--paper);
+  font-family:inherit;font-weight:800;font-size:.84rem;color:var(--ink);cursor:pointer}
+.cs-asc-chip.picked{background:var(--ink);color:var(--paper);border-color:var(--ink)}
+.cs-asc-chip.locked{opacity:.34;cursor:not-allowed}
+.cs-asc-desc{font-size:.76rem;color:var(--ink-soft);line-height:1.4;text-align:center;margin-top:11px;min-height:34px}
+.cs-asc-desc .cs-ad-item{display:block;margin-top:3px}
+.cs-asc-desc b{color:var(--ink)}
 .menu-btn:active{transform:translateY(1px)}
 .menu-btn.alt{background:transparent;color:var(--ink);border:1.5px solid var(--ink)}
 .menu-btn.alt.danger{color:var(--oxblood);border-color:var(--oxblood)}
@@ -959,6 +983,19 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
     <div class="leaderboard" id="leaderboard"></div>
     <div class="ver" id="verTag"></div>
     <button class="menu-btn alt" id="optionsBtn" style="max-width:300px;margin-top:6px">Options</button>
+  </div>
+</div>
+
+<!-- ===== Character select (v496a) ===== -->
+<div class="overlay hidden" id="charScreen">
+  <div class="sheet">
+    <div class="cs-eyebrow">Who is at the desk</div>
+    <div class="cs-grid" id="charGrid"></div>
+    <div class="cs-asc-head">Ascension</div>
+    <div class="cs-asc-row" id="ascRow"></div>
+    <div class="cs-asc-desc" id="ascDesc"></div>
+    <button class="menu-btn" id="charStartBtn" style="margin-top:16px">Begin the run</button>
+    <button class="menu-btn alt" id="charBackBtn">Back</button>
   </div>
 </div>
 
@@ -1428,7 +1465,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "495b";
+const VERSION = "496b";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -1471,10 +1508,10 @@ const CHALLENGE_EARLY_ONLY = new Set(["rush"]);   // only offered at the first t
 
 /* ---------- Round 10 bosses: THE FINAL PROOF ---------- */
 const BOSS_TYPES = {
-  editor:  { name:"The Editor", art:"🖋️", badge:"letters struck",
+  editor:  { name:"The Redactor", art:"🖋️", badge:"letters struck",
              desc:"After every word, your most valuable letter in it is pulled from the round entirely.",
-             intro:"Every draft you hand him comes back thinner. He only cuts your best lines.",
-             taunt:"Struck. He never liked that letter anyway." },
+             intro:"Every draft you hand him comes back with a hole in it. He strikes only your best lines.",
+             taunt:"Struck. That letter is not coming back." },
   deadline:{ name:"The Deadline", art:"⏰", badge:"target rises",
              desc:"The target grows 10 percent after every word that does not clear it.",
              intro:"The presses will not wait. Every hour you dawdle, the order grows.",
@@ -1493,7 +1530,16 @@ const BOSS_TYPES = {
              taunt:"The ghost wrote better." }
 };
 const BOSS_ORDER=["editor","deadline","critic","perfect","ghost"];   // v491e: The Ledger retired
-function bossTypeFor(seed){ const rng=makeRng("boss:"+seed); return BOSS_ORDER[Math.floor(rng()*BOSS_ORDER.length)]; }
+/* v496a: stage 0 keeps the original "boss:"+seed stream byte for byte, so the
+   pinned predictor and every existing daily seed roll the same first proof.
+   Stage 1 (A5 Double Proof) draws from its own stream, excluding the first. */
+function bossTypeFor(seed, stage){
+  if(!stage){ const rng=makeRng("boss:"+seed); return BOSS_ORDER[Math.floor(rng()*BOSS_ORDER.length)]; }
+  const first=bossTypeFor(seed,0);
+  const pool=BOSS_ORDER.filter(t=>t!==first);
+  const rng=makeRng("boss2:"+seed);
+  return pool[Math.floor(rng()*pool.length)];
+}
 function bossActive(){ return !!(G.boss && G.boss.active && G.level===WIN_LEVEL && BOSS_TYPES[G.boss.type]); }
 // A save from an older build may name a boss that no longer exists. Re-roll it
 // rather than crashing on an undefined definition.
@@ -1578,6 +1624,78 @@ const PRICE_MULTIPLIER = 1.22; // per-round shop inflation (GGW used ~1.46)
 const SHOP_PRICE_SCALE = 0.8;  // v3a: 20% cheaper across the board (stacks on the base 35% off)
 const MAX_HEARTS = 3;
 const COIN_CAP = 12;
+
+/* ============================================================
+   CHARACTERS (v496a)
+   Each desk is a different engine, not a different stat line.
+   `targetMult` is applied at startLevel, never inside targetFor(),
+   so the pinned predictor and seed validation stay at the A0 Writer
+   baseline and never drift with content.
+   ============================================================ */
+const CHARACTERS = {
+  writer: {
+    id:"writer", name:"The Writer", art:"\u270D\uFE0F", tag:"Standard",
+    blurb:"The house hand. Four words a round, one mystery word a level, no thumb on the scale.",
+    boon:"Nothing gained", bane:"Nothing lost",
+    targetMult:1
+  },
+  detective: {
+    id:"detective", name:"The Detective", art:"\uD83D\uDD0D", tag:"Mystery",
+    blurb:"Every hand carries a clue. Solve as many as you can find, but the press expects more of you.",
+    boon:"Unlimited mystery words, a fresh clue every hand",
+    bane:"Every round target is 25 percent higher",
+    targetMult:1.25, unlimitedMystery:true
+  },
+  editor: {
+    id:"editor", name:"The Editor", art:"\u2702\uFE0F", tag:"Revision",
+    blurb:"You do not set many lines, but nothing leaves the desk until it is right.",
+    boon:"Revise one letter after every word you set, all run",
+    bane:"One fewer word each round",
+    targetMult:1, alwaysRevision:true, handsDelta:-1
+  }
+};
+const CHAR_ORDER = ["writer","detective","editor"];
+function charDef(){ return CHARACTERS[G.character] || CHARACTERS.writer; }
+function charHas(k){ return !!charDef()[k]; }
+
+/* ============================================================
+   ASCENSIONS (v496a)
+   Cumulative. Each level adds one thing and keeps everything below it.
+   Every level also raises per-round targets by ASC_TARGET_STEP.
+   Ascension is a free-play ladder: the daily always runs at A0.
+   ============================================================ */
+const ASC_TARGET_STEP = 0.05;
+const MAX_ASC = 5;
+const ASCENSIONS = [
+  { n:1, name:"Tight Purse",    badge:"costs +20%",
+    desc:"Shop prices rise 20 percent and the re-roll ladder starts at 3 coins." },
+  { n:2, name:"Short Staffed",  badge:"1 fewer discard",
+    desc:"One fewer discard every round." },
+  { n:3, name:"Rush Order",     badge:"1 fewer word",
+    desc:"One fewer word every round." },
+  { n:4, name:"Overtime Rates", badge:"2 hearts",
+    desc:"You start and cap at two hearts instead of three." },
+  { n:5, name:"Double Proof",   badge:"two bosses",
+    desc:"Round 10 runs twice against two different bosses, with no shop between." }
+];
+function ascLevel(){ return Math.max(0, Math.min(MAX_ASC, +G.ascension||0)); }
+function ascHas(n){ return ascLevel()>=n; }
+function ascTargetMult(){ return 1 + ASC_TARGET_STEP*ascLevel(); }
+function runTargetMult(){ return (charDef().targetMult||1) * ascTargetMult(); }
+function heartMax(){ return MAX_HEARTS - (ascHas(4)?1:0); }
+
+/* ---- per-character ascension progress ---------------------------------- */
+const PROGRESS_KEY = "letterati_progress_v1";
+function loadProgress(){ try{ return JSON.parse(localStorage.getItem(PROGRESS_KEY))||{}; }catch(e){ return {}; } }
+function saveProgress(p){ try{ localStorage.setItem(PROGRESS_KEY, JSON.stringify(p)); }catch(e){} }
+// Highest ascension CLEARED with this character. -1 means never won with them.
+function bestAsc(charId){ const v=loadProgress()[charId]; return (typeof v==="number") ? v : -1; }
+// You may always play one rung above your best clear, A0 included.
+function unlockedAsc(charId){ return Math.min(MAX_ASC, bestAsc(charId)+1); }
+function recordAscWin(charId, asc){
+  const p=loadProgress();
+  if(!(typeof p[charId]==="number") || p[charId]<asc){ p[charId]=asc; saveProgress(p); }
+}
 const WORD_CASH_CAP = 20;   // v491g: most a single word can pay into the bank
 const BINDER_RETAIN = 0.5;  // v492c: the binding keeps half the played score (full retention compounded too hard)           // economy guard rail (caps base payout only)
 const LIQUIDITY_CAP = 2.0;     // max score multiplier from Liquidity (wealth -> mult)
@@ -1819,6 +1937,7 @@ function cardMult(c){ return c.mult||1; }                        // per-tile sco
 
 const G = {
   seed:null, level:1, hearts:MAX_HEARTS, coins:0, handSize:START_HAND,
+  character:"writer", ascension:0, proofStage:0,
   deck:[],                 // run-long collection of cards
   perks:{ firstUp:{}, lastUp:{}, discardMoneyBoost:false, interest:false, twinsies:false,
           vowelPower:0, fireSale:false, bigWords:false, freeRerolls:false,
@@ -2523,7 +2642,7 @@ function coinCountUp(el,from,to,done){
   }, stepMs);
 }
 function renderHud(){
-  let h=""; for(let i=0;i<MAX_HEARTS;i++) h+=`<span class="heart${i<G.hearts?"":" spent"}">♥</span>`;
+  let h=""; for(let i=0;i<heartMax();i++) h+=`<span class="heart${i<G.hearts?"":" spent"}">♥</span>`;
   $("hearts").innerHTML=h;
   $("levelNum").textContent=G.level;
   { const lt=$("levelTag"); if(lt){ lt.classList.toggle("endless", !!G.infinite);
@@ -3139,7 +3258,7 @@ function scoreOf(res){
   if(G.secondEdHalf){ secondEdHit=true; total*=0.5; }
   // Fighting Words (v491a): +50% per lost heart. Backs to the wall, best work yet.
   let fwMult=1;
-  if(G.perks.fightingWords){ const lost=Math.max(0,MAX_HEARTS-G.hearts); if(lost>0){ fwMult=1+0.5*lost; total*=fwMult; } }
+  if(G.perks.fightingWords){ const lost=Math.max(0,heartMax()-G.hearts); if(lost>0){ fwMult=1+0.5*lost; total*=fwMult; } }
   let movableHit=false;
   if(G.perks.movableType && res.length>=2 && res.every(r=>r.letter)){
     const mw=res.map(r=>r.letter.toLowerCase()).join(""); const sig=mw.split("").sort().join("");
@@ -3152,7 +3271,7 @@ function scoreOf(res){
   if(G.perks.vanityPress){ vanityHit=true; total*=1.25; }
   // Mystery Word (v495a): spell the hand's hidden word and the whole word doubles.
   let mysteryHit=false;
-  if(G.mystery && G.mystery.word && G.mysterySolvedLevel!==G.level && res.length>=2 && res.every(r=>r.letter)){
+  if(G.mystery && G.mystery.word && (charHas("unlimitedMystery") || G.mysterySolvedLevel!==G.level) && res.length>=2 && res.every(r=>r.letter)){
     if(res.map(r=>r.letter.toLowerCase()).join("")===G.mystery.word){ mysteryHit=true; total*=2; }
   }
   // v494a perk wave
@@ -3273,7 +3392,10 @@ function updatePostActions(){
   const standing = challengeActive() && G.challenge.type==="standing";
   const canSE = G.perks.secondEdition && inRound && !standing && G.secondEdRound!==G.level && !G.secondEdHalf
                 && G.lastPlay.ids.length>0 && G.lastPlay.ids.every(id=>(G.played||[]).some(c=>c.id===id));
-  const canRev = G.perks.revision && inRound && G.revisionRound!==G.level;
+  // v496a: the Editor revises after every word she sets. G.lastPlay is cleared on
+  // each revision, so "once per word" needs no extra bookkeeping.
+  const revAlways = charHas("alwaysRevision");
+  const canRev = (G.perks.revision || revAlways) && inRound && (revAlways || G.revisionRound!==G.level);
   const canComp = G.perks.compositor && !G.paused && G.handsLeft>0 && G.compositorRound!==G.level
                   && G.hand.filter(c=>c.kind==="letter").length>=2;
   $("secondEdBtn").classList.toggle("hidden", !canSE);
@@ -3298,7 +3420,7 @@ function useSecondEdition(){
 /* ---- Revision (v492a) ---- */
 let _revIdx=null;
 function openRevision(){
-  if(!G.perks.revision || !G.lastPlay || G.revisionRound===G.level) return;
+  if((!G.perks.revision && !charHas("alwaysRevision")) || !G.lastPlay || (!charHas("alwaysRevision") && G.revisionRound===G.level)) return;
   _revIdx=null;
   const wordWrap=$("revisionWord"); wordWrap.innerHTML="";
   G.lastPlay.res.forEach((r,i)=>{
@@ -4117,7 +4239,7 @@ function renderChallengeBanner(){
 // up who is waiting without being told they are about to face them.
 function bossCardHtml(cls, kicker){
   if(G.infinite || G.endless) return "";
-  const def=BOSS_TYPES[bossTypeFor(G.seed)];
+  const def=BOSS_TYPES[bossTypeFor(G.seed, G.proofStage||0)];
   if(!def) return "";
   return `<div class="ib-kicker">${kicker}</div>
     <div class="ib-name">${def.art} ${escHtml(def.name)}</div>
@@ -4128,7 +4250,7 @@ function showRunIntro(){
   G.deck.slice().sort(deckSortKey()).forEach(c=>list.appendChild(deckTileEl(c)));
   $("introCount").textContent=G.deck.length+" cards";
   $("introSummary").innerHTML=deckSummaryHtml();
-  $("introBoss").innerHTML=bossCardHtml("intro-boss","Round "+WIN_LEVEL+" · the final proof");
+  $("introBoss").innerHTML=bossCardHtml("intro-boss","Round "+WIN_LEVEL+" · "+(ascHas(5)?"the first of two proofs":"the final proof"));
   $("runIntroScreen").classList.remove("hidden");
   haptic(12);
 }
@@ -4148,12 +4270,15 @@ function showBossIntro(){
 function startLevel(){
   G.overtime=false; G.lastPlay=null; G.secondEdHalf=false;
   if(G.lucky7Stash && G.lucky7Stash.length){ G.deck.push(...G.lucky7Stash); G.lucky7Stash=[]; }   // Lucky 7 cards return next level
-  G.target=targetFor(G.level);
+  // v496a: character and ascension scaling live HERE, not inside targetFor(), so
+  // predictSeed / predShop / predScore keep validating at the A0 Writer baseline.
+  G.target=Math.round(targetFor(G.level)*runTargetMult());
   if(challengeActive() && G.challenge.type==="steep"){ G.target=Math.round(G.target*CHALLENGE_TARGET_MULT); }
   renderChallengeBanner();
   G.score=0;
-  G.handsLeft=HANDS_PER_LEVEL+G.extraTurns;
-  G.discardsLeft=DISCARDS_PER_LEVEL+G.extraDiscards;
+  // A3 Rush Order and the Editor's desk both cut a word; A2 Short Staffed cuts a discard.
+  G.handsLeft=Math.max(1, HANDS_PER_LEVEL+G.extraTurns+(charDef().handsDelta||0)-(ascHas(3)?1:0));
+  G.discardsLeft=Math.max(0, DISCARDS_PER_LEVEL+G.extraDiscards-(ascHas(2)?1:0));
   G.roundLengths=[]; G.standingDone=false;
   // Smudged Ink is strictly a one-round condition: clear stale ink from every
   // zone (deck, piles, hand, canvas, stash) so no tile carries it out of the round.
@@ -4168,9 +4293,11 @@ function startLevel(){
   if(G.level===WIN_LEVEL && !G.endless){
     G.target=Math.round(G.target*BOSS_TARGET_SCALE);   // v491a: keep in lockstep with predictSeed's boss branch
     if(!G.boss || !G.boss.active){
-      const bt=bossTypeFor(G.seed);
-      G.boss={ type:bt, active:true, ban:[], lastLen:0, suspended:null, stash:null, introSeen:false };
-      if(G.stats && !G.stats.bossLog) G.stats.bossLog={round:G.level, type:bt, heartsBefore:G.hearts, heartsAfter:null, cleared:null, words:0};
+      const stage=G.proofStage||0;
+      const bt=bossTypeFor(G.seed, stage);
+      G.boss={ type:bt, active:true, ban:[], lastLen:0, suspended:null, stash:null, introSeen:false, stage:stage };
+      const bkey = stage ? "bossLog2" : "bossLog";
+      if(G.stats && !G.stats[bkey]) G.stats[bkey]={round:G.level, stage:stage, type:bt, heartsBefore:G.hearts, heartsAfter:null, cleared:null, words:0};
       if(bt==="ghost"){
         let gt=0, gw=[];
         try{
@@ -4360,7 +4487,7 @@ function submitWord(){
   G.levelStats.words++;
   statWord(w.toUpperCase(), sc.total, res.length);
   if(sc.mysteryHit){
-    G.mysterySolvedLevel=G.level;
+    if(!charHas("unlimitedMystery")) G.mysterySolvedLevel=G.level;   // Detective is never locked out for the round
     toast("Mystery word! "+String(G.mystery.word).toUpperCase()+" scores double");
     G.mystery=null; haptic([14,40,14]);
   }
@@ -4461,8 +4588,9 @@ function levelCleared(){
       wordsLeft:G.handsLeft, payout:rw.total});
     { const ch=G.stats.challenges&&G.stats.challenges.find(c=>c.round===G.level&&c.taken&&c.cleared==null);
       if(ch){ ch.cleared=true; ch.heartsAfter=G.hearts; } }
-    if(G.stats.bossLog && G.stats.bossLog.round===G.level && G.stats.bossLog.cleared==null){
-      G.stats.bossLog.cleared=true; G.stats.bossLog.heartsAfter=G.hearts; G.stats.bossLog.words=(G.levelStats&&G.levelStats.words)||0; } }
+    const _bl = (G.proofStage ? G.stats.bossLog2 : G.stats.bossLog);
+    if(_bl && _bl.round===G.level && _bl.cleared==null){
+      _bl.cleared=true; _bl.heartsAfter=G.hearts; _bl.words=(G.levelStats&&G.levelStats.words)||0; } }
   // v3a: fold the chosen challenge reward into this cleared round
   if(challengeActive()){
     if(G.challenge.reward==="cash"||G.challenge.reward==="cash10"){ rw.bonus=10; rw.total+=10; }
@@ -4489,6 +4617,17 @@ function levelCleared(){
   renderChallengeBanner();
   const justCleared=G.level;
   G.level++;
+  /* A5 Double Proof: the first proof does not end the run. Stay on round 10, roll
+     a different boss, and go straight back to the press with no shop between. */
+  if(justCleared===WIN_LEVEL && !G.infinite && !G.wonRun && ascHas(5) && !(G.proofStage||0)){
+    G.proofStage=1;
+    G.level=WIN_LEVEL;
+    G.boss=null;                      // startLevel rolls the second proof
+    G.lastReward=rw;
+    save();
+    setTimeout(()=>{ toast("First proof cleared. The final proof is already set."); enterNextLevel(); }, 900);
+    return;
+  }
   if(justCleared===WIN_LEVEL && !G.infinite && !G.wonRun){
     G.wonRun=true;
     G.pendingSummary=info;            // held so "endless" can resume the normal shop flow
@@ -4565,6 +4704,7 @@ function closeSummary(){ $("summaryScreen").classList.add("hidden"); }
 
 /* ---------- WIN (cleared all 10 rounds) ---------- */
 function showWin(info){
+  recordAscWin(G.character||"writer", ascLevel());   // unlocks the next rung for this desk
   hideGame();
   $("shopScreen").classList.add("hidden");
   $("summaryScreen").classList.add("hidden");
@@ -4577,7 +4717,7 @@ function showWin(info){
     <div class="stat-line">Words set: <b>${G.wordsPlayed||0}</b></div>
     ${G.runBestWord?`<div class="stat-line">Best word: <b>${G.runBestWord}</b> · ${G.runBestScore}</div>`:""}
     <div class="stat-line">Hearts left: <b>${G.hearts}</b> ♥ &nbsp;·&nbsp; Coins: <b>${G.coins}</b> ◉</div>
-    <div class="stat-line" style="margin-top:8px;color:var(--ink-soft);font-size:.8rem">Seed <b>${G.seed}</b></div>`;
+    <div class="stat-line" style="margin-top:8px;color:var(--ink-soft);font-size:.8rem">${escHtml(charDef().name)} · A${ascLevel()} · Seed <b>${G.seed}</b></div>`;
   resetSeedRating();
   $("winScreen").classList.remove("hidden");
 }
@@ -4673,7 +4813,7 @@ function levelFailed(){
 function priceMult(){ return 1; }   // shop inflation removed
 function px(base){
   const infl=Math.pow(1.1, Math.max(0,(G.level||1)-1));   // +10% per round, compounding
-  return Math.max(1,Math.round(base*0.65*SHOP_PRICE_SCALE*(G.perks.fireSale?0.75:1)*(G.perks.vanityPress?1.25:1)*infl));
+  return Math.max(1,Math.round(base*0.65*SHOP_PRICE_SCALE*(G.perks.fireSale?0.75:1)*(G.perks.vanityPress?1.25:1)*(ascHas(1)?1.2:1)*infl));
 }   // 35% off base, then 20% off (v3a); Fire sale = 25% more off
 
 const SHOP_SLOTS_BASE  = 6;   // v491f: an even shelf, half letters half perks
@@ -4866,7 +5006,7 @@ function perkPool(rng){
 }
 function utilPool(rng){
   const e=[{make:()=>gildOffer(rng),weight:3},{make:()=>eraserOffer(),weight:3}];
-  if(G.hearts<MAX_HEARTS) e.push({make:()=>heartOffer(),weight:2});
+  if(G.hearts<heartMax()) e.push({make:()=>heartOffer(),weight:2});
   return e;
 }
 function heldCount(L){ return G.deck.filter(c=>c.kind==="letter"&&c.letter===L).length; }
@@ -5051,7 +5191,7 @@ function applyOffer(o){
       repriceGildOffers();
       break; }
     case "eraser":       openDeck("remove"); break;
-    case "heart":        G.hearts=Math.min(MAX_HEARTS,G.hearts+1); break;
+    case "heart":        G.hearts=Math.min(heartMax(),G.hearts+1); break;
     case "wildVowel":    G.deck.push(makeWildVowelCard()); break;
     case "wildCons":     G.deck.push(makeWildConsCard()); break;
     case "copyCat":      G.deck.push(makeCopyCatCard()); break;
@@ -5493,7 +5633,7 @@ function renderShop(){
     grid.appendChild(card);
   });
 }
-function rerollCost(){ if(G.perks.freeRerolls && !G.freeRerollUsed) return 0; return G.rerollCount + 1; }   // first reroll each shop is free with the perk; otherwise 1,2,3… (count persists all run)
+function rerollCost(){ if(G.perks.freeRerolls && !G.freeRerollUsed) return 0; return G.rerollCount + (ascHas(1)?3:1); }   // A1 Tight Purse starts the ladder at 3   // first reroll each shop is free with the perk; otherwise 1,2,3… (count persists all run)
 function buyOffer(i){
   const o=G.shopOffers[i];
   if(o.sold) return;
@@ -6132,7 +6272,7 @@ function statWord(word, score, len){
   if(!G.stats) return;
   G.stats.runScore=G.runScore||0;   // mirror the canonical run score (set in submitWord)
   G.stats.words.push({ round:G.level, word, score, len, jazz:false,
-    overtime: G.handsLeft<=0 || G.hearts<MAX_HEARTS });
+    overtime: G.handsLeft<=0 || G.hearts<heartMax() });
 }
 function statShopOpen(offers){
   if(!G.stats) return;
@@ -6169,6 +6309,7 @@ function statFinish(result){
   G.stats.perks={ firstUp:G.perks.firstUp, lastUp:G.perks.lastUp, vowelPower:G.perks.vowelPower,
     bigWords:G.perks.bigWords, fireSale:G.perks.fireSale, interest:G.perks.interest, fightingWords:!!G.perks.fightingWords, superStore:!!G.perks.superStore, wordBinder:(G.perks.wordBinder?{word:G.perks.wordBinder.word,banked:G.perks.wordBinder.banked}:false), gemini:!!G.perks.gemini, gildedAge:G.perks.gildedAge||false, deadlineExt:!!G.perks.deadlineExt, galleyProof:!!G.perks.galleyProof, revision:!!G.perks.revision, midnightPress:!!G.perks.midnightPress, secondEdition:!!G.perks.secondEdition,
     scoreMult:G.scoreMult, handSize:G.handSize, extraTurns:G.extraTurns };
+  if(G.stats){ G.stats.character=G.character||"writer"; G.stats.ascension=+G.ascension||0; }
   try{ localStorage.setItem("letterati_laststats", JSON.stringify(G.stats)); }catch(e){}
   try{ const arr=JSON.parse(localStorage.getItem("letterati_runs")||"[]"); arr.push(G.stats);
        while(arr.length>500) arr.shift(); localStorage.setItem("letterati_runs", JSON.stringify(arr)); }catch(e){}
@@ -6379,7 +6520,7 @@ function mysteryIndex(){
   const src = COMMON.size ? COMMON : WORDS;
   for(const w of src){
     if(COMMON.size && !WORDS.has(w)) continue;     // must be legal in this game too
-    if(w.length<3 || w.length>9 || !/^[a-z]+$/.test(w)) continue;
+    if(w.length<4 || w.length>9 || !/^[a-z]+$/.test(w)) continue;   // v496a: mystery words are 4+ letters
     let m=0; for(let i=0;i<w.length;i++) m|=(1<<(w.charCodeAt(i)-97));
     words.push(w); masks.push(m);
   }
@@ -6394,7 +6535,7 @@ function mysteryCandidates(k){
   if(pool.length<3) return [];
   const counts={}; let hm=0;
   pool.forEach(c=>{ const l=c.letter.toLowerCase(); counts[l]=(counts[l]||0)+1; hm|=(1<<(l.charCodeAt(0)-97)); });
-  const minL=Math.max(3, challengeMinLen()||3);
+  const minL=Math.max(4, challengeMinLen()||4);   // v496a: never offer a 3-letter mystery
   const ban=bannedLetterSet();
   const rng=makeRng("mystery:"+G.seed+":"+G.level+":"+G.handsLeft+":"+G.discardsLeft+":"+pool.map(c=>c.id).join(","));
   const longR=[], shortR=[]; let nLong=0, nShort=0;
@@ -6451,7 +6592,7 @@ function renderMystery(){
 }
 async function refreshMystery(){
   const token=String(Date.now()+Math.random()); G._mysteryToken=token;
-  if(G.mysterySolvedLevel===G.level){ G.mystery=null; renderMystery(); return; }
+  if(G.mysterySolvedLevel===G.level && !charHas("unlimitedMystery")){ G.mystery=null; renderMystery(); return; }   // Detective keeps drawing clues
   G.mystery=null; renderMystery();
   const cands=mysteryCandidates(8);
   for(const w of cands){
@@ -6701,7 +6842,7 @@ function endRun(){
 // Return to the title from an end screen. The run is already finalized by gameOver();
 // for a quit straight off the win screen, finalize it as a win first.
 function goToTitle(){
-  ["winScreen","overScreen","pauseScreen","shopScreen","summaryScreen"].forEach(id=>{ const e=$(id); if(e) e.classList.add("hidden"); });
+  ["winScreen","overScreen","pauseScreen","shopScreen","summaryScreen","charScreen"].forEach(id=>{ const e=$(id); if(e) e.classList.add("hidden"); });
   hideGame();
   $("titleScreen").classList.remove("hidden"); refreshContinue();
 }
@@ -6749,7 +6890,7 @@ function showRunSummary(kind){
     <div class="stat-line">Words set this run: <b>${G.wordsPlayed||0}</b></div>
     ${G.runBestWord?`<div class="stat-line">Best word: <b>${G.runBestWord}</b> · ${G.runBestScore}</div>`:""}
     <div class="stat-line">Coins left: <b>${G.coins}</b> ◉</div>
-    <div class="stat-line" style="margin-top:8px;color:var(--ink-soft);font-size:.8rem">Seed <b>${G.seed}</b></div>`;
+    <div class="stat-line" style="margin-top:8px;color:var(--ink-soft);font-size:.8rem">${escHtml(charDef().name)} · A${ascLevel()} · Seed <b>${G.seed}</b></div>`;
   $("overScreen").classList.remove("hidden");
 }
 function gameOver(won){
@@ -6780,6 +6921,7 @@ function save(){
     const ids=a=>a.map(c=>c.id);
     const data={
       v:SAVE_VERSION, phase, seed:G.seed, level:G.level, hearts:G.hearts, coins:G.coins, handSize:G.handSize,
+      character:G.character||"writer", ascension:+G.ascension||0, proofStage:+G.proofStage||0,
       infinite:G.infinite, wonRun:G.wonRun,
       perks:G.perks, scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, reprintUsed:G.reprintUsed, foilUsed:G.foilUsed, challenge:G.challenge, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, runMs:G.runMs, stats:G.stats,
       wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, wordPlays:G.wordPlays, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
@@ -6796,6 +6938,9 @@ function continueRun(){
   if(!d || d.v!==SAVE_VERSION) return;
   clearUndo();
   cardSeq=d.cardSeq||0;
+  G.character = CHARACTERS[d.character] ? d.character : "writer";
+  G.ascension = Math.max(0, Math.min(MAX_ASC, +d.ascension||0));
+  G.proofStage = +d.proofStage||0;
   G.seed=d.seed; G.level=d.level; G.hearts=d.hearts; G.coins=d.coins; G.handSize=d.handSize;
   G.infinite=!!d.infinite; G.wonRun=!!d.wonRun;
   G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false,superStore:false,wordBinder:false, secondEdition:false, gemini:false, gildedAge:false, deadlineExt:false, galleyProof:false, revision:false, midnightPress:false, vowelPuller:false, slugLine:false, eyeLevel:false, typeHigh:false, blindFaith:false, inkBall:false, vowelMovement:false, consonantCluster:false, justified:false, emQuad:false, descender:false, department:false, wetProof:false, compositor:false, foundryFire:false, fusedFocus:false, indiaInk:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
@@ -6867,7 +7012,7 @@ function renderLeaderboard(){
     rows+='<div class="lb-row'+(i===0?" lb-top":"")+'">'
       +'<span class="lb-rank">'+(i+1)+'</span>'
       +'<span class="lb-score">'+(r.runScore||0).toLocaleString()+'</span>'
-      +'<span class="lb-meta">'+'Round '+(r.finalRound||1)+' · '+(r.seed||"—")+'</span>'
+      +'<span class="lb-meta">'+'Round '+(r.finalRound||1)+' · '+((CHARACTERS[r.character]||CHARACTERS.writer).name.replace(/^The /,""))+' A'+(+r.ascension||0)+'</span>'
       +'</div>';
   });
   box.innerHTML='<h3>Your best runs</h3>'+rows;
@@ -6879,13 +7024,87 @@ function refreshContinue(){
 }
 
 /* ============================================================
+   Character select (v496a)
+   Picks the desk and the ascension rung, then hands off to newRun.
+   Ascension N is playable only once N-1 has been CLEARED with that
+   same character, so each desk climbs its own ladder.
+   ============================================================ */
+let _selChar="writer", _selAsc=0, _pendingSeed=null;
+function openCharSelect(seed){
+  _pendingSeed = seed;
+  if(!CHARACTERS[_selChar]) _selChar="writer";
+  _selAsc = Math.min(_selAsc, unlockedAsc(_selChar));
+  renderCharSelect();
+  $("titleScreen").classList.add("hidden");
+  $("charScreen").classList.remove("hidden");
+  haptic(12);
+}
+function closeCharSelect(){
+  $("charScreen").classList.add("hidden");
+  $("titleScreen").classList.remove("hidden");
+  refreshContinue();
+}
+function renderCharSelect(){
+  const grid=$("charGrid"); grid.innerHTML="";
+  CHAR_ORDER.forEach(id=>{
+    const c=CHARACTERS[id], best=bestAsc(id);
+    const b=document.createElement("button");
+    b.className="cs-card"+(id===_selChar?" picked":"");
+    b.innerHTML=`<span class="cs-art">${c.art}</span>
+      <span class="cs-body">
+        <span class="cs-name">${escHtml(c.name)}</span>
+        <span class="cs-blurb">${escHtml(c.blurb)}</span>
+        <span class="cs-line"><span class="cs-plus">+</span><span>${escHtml(c.boon)}</span></span>
+        <span class="cs-line"><span class="cs-minus">\u2212</span><span>${escHtml(c.bane)}</span></span>
+        <span class="cs-best">${best<0?"Not yet cleared":("Best clear \u00B7 A"+best)}</span>
+      </span>`;
+    b.addEventListener("click",()=>{
+      _selChar=id;
+      _selAsc=Math.min(_selAsc, unlockedAsc(id));
+      renderCharSelect(); haptic(10);
+    });
+    grid.appendChild(b);
+  });
+  const cap=unlockedAsc(_selChar);
+  const row=$("ascRow"); row.innerHTML="";
+  for(let n=0;n<=MAX_ASC;n++){
+    const locked = n>cap;
+    const b=document.createElement("button");
+    b.className="cs-asc-chip"+(n===_selAsc?" picked":"")+(locked?" locked":"");
+    b.textContent="A"+n;
+    b.disabled=locked;
+    if(!locked) b.addEventListener("click",()=>{ _selAsc=n; renderCharSelect(); haptic(10); });
+    row.appendChild(b);
+  }
+  const d=$("ascDesc");
+  if(_selAsc===0){
+    d.innerHTML=`<span class="cs-ad-item">The standard press. Clear it to open A1 for ${escHtml(CHARACTERS[_selChar].name)}.</span>`;
+  } else {
+    let html=`<span class="cs-ad-item"><b>Targets +${Math.round(ASC_TARGET_STEP*_selAsc*100)}%</b> every round.</span>`;
+    ASCENSIONS.filter(a=>a.n<=_selAsc).forEach(a=>{
+      html+=`<span class="cs-ad-item"><b>A${a.n} ${escHtml(a.name)}:</b> ${escHtml(a.desc)}</span>`;
+    });
+    d.innerHTML=html;
+  }
+}
+function beginSelectedRun(){
+  const seed = _pendingSeed || generateValidatedSeed();
+  _pendingSeed=null;
+  $("charScreen").classList.add("hidden");
+  newRun(seed, _selChar, _selAsc);
+}
+
+/* ============================================================
    New run / boot
    ============================================================ */
-function newRun(seed){
+function newRun(seed, charId, asc){
   clearSave();
   cardSeq=0;
   G.seed=seed;
-  G.level=1; G.hearts=MAX_HEARTS; G.coins=0; G.handSize=START_HAND;
+  G.character = CHARACTERS[charId] ? charId : "writer";
+  G.ascension = Math.max(0, Math.min(MAX_ASC, +asc||0));
+  G.proofStage = 0;
+  G.level=1; G.hearts=heartMax(); G.coins=0; G.handSize=START_HAND;
   G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false,superStore:false,wordBinder:false, secondEdition:false, gemini:false, gildedAge:false, deadlineExt:false, galleyProof:false, revision:false, midnightPress:false};
   G.reprintUsed=false;
   G.scoreMult=1; G.pressGrowth=0; G.heavyPress=0; G.extraDiscards=0; G.extraTurns=0; G.lastReward=null; G.overtime=false; G.deadlineExtRound=null; G.midnightRound=null; G.secondEdRound=null; G.secondEdHalf=false; G.revisionRound=null; G.lastPlay=null;
@@ -6963,7 +7182,7 @@ function resetSeedRating(){
 }
 wireSeedRating(""); wireSeedRating("W");
 $("verTag").textContent="Prototype v"+VERSION+" · "+WORDS.size.toLocaleString()+" words";
-$("playBtn").addEventListener("click",()=>newRun(generateValidatedSeed()));
+$("playBtn").addEventListener("click",()=>openCharSelect(null));
 $("continueBtn").addEventListener("click",continueRun);
 refreshContinue();
 $("cloneCancel").addEventListener("click",cancelClone);
@@ -6975,8 +7194,10 @@ $("fusedPickCancel").addEventListener("click",closeFusedSelector);
 $("fusedRemoveBtn").addEventListener("click",()=>{ const c=fusedSelCard; closeFusedSelector(); if(c) removeFromCanvas(c.id); });
 $("seedBtn").addEventListener("click",()=>{
   const s=($("seedInput").value||"").trim().toUpperCase();
-  newRun(s||generateValidatedSeed());
+  openCharSelect(s||null);
 });
+$("charStartBtn").addEventListener("click",beginSelectedRun);
+$("charBackBtn").addEventListener("click",closeCharSelect);
 $("submitBtn").addEventListener("click",submitWord);
 $("discardBtn").addEventListener("click",discardCanvas);
 $("compositorBtn").addEventListener("click",compositorRun);
@@ -6999,8 +7220,8 @@ $("chalTakeBtn").addEventListener("click",takeChallenge);
 $("chalSkipBtn").addEventListener("click",skipChallenge);
 $("sumNextBtn").addEventListener("click",()=>{ openShop(); closeSummary(); });
 document.addEventListener("pointerdown",()=>audio(),{passive:true});
-$("overNewBtn").addEventListener("click",()=>newRun(generateValidatedSeed()));
-$("overSeedBtn").addEventListener("click",()=>newRun(G.seed));
+$("overNewBtn").addEventListener("click",()=>newRun(generateValidatedSeed(), G.character, G.ascension));
+$("overSeedBtn").addEventListener("click",()=>newRun(G.seed, G.character, G.ascension));
 $("winEndlessBtn").addEventListener("click",winContinueEndless);
 $("winFinishBtn").addEventListener("click",winFinish);
 $("winQuitBtn").addEventListener("click",winQuit);
