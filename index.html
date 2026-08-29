@@ -1465,7 +1465,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "496b";
+const VERSION = "496c";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -1594,7 +1594,7 @@ const CHALLENGE_EPIC_POOL = [
   {name:"Press multiplier", art:"🗜️", desc:"Each 6+ letter word raises your score multiplier by 2.5%.", d:{type:"pressMult", g:0.025}},
   {name:"Fuller case",      art:"🗄️", desc:"Hold one more tile in every hand.", d:{type:"fuller"}},
   {name:"Extra word",       art:"⏳", desc:"One more word to set each round.", d:{type:"extraTurn"}},
-  {name:"Liquidity",art:"🏦", desc:"Every $5 banked adds 1 percent to your word scores, up to double.", d:{type:"interest"}},
+  {name:"Liquidity",art:"🏦", desc:"Every $5 banked adds 2 percent to your word scores, up to triple.", d:{type:"interest"}},
   {name:"Kerning",          art:"📐", desc:"Words with no repeated letter score +25%.", d:{type:"kerning"}},
   {name:"Five Timer",       art:"5️⃣", desc:"Words exactly 5 letters long score 1.5 times.", d:{type:"fiveTimer"}},
   {name:"Marginalia",       art:"🪙", desc:"Earn 1 coin for every 15 points past the round target, up to 15 coins.", d:{type:"marginalia"}},
@@ -1602,7 +1602,41 @@ const CHALLENGE_EPIC_POOL = [
   {name:"Verbose",          art:"🅥", desc:"Verbs score 1.5 times.", d:{type:"verbose"}},
   {name:"Reprint",          art:"📋", desc:"Lose your last heart and gain one more. Once per run.", d:{type:"reprint"}},
   {name:"Fighting Words",   art:"🥊", desc:"Words score +50% for every heart you have lost.", d:{type:"fightingWords"}},
-  {name:"Super Store",      art:"🏬", desc:"Every shop stocks 8 offers instead of 6.", d:{type:"superStore"}}
+  {name:"Super Store",      art:"🏬", desc:"Every shop stocks 8 offers instead of 6.", d:{type:"superStore"}},
+  /* v496c: the pool had not kept pace with the perk list, so challenge rewards
+     kept re-offering the same dozen cards. Every rare-and-above perk that grants
+     with no follow-up chooser now sits here. Descriptions are lifted verbatim
+     from the shop offers so the two can never read differently. */
+  {name:"Short King",       art:"👑", desc:"Short words score big: 2 letters ×4, 3 letters ×3, 4 letters ×2.5, 5 letters ×2.", d:{type:"shortKing"}},
+  {name:"Repeater",         art:"🔁", desc:"Replaying a word you've already played this run scores higher (up to ×5).", d:{type:"repeater"}},
+  {name:"Power Trio",       art:"🎯", desc:"Three of the same letter in a word gives a ×2 word bonus. Stacks with Twinsies and Two of a kind.", d:{type:"powerTrio"}},
+  {name:"Movable Type",     art:"🔠", desc:"Playing the same set of letters as a different word scores ×2.", d:{type:"movableType"}},
+  {name:"Colophon",         art:"🖋", desc:"Your final word each round scores ×2.", d:{type:"colophon"}},
+  {name:"Vanity Press",     art:"🎩", desc:"Shop prices rise 25%, and every word scores 25% higher.", d:{type:"vanityPress"}},
+  {name:"ABCs",             art:"🔤", desc:"The first time each letter appears in one of your words this run, earn $1.", d:{type:"abcs"}},
+  {name:"Ligature",         art:"Æ", desc:"Words containing Q, X, Z, or J score ×1.75.", d:{type:"ligature"}},
+  {name:"Crossword",        art:"🧩", desc:"Words sharing at least one letter with your previous word score +25%.", d:{type:"crossword"}},
+  {name:"Vowel Movement",   art:"🌊", desc:"+25% per extra vowel over consonants in the word.", d:{type:"vowelMovement"}},
+  {name:"Consonant Cluster",art:"🧱", desc:"+25% per extra consonant over vowels in the word.", d:{type:"consonantCluster"}},
+  {name:"Justified",        art:"📐", desc:"Match your last word's length for a stacking +10%. Miss and it resets.", d:{type:"justified"}},
+  {name:"Em Quad",          art:"◻️", desc:"Words set with 3 or more tiles still in hand score +30%.", d:{type:"emQuad"}},
+  {name:"Descender",        art:"🪝", desc:"Q, J, X and Z tiles score double.", d:{type:"descender"}},
+  {name:"Wet Proof",        art:"💦", desc:"After a discard, your next word scores +25%.", d:{type:"wetProof"}},
+  {name:"Verbizer",         art:"🪄", desc:"Add er, ing or ed to any valid word to make it a verb, even if the result is not in the dictionary.", d:{type:"verbizer"}},
+  {name:"Alphabetizer",     art:"🔡", desc:"Words with letters in alphabetical order score ×4.", d:{type:"alphabetizer"}},
+  {name:"Commission",       art:"💼", desc:"Words gain 1 point for every coin in your bank.", d:{type:"commission"}},
+  {name:"Anthology",        art:"📚", desc:"Every unique word you play this run permanently adds 0.5% to your multiplier.", d:{type:"anthology"}},
+  {name:"Recycled Stock",   art:"♻️", desc:"Every discard you spend grows your Press by 0.01.", d:{type:"recycledStock"}},
+  {name:"Abridged",         art:"✂️", desc:"After every shop, cut one tile of your choice from your deck for $1.", d:{type:"abridged"}},
+  {name:"The Compositor",   art:"🧩", desc:"Once per round, sets the highest scoring word your letter tiles can make.", d:{type:"compositor"}},
+  {name:"Foundry Fire",     art:"🔥", desc:"The eraser is always in stock. Every tile you remove grows your Press by 2%.", d:{type:"foundryFire"}},
+  {name:"Fused Focus",      art:"🔗", desc:"Letters played from fused pairs and trios score ×1.25.", d:{type:"fusedFocus"}},
+  {name:"India Ink",        art:"🖋️", desc:"Ink Well pays triple. Every $1 earned adds +1 to your next word.", d:{type:"indiaInk"}},
+  {name:"Second Edition",   art:"📚", desc:"Once per round, right after a word scores, reset the press: those tiles return to your hand and your next word scores half.", d:{type:"secondEdition"}},
+  {name:"Deadline Extension",art:"🕰️", desc:"The first round you fail this run costs no hearts: overtime words are free that round.", d:{type:"deadlineExt"}},
+  {name:"Galley Proof",     art:"🔭", desc:"See the next three tiles of your draw pile at all times.", d:{type:"galleyProof"}},
+  {name:"Revision",         art:"✒️", desc:"Once per round, rewrite one letter of the word you just set. If the new word is real, score the improvement.", d:{type:"revision"}},
+  {name:"The Midnight Press",art:"🌙", desc:"Overtime words score double, and the first overtime word each round costs no heart.", d:{type:"midnightPress"}}
 ];
 const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:2,M:3,N:1,O:1,P:3,Q:10,R:1,S:2,T:2,U:1,V:4,W:4,X:8,Y:4,Z:10};
 // L,S,T bumped 1→2 (v2d): only vowels + N,R,U remain 1-point. Targets scaled to match (see TARGET_SCALE).
@@ -1657,6 +1691,9 @@ const CHARACTERS = {
 const CHAR_ORDER = ["writer","detective","editor"];
 function charDef(){ return CHARACTERS[G.character] || CHARACTERS.writer; }
 function charHas(k){ return !!charDef()[k]; }
+/* The Detective gets a clue every hand with no per-round lockout, so each one is
+   worth less: x1.5 instead of the standard x2. */
+function mysteryWordMult(){ return charHas("unlimitedMystery") ? 1.5 : 2; }
 
 /* ============================================================
    ASCENSIONS (v496a)
@@ -1664,7 +1701,7 @@ function charHas(k){ return !!charDef()[k]; }
    Every level also raises per-round targets by ASC_TARGET_STEP.
    Ascension is a free-play ladder: the daily always runs at A0.
    ============================================================ */
-const ASC_TARGET_STEP = 0.05;
+const ASC_TARGET_STEP = 0.10;
 const MAX_ASC = 5;
 const ASCENSIONS = [
   { n:1, name:"Tight Purse",    badge:"costs +20%",
@@ -1698,8 +1735,9 @@ function recordAscWin(charId, asc){
 }
 const WORD_CASH_CAP = 20;   // v491g: most a single word can pay into the bank
 const BINDER_RETAIN = 0.5;  // v492c: the binding keeps half the played score (full retention compounded too hard)           // economy guard rail (caps base payout only)
-const LIQUIDITY_CAP = 2.0;     // max score multiplier from Liquidity (wealth -> mult)
-function liquidityMult(){ return G.perks.interest ? Math.min(LIQUIDITY_CAP, 1 + 0.01*Math.floor((G.coins||0)/5)) : 1; }   // +1% per $5 banked
+const LIQUIDITY_CAP = 3.0;     // v496c: doubled. Bonus above x1 is now +200% at cap, was +100%.
+const LIQUIDITY_RATE = 0.02;   // +2% per $5 banked (was 1%)
+function liquidityMult(){ return G.perks.interest ? Math.min(LIQUIDITY_CAP, 1 + LIQUIDITY_RATE*Math.floor((G.coins||0)/5)) : 1; }
 
 function lenMult(n){ return n<=3?1 : n===4?1.5 : (n-3); }   // 5→2,6→3,7→4,8→5,9→6… uncapped
 // Win-rate-matched scale for the L,S,T→2 bump: the bump inflates scores ~7%, but it
@@ -1794,31 +1832,34 @@ function challengeMinLen(){
 }
 function challengeDoublePay(){ return challengeActive() && G.challenge.reward==="double"; }
 // True if a pool entry is an already-owned one-shot perk (cards/stackables stay offerable).
+/* v496c: ownership is read straight off G.perks by offer type, because every
+   boolean perk in applyOffer sets G.perks[<same type key>]. The old function
+   listed types by hand and had fallen ~30 perks behind the pool, so owned
+   perks (Verbose among them) were still being offered as challenge rewards.
+   Anything genuinely repeatable is listed once, here, instead. */
+const OFFER_REPEATABLE = new Set(["letter","clone","dealer","trio","trioUpgrade","triptych",
+  "firstUp","lastUp","fuller","extraDiscard","extraTurn","pressMult","heavyPress","goldenLetter",
+  "gildLetter","eraser","heart","wildVowel","wildCons","copyCat","combo","fusedPair","lucky7",
+  "vowelPower","growthMind","fuse","foil","watermark","encore","boldfaceStamp","dropcapStamp",
+  "serifStamp","dittoStamp","inkwellStamp","gildedAge","gemini","wordBinder","department"]);
 function epicOwned(e){
-  const t=e.d.type;
-  if(t==="bigWords")    return !!G.perks.bigWords;
-  if(t==="freeRerolls") return !!G.perks.freeRerolls;
-  if(t==="twinsies")    return !!G.perks.twinsies;
-  if(t==="twoOfAKind")  return !!G.perks.twoOfAKind;
-  if(t==="vowelPower")  return !!G.perks.vowelPower;
-  if(t==="interest")    return !!G.perks.interest;
-  if(t==="fightingWords") return !!G.perks.fightingWords;
-  if(t==="superStore")    return !!G.perks.superStore;
-  if(t==="wordBinder")    return !!G.perks.wordBinder;
-  if(t==="secondEdition") return !!G.perks.secondEdition;
-  if(t==="gemini")        return !!G.perks.gemini;
-  if(t==="gildedAge")     return !!G.perks.gildedAge;
-  if(t==="deadlineExt")   return !!G.perks.deadlineExt;
-  if(t==="galleyProof")   return !!G.perks.galleyProof;
-  if(t==="revision")      return !!G.perks.revision;
-  if(t==="midnightPress") return !!G.perks.midnightPress;
+  const t = e && e.d && e.d.type;
+  if(!t || OFFER_REPEATABLE.has(t)) return false;
+  const v = G.perks ? G.perks[t] : undefined;
+  if(v===true) return true;
+  if(typeof v==="number") return v>0;
+  if(v && typeof v==="object") return Object.keys(v).length>0;
   return false;
 }
+
 // The featured epic offered at a given challenge level. Seeded by level (and the run
 // seed via makeRng), so it is the same on a reload and reconstructable for daily replay.
 function challengeEpicFor(level){
   const pool=CHALLENGE_EPIC_POOL.filter(e=>!epicOwned(e));
-  const src=pool.length?pool:CHALLENGE_EPIC_POOL;
+  // If somehow everything is owned, fall back to the repeatable offers rather
+  // than handing the player a perk they already have.
+  const src = pool.length ? pool : CHALLENGE_EPIC_POOL.filter(e=>OFFER_REPEATABLE.has(e.d&&e.d.type));
+  if(!src.length) return CHALLENGE_EPIC_POOL[0];
   const rng=makeRng("chalEpic:"+level);
   return src[Math.floor(rng()*src.length)];
 }
@@ -3270,9 +3311,9 @@ function scoreOf(res){
   let vanityHit=false;
   if(G.perks.vanityPress){ vanityHit=true; total*=1.25; }
   // Mystery Word (v495a): spell the hand's hidden word and the whole word doubles.
-  let mysteryHit=false;
+  let mysteryHit=false, mysteryMult=1;
   if(G.mystery && G.mystery.word && (charHas("unlimitedMystery") || G.mysterySolvedLevel!==G.level) && res.length>=2 && res.every(r=>r.letter)){
-    if(res.map(r=>r.letter.toLowerCase()).join("")===G.mystery.word){ mysteryHit=true; total*=2; }
+    if(res.map(r=>r.letter.toLowerCase()).join("")===G.mystery.word){ mysteryHit=true; mysteryMult=mysteryWordMult(); total*=mysteryMult; }
   }
   // v494a perk wave
   let inkBallHit=false;
@@ -3318,7 +3359,7 @@ function scoreOf(res){
   if(G.perks.blindFaith && (G.discardsLeft||0)>0){ bfAdd=8*G.discardsLeft; total+=bfAdd; }
   let inkPts=0;
   if(G.perks.indiaInk && (G.inkPtsPending||0)>0){ inkPts=G.inkPtsPending; total+=inkPts; }
-  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,fuMult,luMult,twinHit,pairHit,shortHit,shortMult,kernHit,fiveHit,bigHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit,effLen,ligHit,crossHit,alphaHit,coloHit,fwMult,midnightHit,secondEdHit,binderAdd,movableHit,anthMult,vanityHit,liqMult,goldMult,mysteryHit,pulpAdd,commissionAdd,inkBallHit,vmSurplus,ccSurplus,justMult,emQuadHit,wetHit,deptMult,eyeAdd,slugAdd,bfAdd,inkPts};
+  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,fuMult,luMult,twinHit,pairHit,shortHit,shortMult,kernHit,fiveHit,bigHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit,effLen,ligHit,crossHit,alphaHit,coloHit,fwMult,midnightHit,secondEdHit,binderAdd,movableHit,anthMult,vanityHit,liqMult,goldMult,mysteryHit,mysteryMult,pulpAdd,commissionAdd,inkBallHit,vmSurplus,ccSurplus,justMult,emQuadHit,wetHit,deptMult,eyeAdd,slugAdd,bfAdd,inkPts};
 }
 function updateLive(){
   const res=resolvedCanvas();
@@ -3381,7 +3422,7 @@ function updateLive(){
   if(sc.slugAdd) parts.push(`+${sc.slugAdd} slug line`);
   if(sc.bfAdd) parts.push(`+${sc.bfAdd} blind faith`);
   if(sc.inkPts) parts.push(`+${sc.inkPts} india ink`);
-  if(sc.mysteryHit) parts.push(`×2 mystery word`);
+  if(sc.mysteryHit) parts.push(`×${sc.mysteryMult} mystery word`);
   ls.innerHTML = `${sc.total} <span class="mult">${parts.join(" ")}${label?" • "+label:""}</span>`;
   updateChallengeBlockHint();
   updateButtons();
@@ -4488,7 +4529,7 @@ function submitWord(){
   statWord(w.toUpperCase(), sc.total, res.length);
   if(sc.mysteryHit){
     if(!charHas("unlimitedMystery")) G.mysterySolvedLevel=G.level;   // Detective is never locked out for the round
-    toast("Mystery word! "+String(G.mystery.word).toUpperCase()+" scores double");
+    toast("Mystery word! "+String(G.mystery.word).toUpperCase()+" scores ×"+mysteryWordMult());
     G.mystery=null; haptic([14,40,14]);
   }
   showDefinition(w);
@@ -5072,7 +5113,7 @@ function discardBoostOffer(){
     price:px(9), art:"💸", d:{type:"discardBoost"}};
 }
 function interestOffer(){
-  return {kind:"Perk",rarity:"epic",name:"Liquidity",desc:"Every $5 in your bank adds 1% to your word scores, up to ×2.",
+  return {kind:"Perk",rarity:"epic",name:"Liquidity",desc:"Every $5 in your bank adds 2% to your word scores, up to ×3.",
     price:px(11), art:"🏦", d:{type:"interest"}};
 }
 function pressMultOffer(rng){
@@ -6555,15 +6596,48 @@ function mysteryCandidates(k){
 }
 /* A definition that spells out its own word gives the game away. Reject those,
    and reject near misses that share a long stem. */
+/* v496c: a clue that contains the answer in ANY form is not a clue. The old
+   check only caught short inflection tails, so "printer" defined as "one who
+   prints" or "note" defined as "the act of noting" both slipped through.
+   Now both sides are reduced to a crude root and compared.
+
+   Deliberately conservative: a false positive only costs us one candidate out
+   of eight, and the pool is the whole common word list. A false NEGATIVE ships
+   a giveaway clue, which is the failure that matters. */
+const ROOT_SUFFIXES = ["ationally","ations","ation","ingly","ments","ness","ment",
+  "able","ible","less","ful","ies","ied","ier","iest","ing","est","ers","er","ed","es","ly","s"];
+// Very common short words that must never trigger a root match on their own.
+const ROOT_STOP = new Set(["the","and","not","but","for","are","was","its","all","any","one",
+  "who","may","can","has","had","that","this","with","from","into","such","than","then","they",
+  "been","more","most","some","very","also","when","what","which","each","being","have"]);
+function wordRoot(w){
+  let x=String(w||"").toLowerCase().replace(/[^a-z]/g,"");
+  if(x.length<4) return x;
+  for(let pass=0; pass<2; pass++){
+    for(const suf of ROOT_SUFFIXES){
+      if(x.length>=suf.length+3 && x.slice(-suf.length)===suf){ x=x.slice(0,-suf.length); break; }
+    }
+  }
+  if(/([bdfglmnprtvz])\1$/.test(x)) x=x.slice(0,-1);        // running -> runn -> run
+  if(x.length>=4 && x.slice(-1)==="i") x=x.slice(0,-1)+"y";  // happi -> happy
+  return x;
+}
 function defRevealsWord(def, w){
   const d=String(def||"").toLowerCase(), esc=String(w||"").replace(/[^a-z]/g,"");
   if(!esc) return true;
-  // Whole-word match plus a short inflection tail, so "cat" is not given away by
-  // "domesticated" but IS given away by "cats". A shared long stem also counts.
-  if(new RegExp("\\b"+esc+"\\w{0,3}\\b").test(d)) return true;
-  if(esc.length>=5){
-    const stem=esc.slice(0, Math.max(4, esc.length-2));
-    if(new RegExp("\\b"+stem+"\\w{0,4}\\b").test(d)) return true;
+  // 1. The word itself, or an inflection of it, sitting in the definition.
+  if(new RegExp("\\b"+esc+"\\w{0,4}\\b").test(d)) return true;
+  // 2. Root comparison, both directions, so any shared stem is caught.
+  const wr=wordRoot(esc), wrNoE=wr.replace(/e$/,"");
+  if(wr.length>=3){
+    const toks=d.match(/[a-z]+/g)||[];
+    for(const t of toks){
+      if(ROOT_STOP.has(t)) continue;
+      const tr=wordRoot(t);
+      if(tr.length<3) continue;
+      if(tr===wr) return true;                       // print / printing
+      if(t.length>=5 && (tr===wrNoE || wr===tr+"e")) return true;   // note / noting
+    }
   }
   return false;
 }
@@ -6571,7 +6645,9 @@ function mysteryHtml(){
   const m=G.mystery; if(!m) return "";
   const pos=m.pos?`<span class="dpos">${escHtml(m.pos)}</span>`:"";
   return `<span class="dw mys">Mystery word</span>${pos}<span class="dd">${escHtml(m.def)}</span>`
-       + `<span class="dmy">Spell the mystery word for double points (one mystery word per level).</span>`;
+       + `<span class="dmy">${charHas("unlimitedMystery")
+            ? "Spell the mystery word for half again the points. A fresh clue every hand."
+            : "Spell the mystery word for double points (one mystery word per level)."}</span>`;
 }
 function renderMystery(){
   const el=$("defStrip"); if(!el) return;
@@ -6803,7 +6879,7 @@ function ownedPerkCards(){
   if(G.handSize>START_HAND) push("🗄️","Fuller Case","Hold "+G.handSize+" tiles in every hand.");
   if(G.extraTurns>0)    push("⏳","Extra Word","+"+G.extraTurns+" word"+(G.extraTurns>1?"s":"")+" to set each round.");
   if(G.extraDiscards>0) push("♻️","Extra Discard","+"+G.extraDiscards+" discard"+(G.extraDiscards>1?"s":"")+" each round.");
-  if(P.interest)   push("🏦","Liquidity","Every $5 banked adds 1% to your word scores, up to ×2. Now ×"+liquidityMult().toFixed(2)+".");
+  if(P.interest)   push("🏦","Liquidity","Every $5 banked adds 2% to your word scores, up to ×3. Now ×"+liquidityMult().toFixed(2)+".");
   if(P.fireSale)   push("🔥","Fire Sale","All shop prices 25% cheaper.");
   if(P.freeRerolls) push("♻️","Free Re-roll","Your first re-roll each shop is free.");
   Object.keys(P.firstUp||{}).forEach(L=>{ const s=P.firstUp[L]; if(s>0) push("⭐","First-up "+L,"Words starting with "+L+" score ×"+(1+0.5*s)+"."); });
