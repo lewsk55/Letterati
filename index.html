@@ -329,6 +329,22 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
 .def-strip .dd.muted{font-style:italic}
 .def-strip .dw.mys{color:var(--brass-deep);letter-spacing:.14em}
 .def-strip .dmy{display:block;margin-top:6px;font-family:var(--ui);font-size:.66rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--brass-deep);opacity:.85}
+.def-strip .dfp{display:block;margin-top:5px;font-family:var(--ui);font-size:.7rem;font-weight:800;letter-spacing:.06em;
+  text-transform:uppercase;color:var(--oxblood)}
+.def-strip .dso{display:inline-block;margin-top:8px;padding:5px 11px;border-radius:999px;cursor:pointer;
+  background:transparent;border:1.5px solid var(--brass);color:var(--brass-deep);
+  font-family:var(--ui);font-size:.64rem;font-weight:800;letter-spacing:.08em;text-transform:uppercase}
+.def-strip .dso:active{transform:translateY(1px)}
+.def-strip.dismissable{cursor:pointer}
+/* v497a: the mystery chip in the live score breakdown pulses gold so a solve
+   reads instantly, without needing to parse the rest of the multiplier chain. */
+.mult .mys-glow{color:var(--brass-deep);font-weight:900;border-radius:5px;padding:0 3px;
+  animation:mysGlow 1.15s ease-in-out infinite}
+@keyframes mysGlow{
+  0%,100%{ text-shadow:0 0 2px rgba(184,140,58,.55), 0 0 5px rgba(184,140,58,.28); background:rgba(184,140,58,.08); }
+  50%    { text-shadow:0 0 7px rgba(212,168,74,.95), 0 0 16px rgba(212,168,74,.55); background:rgba(212,168,74,.24); }
+}
+@media (prefers-reduced-motion:reduce){ .mult .mys-glow{animation:none} }
 .eyebrow{font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft);font-weight:800;text-align:center}
 
 /* word canvas */
@@ -1465,7 +1481,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "496c";
+const VERSION = "497a";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -1636,7 +1652,18 @@ const CHALLENGE_EPIC_POOL = [
   {name:"Deadline Extension",art:"🕰️", desc:"The first round you fail this run costs no hearts: overtime words are free that round.", d:{type:"deadlineExt"}},
   {name:"Galley Proof",     art:"🔭", desc:"See the next three tiles of your draw pile at all times.", d:{type:"galleyProof"}},
   {name:"Revision",         art:"✒️", desc:"Once per round, rewrite one letter of the word you just set. If the new word is real, score the improvement.", d:{type:"revision"}},
-  {name:"The Midnight Press",art:"🌙", desc:"Overtime words score double, and the first overtime word each round costs no heart.", d:{type:"midnightPress"}}
+  {name:"The Midnight Press",art:"🌙", desc:"Overtime words score double, and the first overtime word each round costs no heart.", d:{type:"midnightPress"}},
+  /* Desk-specific rewards. `char` gates them exactly as it does in the shop, so a
+     Writer or Editor run never sees these on a challenge card. */
+  {name:"On the Beat",   art:"👮", char:"detective", desc:"Solve mystery words back to back and the bonus climbs: ×1.5, ×1.75, ×2, ×2.25. Miss and it resets.", d:{type:"onTheBeat"}},
+  {name:"Dragnet",       art:"🕸️", char:"detective", desc:"Any word containing every letter of the mystery word scores the mystery bonus. CRATE solves CART.", d:{type:"dragnet"}},
+  {name:"Smoking Gun",   art:"🔫", char:"detective", desc:"Mystery words score triple, but you get one clue per round instead of one per hand.", d:{type:"smokingGun"}},
+  {name:"Case Closed",   art:"🗃️", char:"detective", desc:"Solving a mystery word gives you a discard back.", d:{type:"caseClosed"}},
+  {name:"The Blotter",   art:"📒", char:"detective", desc:"Every third mystery word you solve this run pays $5.", d:{type:"blotter"}},
+  {name:"Rap Sheet",     art:"📋", char:"detective", desc:"Every mystery word you solve this run adds 0.05 to your Press, permanently.", d:{type:"rapSheet"}},
+  {name:"Fingerprint",   art:"🖍️", char:"detective", desc:"The clue also shows how long the mystery word is and what it starts with.", d:{type:"fingerprint"}},
+  {name:"Second Opinion",art:"🤔", char:"detective", desc:"Once per round, throw out the clue and draw a different one from the same hand.", d:{type:"secondOpinion"}},
+  {name:"Red Herring",   art:"🐟", char:"detective", desc:"Words sharing three or more letters with the live mystery word score +20%.", d:{type:"redHerring"}}
 ];
 const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:2,M:3,N:1,O:1,P:3,Q:10,R:1,S:2,T:2,U:1,V:4,W:4,X:8,Y:4,Z:10};
 // L,S,T bumped 1→2 (v2d): only vowels + N,R,U remain 1-point. Targets scaled to match (see TARGET_SCALE).
@@ -1693,7 +1720,23 @@ function charDef(){ return CHARACTERS[G.character] || CHARACTERS.writer; }
 function charHas(k){ return !!charDef()[k]; }
 /* The Detective gets a clue every hand with no per-round lockout, so each one is
    worth less: x1.5 instead of the standard x2. */
-function mysteryWordMult(){ return charHas("unlimitedMystery") ? 1.5 : 2; }
+const BEAT_LADDER = [1.5, 1.75, 2, 2.25];
+function mysteryWordMult(){
+  if(G.perks && G.perks.smokingGun) return 3;                       // Smoking Gun trades clue rate for power
+  if(G.perks && G.perks.onTheBeat){
+    const n=Math.max(0, Math.min(BEAT_LADDER.length-1, (G.beatStreak||0)));
+    return BEAT_LADDER[n];
+  }
+  return charHas("unlimitedMystery") ? 1.5 : 2;
+}
+function mysteryMultLabel(m){
+  m = (m==null) ? mysteryWordMult() : m;
+  if(m===2) return "double points";
+  if(m===3) return "triple points";
+  return Math.round((m-1)*100)+"% more points";
+}
+/* One clue per hand normally. Smoking Gun drops that to one per round. */
+function mysteryPerRound(){ return !!(G.perks && G.perks.smokingGun); }
 
 /* ============================================================
    ASCENSIONS (v496a)
@@ -1855,10 +1898,10 @@ function epicOwned(e){
 // The featured epic offered at a given challenge level. Seeded by level (and the run
 // seed via makeRng), so it is the same on a reload and reconstructable for daily replay.
 function challengeEpicFor(level){
-  const pool=CHALLENGE_EPIC_POOL.filter(e=>!epicOwned(e));
+  const pool=forChar(CHALLENGE_EPIC_POOL).filter(e=>!epicOwned(e));
   // If somehow everything is owned, fall back to the repeatable offers rather
   // than handing the player a perk they already have.
-  const src = pool.length ? pool : CHALLENGE_EPIC_POOL.filter(e=>OFFER_REPEATABLE.has(e.d&&e.d.type));
+  const src = pool.length ? pool : forChar(CHALLENGE_EPIC_POOL).filter(e=>OFFER_REPEATABLE.has(e.d&&e.d.type));
   if(!src.length) return CHALLENGE_EPIC_POOL[0];
   const rng=makeRng("chalEpic:"+level);
   return src[Math.floor(rng()*src.length)];
@@ -3311,9 +3354,25 @@ function scoreOf(res){
   let vanityHit=false;
   if(G.perks.vanityPress){ vanityHit=true; total*=1.25; }
   // Mystery Word (v495a): spell the hand's hidden word and the whole word doubles.
-  let mysteryHit=false, mysteryMult=1;
+  let mysteryHit=false, mysteryMult=1, dragnetHit=false, herringHit=false;
   if(G.mystery && G.mystery.word && (charHas("unlimitedMystery") || G.mysterySolvedLevel!==G.level) && res.length>=2 && res.every(r=>r.letter)){
-    if(res.map(r=>r.letter.toLowerCase()).join("")===G.mystery.word){ mysteryHit=true; mysteryMult=mysteryWordMult(); total*=mysteryMult; }
+    const played=res.map(r=>r.letter.toLowerCase()).join("");
+    let solved = played===G.mystery.word;
+    // Dragnet: containing every letter of the mystery word counts as solving it.
+    if(!solved && G.perks.dragnet && played.length>=G.mystery.word.length){
+      const have={}; for(const ch of played) have[ch]=(have[ch]||0)+1;
+      solved=true;
+      for(const ch of G.mystery.word){ if(!have[ch]){ solved=false; break; } have[ch]--; }
+      if(solved) dragnetHit=true;
+    }
+    if(solved){ mysteryHit=true; mysteryMult=mysteryWordMult(); total*=mysteryMult; }
+    // Red Herring: near misses pay too, as long as they are not the solve itself.
+    else if(G.perks.redHerring){
+      const my=new Set(G.mystery.word.split(""));
+      let shared=0; const seen=new Set();
+      for(const ch of played){ if(my.has(ch) && !seen.has(ch)){ seen.add(ch); shared++; } }
+      if(shared>=3){ herringHit=true; total*=1.2; }
+    }
   }
   // v494a perk wave
   let inkBallHit=false;
@@ -3359,7 +3418,7 @@ function scoreOf(res){
   if(G.perks.blindFaith && (G.discardsLeft||0)>0){ bfAdd=8*G.discardsLeft; total+=bfAdd; }
   let inkPts=0;
   if(G.perks.indiaInk && (G.inkPtsPending||0)>0){ inkPts=G.inkPtsPending; total+=inkPts; }
-  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,fuMult,luMult,twinHit,pairHit,shortHit,shortMult,kernHit,fiveHit,bigHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit,effLen,ligHit,crossHit,alphaHit,coloHit,fwMult,midnightHit,secondEdHit,binderAdd,movableHit,anthMult,vanityHit,liqMult,goldMult,mysteryHit,mysteryMult,pulpAdd,commissionAdd,inkBallHit,vmSurplus,ccSurplus,justMult,emQuadHit,wetHit,deptMult,eyeAdd,slugAdd,bfAdd,inkPts};
+  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,fuMult,luMult,twinHit,pairHit,shortHit,shortMult,kernHit,fiveHit,bigHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit,effLen,ligHit,crossHit,alphaHit,coloHit,fwMult,midnightHit,secondEdHit,binderAdd,movableHit,anthMult,vanityHit,liqMult,goldMult,mysteryHit,mysteryMult,dragnetHit,herringHit,pulpAdd,commissionAdd,inkBallHit,vmSurplus,ccSurplus,justMult,emQuadHit,wetHit,deptMult,eyeAdd,slugAdd,bfAdd,inkPts};
 }
 function updateLive(){
   const res=resolvedCanvas();
@@ -3422,7 +3481,8 @@ function updateLive(){
   if(sc.slugAdd) parts.push(`+${sc.slugAdd} slug line`);
   if(sc.bfAdd) parts.push(`+${sc.bfAdd} blind faith`);
   if(sc.inkPts) parts.push(`+${sc.inkPts} india ink`);
-  if(sc.mysteryHit) parts.push(`×${sc.mysteryMult} mystery word`);
+  if(sc.mysteryHit) parts.push(`<span class="mys-glow">×${sc.mysteryMult} mystery word${sc.dragnetHit?" (dragnet)":""}</span>`);
+  if(sc.herringHit) parts.push(`×1.2 red herring`);
   ls.innerHTML = `${sc.total} <span class="mult">${parts.join(" ")}${label?" • "+label:""}</span>`;
   updateChallengeBlockHint();
   updateButtons();
@@ -4370,6 +4430,7 @@ function startLevel(){
   G.lastWordLetters=null; G.pulpPending=0;
   G.justStacks=0; G.lastWordLen=null; G.wetProofPending=false; G.inkPtsPending=0;
   G.mystery=null;   // a fresh mystery is drawn with the opening hand
+  G.mysteryLevel=null; G._mysteryLoading=false; G.mysterySkip=[]; G.secondOpinionRound=null;
   G.levelStats={bestWord:"",bestScore:0,words:0};
   const rng=makeRng("lvl:"+G.level+":"+G.attempt);
   // Locked challenge: pull the banned letters out of the deck for this level only,
@@ -4527,10 +4588,20 @@ function submitWord(){
   G.runScore=(G.runScore||0)+sc.total;
   G.levelStats.words++;
   statWord(w.toUpperCase(), sc.total, res.length);
+  if(!sc.mysteryHit && G.perks.onTheBeat && G.mystery && G.mystery.word) G.beatStreak=0;
   if(sc.mysteryHit){
     if(!charHas("unlimitedMystery")) G.mysterySolvedLevel=G.level;   // Detective is never locked out for the round
-    toast("Mystery word! "+String(G.mystery.word).toUpperCase()+" scores ×"+mysteryWordMult());
-    G.mystery=null; haptic([14,40,14]);
+    toast("Mystery word! "+String(G.mystery.word).toUpperCase()+" scores ×"+sc.mysteryMult);
+    G.mysterySolves=(G.mysterySolves||0)+1;
+    // On the Beat climbs on consecutive solves; the miss branch below resets it.
+    if(G.perks.onTheBeat) G.beatStreak=Math.min(BEAT_LADDER.length-1,(G.beatStreak||0)+1);
+    if(G.perks.rapSheet){
+      G.scoreMult=Math.round(((G.scoreMult||1)+0.05)*1000)/1000;
+      toast("Rap Sheet: Press ×"+Number(G.scoreMult).toFixed(3));
+    }
+    if(G.perks.caseClosed){ G.discardsLeft++; toast("Case Closed: discard returned"); }
+    if(G.perks.blotter && G.mysterySolves%3===0){ G.coins=Math.min(COIN_CAP,(G.coins||0)+5); toast("The Blotter: $5"); }
+    G.mystery=null; G.mysteryLevel=null; haptic([14,40,14]);
   }
   showDefinition(w);
   if(sc.total>G.levelStats.bestScore){ G.levelStats.bestScore=sc.total; G.levelStats.bestWord=w.toUpperCase(); }
@@ -5043,13 +5114,67 @@ function perkPool(rng){
   if(!G.perks.reprint)           e.push({make:()=>reprintOffer(),     weight:1.1});
   if(!G.perks.repeater)          e.push({make:()=>repeaterOffer(),    weight:1.4});
   if(!G.perks.powerTrio)         e.push({make:()=>powerTrioOffer(),   weight:1.3});
-  return e;
+  charOffers().forEach(o=>e.push(o));            // desk-specific perks
+  return forChar(e);
 }
 function utilPool(rng){
   const e=[{make:()=>gildOffer(rng),weight:3},{make:()=>eraserOffer(),weight:3}];
   if(G.hearts<heartMax()) e.push({make:()=>heartOffer(),weight:2});
   return e;
 }
+/* ============================================================
+   Character-specific offers (v497a)
+   A pool entry may carry `char`. It is only ever built for that desk, so a
+   Writer run never sees a Detective perk and vice versa. Future characters just
+   add entries with their own `char` key; nothing else needs to change.
+
+   These never enter predShop, which stays hardcoded at the A0 Writer baseline,
+   so the seeded predictor is untouched by any of them.
+   ============================================================ */
+function forChar(list){ return list.filter(x=>!x.char || x.char===G.character); }
+function charOffers(){
+  const e=[];
+  if(G.character==="detective"){
+    if(!G.perks.rapSheet)      e.push({make:()=>rapSheetOffer(),      weight:1.6, char:"detective"});
+    if(!G.perks.fingerprint)   e.push({make:()=>fingerprintOffer(),   weight:1.6, char:"detective"});
+    if(!G.perks.secondOpinion) e.push({make:()=>secondOpinionOffer(), weight:1.5, char:"detective"});
+    if(!G.perks.redHerring)    e.push({make:()=>redHerringOffer(),    weight:1.5, char:"detective"});
+    if(!G.perks.caseClosed)    e.push({make:()=>caseClosedOffer(),    weight:1.2, char:"detective"});
+    if(!G.perks.blotter)       e.push({make:()=>blotterOffer(),       weight:1.2, char:"detective"});
+    if(!G.perks.onTheBeat)     e.push({make:()=>onTheBeatOffer(),     weight:0.8, char:"detective"});
+    if(!G.perks.dragnet)       e.push({make:()=>dragnetOffer(),       weight:0.8, char:"detective"});
+    if(!G.perks.smokingGun)    e.push({make:()=>smokingGunOffer(),    weight:0.7, char:"detective"});
+  }
+  return e;
+}
+function rapSheetOffer(){ return {kind:"Perk",rarity:"common",name:"Rap Sheet",
+  desc:"Every mystery word you solve this run adds 0.05 to your Press, permanently.",
+  price:px(5), art:"\uD83D\uDCCB", d:{type:"rapSheet"}}; }
+function caseClosedOffer(){ return {kind:"Perk",rarity:"rare",name:"Case Closed",
+  desc:"Solving a mystery word gives you a discard back.",
+  price:px(8), art:"\uD83D\uDDC3\uFE0F", d:{type:"caseClosed"}}; }
+function blotterOffer(){ return {kind:"Perk",rarity:"rare",name:"The Blotter",
+  desc:"Every third mystery word you solve this run pays $5.",
+  price:px(8), art:"\uD83D\uDCD2", d:{type:"blotter"}}; }
+function onTheBeatOffer(){ return {kind:"Perk",rarity:"epic",name:"On the Beat",
+  desc:"Solve mystery words back to back and the bonus climbs: \u00d71.5, \u00d71.75, \u00d72, \u00d72.25. Set a word that is not the mystery and it resets.",
+  price:px(12), art:"\uD83D\uDC6E", d:{type:"onTheBeat"}}; }
+function fingerprintOffer(){ return {kind:"Perk",rarity:"common",name:"Fingerprint",
+  desc:"The clue also shows how long the mystery word is and what it starts with.",
+  price:px(5), art:"\uD83D\uDD8D\uFE0F", d:{type:"fingerprint"}}; }
+function secondOpinionOffer(){ return {kind:"Perk",rarity:"common",name:"Second Opinion",
+  desc:"Once per round, throw out the clue and draw a different one from the same hand.",
+  price:px(5), art:"\uD83E\uDD14", d:{type:"secondOpinion"}}; }
+function redHerringOffer(){ return {kind:"Perk",rarity:"common",name:"Red Herring",
+  desc:"Words sharing three or more letters with the live mystery word score +20%.",
+  price:px(6), art:"\uD83D\uDC1F", d:{type:"redHerring"}}; }
+function dragnetOffer(){ return {kind:"Perk",rarity:"epic",name:"Dragnet",
+  desc:"Any word containing every letter of the mystery word scores the mystery bonus. CRATE solves CART.",
+  price:px(13), art:"\uD83D\uDD78\uFE0F", d:{type:"dragnet"}}; }
+function smokingGunOffer(){ return {kind:"Perk",rarity:"epic",name:"Smoking Gun",
+  desc:"Mystery words score triple, but you get one clue per round instead of one per hand.",
+  price:px(13), art:"\uD83D\uDD2B", d:{type:"smokingGun"}}; }
+
 function heldCount(L){ return G.deck.filter(c=>c.kind==="letter"&&c.letter===L).length; }
 function heldNote(L){ const n=heldCount(L); return n===0?" You hold none.":(n===1?" You hold 1.":" You hold "+n+"."); }
 function letterOffer(L){
@@ -5302,6 +5427,16 @@ function applyOffer(o){
     case "commission":   G.perks.commission=true; break;
     case "vanityPress":  G.perks.vanityPress=true; break;
     case "reprint":      G.perks.reprint=true; break;
+    /* Detective perks (v497a) */
+    case "rapSheet":     G.perks.rapSheet=true; break;
+    case "caseClosed":   G.perks.caseClosed=true; break;
+    case "blotter":      G.perks.blotter=true; break;
+    case "onTheBeat":    G.perks.onTheBeat=true; break;
+    case "fingerprint":  G.perks.fingerprint=true; renderMystery(); break;
+    case "secondOpinion":G.perks.secondOpinion=true; renderMystery(); break;
+    case "redHerring":   G.perks.redHerring=true; break;
+    case "dragnet":      G.perks.dragnet=true; break;
+    case "smokingGun":   G.perks.smokingGun=true; renderMystery(); break;
     case "repeater":     G.perks.repeater=true; break;
     case "powerTrio":    G.perks.powerTrio=true; break;
     case "growthMind":   openDeck("growth"); break;
@@ -6622,32 +6757,68 @@ function wordRoot(w){
   if(x.length>=4 && x.slice(-1)==="i") x=x.slice(0,-1)+"y";  // happi -> happy
   return x;
 }
+/* v497a: Wiktionary "form of" pointers are grammar notes, not clues. "simple past
+   and past participle of say" hands you SAID; "plural of gene" hands you GENES;
+   "comparative form of nice: more nice" hands you NICER. The root check cannot
+   catch these because the lemma and the inflection often share no stem the
+   stemmer can reach (say/said), so they get their own rule.
+   Anchored to the head of the definition, where these pointers always sit, which
+   keeps ordinary prose that happens to contain "plural" or "past" out of it. */
+const FORM_OF_MARKERS = ["simple past","past participle","present participle","past tense",
+  "present tense","future tense","third-person","third person","first-person","second-person",
+  "plural","singular","comparative","superlative","inflection","inflected","alternative spelling",
+  "alternative form","alternative case form","alternate spelling","alternate form","obsolete spelling",
+  "obsolete form","archaic spelling","archaic form","dated form","nonstandard spelling",
+  "nonstandard form","misspelling","eye dialect","diminutive","feminine","masculine","genitive",
+  "dative","accusative","nominative","vocative","abbreviation","initialism","acronym","contraction",
+  "gerund","participle","agent noun","attributive form","verbal noun","nominalization","form of",
+  "conjugation","declension","possessive","imperative","subjunctive","indicative","preterite",
+  "infinitive","aphetic","clipping of","short for","synonym of","alternative letter-case"];
+function isFormOfDef(def){
+  let d=String(def||"").toLowerCase().replace(/^\s*(?:\([^)]*\)\s*)+/,"").trim();
+  const head=d.slice(0,70);
+  if(!/\bof\b/.test(head) && !/\bfor\b/.test(head)) return false;
+  return FORM_OF_MARKERS.some(k=>head.indexOf(k)>=0);
+}
+function rootKey(x){ return wordRoot(x).replace(/e$/,""); }
 function defRevealsWord(def, w){
+  if(isFormOfDef(def)) return true;
   const d=String(def||"").toLowerCase(), esc=String(w||"").replace(/[^a-z]/g,"");
   if(!esc) return true;
   // 1. The word itself, or an inflection of it, sitting in the definition.
   if(new RegExp("\\b"+esc+"\\w{0,4}\\b").test(d)) return true;
   // 2. Root comparison, both directions, so any shared stem is caught.
-  const wr=wordRoot(esc), wrNoE=wr.replace(/e$/,"");
-  if(wr.length>=3){
+  // A single trailing-e-insensitive key compares both directions at once, so
+  // nicer/nice, note/noting and make/making all collapse to the same root.
+  const wk=rootKey(esc);
+  if(wk.length>=3){
     const toks=d.match(/[a-z]+/g)||[];
     for(const t of toks){
       if(ROOT_STOP.has(t)) continue;
-      const tr=wordRoot(t);
-      if(tr.length<3) continue;
-      if(tr===wr) return true;                       // print / printing
-      if(t.length>=5 && (tr===wrNoE || wr===tr+"e")) return true;   // note / noting
+      const tk=rootKey(t);
+      if(tk.length>=3 && tk===wk) return true;
     }
   }
   return false;
 }
 function mysteryHtml(){
+  // v497a: the clue box now has a loading state, so a slow lookup reads as
+  // "working on it" rather than as an empty strip.
+  if(G._mysteryLoading){
+    return `<span class="dw mys">Mystery word</span><span class="dd muted">Mystery word is loading\u2026</span>`;
+  }
   const m=G.mystery; if(!m) return "";
   const pos=m.pos?`<span class="dpos">${escHtml(m.pos)}</span>`:"";
-  return `<span class="dw mys">Mystery word</span>${pos}<span class="dd">${escHtml(m.def)}</span>`
-       + `<span class="dmy">${charHas("unlimitedMystery")
-            ? "Spell the mystery word for half again the points. A fresh clue every hand."
-            : "Spell the mystery word for double points (one mystery word per level)."}</span>`;
+  let hint="";
+  if(G.perks && G.perks.fingerprint && m.word){
+    hint=`<span class="dfp">${m.word.length} letters \u00b7 starts with ${escHtml(m.word[0].toUpperCase())}</span>`;
+  }
+  let again="";
+  if(G.perks && G.perks.secondOpinion && G.secondOpinionRound!==G.level){
+    again=`<button class="dso" id="secondOpinionBtn" type="button">Second opinion</button>`;
+  }
+  return `<span class="dw mys">Mystery word</span>${pos}<span class="dd">${escHtml(m.def)}</span>${hint}`
+       + `<span class="dmy">Spell the mystery word for ${mysteryMultLabel()}.</span>${again}`;
 }
 function renderMystery(){
   const el=$("defStrip"); if(!el) return;
@@ -6665,20 +6836,50 @@ function renderMystery(){
   if(!html){ el.classList.add("hidden"); el.innerHTML=""; return; }
   el.classList.remove("hidden","chal-free");
   el.innerHTML=html;
+  const so=$("secondOpinionBtn");
+  if(so) so.addEventListener("click",(ev)=>{ ev.stopPropagation(); useSecondOpinion(); });
 }
-async function refreshMystery(){
+/* Second Opinion: bin this clue and draw another from the same hand, once a round. */
+function useSecondOpinion(){
+  if(!(G.perks && G.perks.secondOpinion)) return;
+  if(G.secondOpinionRound===G.level) return;
+  if(!G.mystery || !G.mystery.word) return;
+  G.secondOpinionRound=G.level;
+  G.mysterySkip=(G.mysterySkip||[]).concat([G.mystery.word]);
+  haptic(10);
+  refreshMystery();
+}
+async function refreshMystery(force){
   const token=String(Date.now()+Math.random()); G._mysteryToken=token;
-  if(G.mysterySolvedLevel===G.level && !charHas("unlimitedMystery")){ G.mystery=null; renderMystery(); return; }   // Detective keeps drawing clues
-  G.mystery=null; renderMystery();
-  const cands=mysteryCandidates(8);
-  for(const w of cands){
-    let d=null; try{ d=await lookupDefinition(w); }catch(e){ d=null; }
-    if(G._mysteryToken!==token) return;        // a newer hand superseded this one
+  if(G.mysterySolvedLevel===G.level && !charHas("unlimitedMystery")){ G._mysteryLoading=false; G.mystery=null; renderMystery(); return; }
+  // Smoking Gun: one clue for the whole round, so an existing clue is kept.
+  if(!force && mysteryPerRound() && G.mystery && G.mysteryLevel===G.level){ renderMystery(); return; }
+  const cands=mysteryCandidates(8).filter(w=>!(G.mysterySkip||[]).includes(w));
+  if(!cands.length){ G._mysteryLoading=false; G.mystery=null; renderMystery(); return; }
+  G.mystery=null; G._mysteryLoading=true; renderMystery();
+  // v497a: the old loop awaited each lookup in turn, so a clue could take eight
+  // round trips to appear. All candidates now go out at once and we take the
+  // first clean one in preference order, which is one round trip in practice.
+  let defs;
+  try{ defs = await Promise.all(cands.map(w=>lookupDefinition(w).catch(()=>null))); }
+  catch(e){ defs = []; }
+  if(G._mysteryToken!==token) return;           // a newer hand superseded this one
+  G._mysteryLoading=false;
+  for(let i=0;i<cands.length;i++){
+    const w=cands[i], d=defs[i];
     if(!d || !d.def || defRevealsWord(d.def,w)) continue;
     G.mystery={word:w, pos:d.pos||"", def:d.def};
-    renderMystery(); save(); return;
+    G.mysteryLevel=G.level;
+    renderMystery(); save(); prefetchMystery(); return;
   }
-  renderMystery();                             // nothing clean: this hand simply has no mystery
+  renderMystery();                              // nothing clean: this hand simply has no mystery
+}
+/* Warm the cache for the next hand's likely candidates so the following clue is
+   already local by the time it is asked for. Fire and forget. */
+function prefetchMystery(){
+  try{
+    mysteryCandidates(8).slice(0,6).forEach(w=>{ if(!(w in defCache)) lookupDefinition(w).catch(()=>{}); });
+  }catch(e){}
 }
 function showDefinition(word){
   const el=$("defStrip"); if(!el) return;
@@ -6686,6 +6887,7 @@ function showDefinition(word){
   if(!w){ el.classList.add("hidden"); return; }
   el.classList.remove("hidden");
   el.dataset.hold=String(Date.now()+7000);   // v495a: the played word owns the strip before the mystery returns
+  el.dataset.dismissable="1";                // v497a: tap it to hand the strip back to the mystery
   el.innerHTML=`<span class="dw">${w}</span><span class="dd muted">looking up…</span>`;
   const token=String(Date.now()+Math.random()); el.dataset.token=token;
   lookupDefinition(word).then(res=>{
@@ -6804,6 +7006,15 @@ function ownedPerksList(){
   if(G.perks.powerTrio)  out.push("Power Trio · ×2 for three of a letter");
   if(G.perks.reprint)    out.push("Reprint · spare the first lost heart"+(G.reprintUsed?" (used)":""));
   if(G.perks.proofSheet) out.push("Proof Sheet · see your next tile");
+  if(G.perks.rapSheet)     out.push("Rap Sheet · +0.05 Press per solve ("+(G.mysterySolves||0)+" so far)");
+  if(G.perks.caseClosed)   out.push("Case Closed · a solve returns a discard");
+  if(G.perks.blotter)      out.push("The Blotter · $5 every third solve ("+((G.mysterySolves||0)%3)+"/3)");
+  if(G.perks.onTheBeat)    out.push("On the Beat · streak ×"+mysteryWordMult());
+  if(G.perks.fingerprint)  out.push("Fingerprint · clue shows length and first letter");
+  if(G.perks.secondOpinion)out.push("Second Opinion · swap the clue once a round"+(G.secondOpinionRound===G.level?" (used)":""));
+  if(G.perks.redHerring)   out.push("Red Herring · +20% for 3 shared letters");
+  if(G.perks.dragnet)      out.push("Dragnet · contain the mystery word to solve it");
+  if(G.perks.smokingGun)   out.push("Smoking Gun · mystery ×3, one clue per round");
   if((G.scoreMult||1)>1) out.push("Press · ×"+Number(G.scoreMult).toFixed(3));
   if((G.pressGrowth||0)>0) out.push("Press growth · +"+(G.pressGrowth*100).toFixed(1)+"% per 6+ word");
   if(G.handSize>START_HAND) out.push("Fuller Case · hand of "+G.handSize);
@@ -7002,7 +7213,7 @@ function save(){
       perks:G.perks, scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, reprintUsed:G.reprintUsed, foilUsed:G.foilUsed, challenge:G.challenge, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, runMs:G.runMs, stats:G.stats,
       wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, wordPlays:G.wordPlays, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
       attempt:G.attempt, target:G.target, score:G.score, handsLeft:G.handsLeft, discardsLeft:G.discardsLeft,
-      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), roundLengths:(G.roundLengths||[]), standingDone:!!G.standingDone, _marginsApplied:(+G._marginsApplied||0), overtime:!!G.overtime, deadlineExtRound:(G.deadlineExtRound==null?null:G.deadlineExtRound), midnightRound:(G.midnightRound==null?null:G.midnightRound), secondEdRound:(G.secondEdRound==null?null:G.secondEdRound), secondEdHalf:!!G.secondEdHalf, revisionRound:(G.revisionRound==null?null:G.revisionRound), boss:(G.boss||null), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0, justStacks:G.justStacks||0, lastWordLen:(G.lastWordLen==null?null:G.lastWordLen), wetProofPending:!!G.wetProofPending, inkPtsPending:G.inkPtsPending||0, compositorRound:(G.compositorRound==null?null:G.compositorRound), mystery:(G.mystery||null), mysterySolvedLevel:(G.mysterySolvedLevel==null?null:G.mysterySolvedLevel),
+      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), roundLengths:(G.roundLengths||[]), standingDone:!!G.standingDone, _marginsApplied:(+G._marginsApplied||0), overtime:!!G.overtime, deadlineExtRound:(G.deadlineExtRound==null?null:G.deadlineExtRound), midnightRound:(G.midnightRound==null?null:G.midnightRound), secondEdRound:(G.secondEdRound==null?null:G.secondEdRound), secondEdHalf:!!G.secondEdHalf, revisionRound:(G.revisionRound==null?null:G.revisionRound), boss:(G.boss||null), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0, justStacks:G.justStacks||0, lastWordLen:(G.lastWordLen==null?null:G.lastWordLen), wetProofPending:!!G.wetProofPending, inkPtsPending:G.inkPtsPending||0, compositorRound:(G.compositorRound==null?null:G.compositorRound), mystery:(G.mystery||null), mysterySolvedLevel:(G.mysterySolvedLevel==null?null:G.mysterySolvedLevel), mysterySolves:G.mysterySolves||0, beatStreak:G.beatStreak||0, mysteryLevel:(G.mysteryLevel==null?null:G.mysteryLevel), mysterySkip:(G.mysterySkip||[]), secondOpinionRound:(G.secondOpinionRound==null?null:G.secondOpinionRound),
       rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed, letterPlays:G.letterPlays||{}, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
     };
     localStorage.setItem(SAVE_KEY,JSON.stringify(data));
@@ -7032,7 +7243,7 @@ function continueRun(){
   G.overtime=!!d.overtime; G.deadlineExtRound=(d.deadlineExtRound==null?null:d.deadlineExtRound); G.midnightRound=(d.midnightRound==null?null:d.midnightRound);
   G.secondEdRound=(d.secondEdRound==null?null:d.secondEdRound); G.secondEdHalf=!!d.secondEdHalf; G.revisionRound=(d.revisionRound==null?null:d.revisionRound); G.lastPlay=null;
   G.boss=d.boss||null; normalizeBoss(); if(G.boss&&G.boss.active&&G.level===WIN_LEVEL) document.body.classList.add("boss-round");
-  G.anagramSigs=d.anagramSigs||{}; G.anthologyCount=d.anthologyCount||0; G.letterPlays=d.letterPlays||{}; G.abcSeen=d.abcSeen||{}; G.lastWordLetters=d.lastWordLetters||null; G.pulpPending=d.pulpPending||0; G.justStacks=d.justStacks||0; G.lastWordLen=(d.lastWordLen==null?null:d.lastWordLen); G.wetProofPending=!!d.wetProofPending; G.inkPtsPending=d.inkPtsPending||0; G.compositorRound=(d.compositorRound==null?null:d.compositorRound); G.mystery=d.mystery||null; G.mysterySolvedLevel=(d.mysterySolvedLevel==null?null:d.mysterySolvedLevel);
+  G.anagramSigs=d.anagramSigs||{}; G.anthologyCount=d.anthologyCount||0; G.letterPlays=d.letterPlays||{}; G.abcSeen=d.abcSeen||{}; G.lastWordLetters=d.lastWordLetters||null; G.pulpPending=d.pulpPending||0; G.justStacks=d.justStacks||0; G.lastWordLen=(d.lastWordLen==null?null:d.lastWordLen); G.wetProofPending=!!d.wetProofPending; G.inkPtsPending=d.inkPtsPending||0; G.compositorRound=(d.compositorRound==null?null:d.compositorRound); G.mystery=d.mystery||null; G.mysterySolvedLevel=(d.mysterySolvedLevel==null?null:d.mysterySolvedLevel); G.mysterySolves=d.mysterySolves||0; G.beatStreak=d.beatStreak||0; G.mysteryLevel=(d.mysteryLevel==null?null:d.mysteryLevel); G.mysterySkip=d.mysterySkip||[]; G.secondOpinionRound=(d.secondOpinionRound==null?null:d.secondOpinionRound); G._mysteryLoading=false;
   // v491h migration: Free jazz is retired; strip any lingering jazz cards from a
   // saved run so nothing unplayable sits in a pile.
   { const noJazz=a=>Array.isArray(a)?a.filter(c=>c.kind!=="jazz"):a;
@@ -7070,6 +7281,10 @@ function continueRun(){
     renderShop();
   } else {
     showGame(); renderChallengeBanner(); renderCanvas(); renderHand(); renderHud(); updateLive();
+    // v497a: the clue strip was never re-rendered after a reload, so the mystery
+    // word stayed invisible until a discard forced a new hand.
+    if(G.mystery && G.mystery.word){ renderMystery(); prefetchMystery(); }
+    else { refreshMystery(); }
   }
   syncTimer();
 }
@@ -7189,7 +7404,7 @@ function newRun(seed, charId, asc){
   G.wordsPlayed=0; G.runScore=0; G.runBestWord=""; G.runBestScore=0; G.wordPlays={}; G.levelStats={bestWord:"",bestScore:0,words:0};
   G.attempt=0; G.best=1; G.shopOffers=[]; G.runMs=0;
   G.challenge=null; G.challengePending=null; G._rescues=0;   // never carry a challenge into a fresh run
-  G.mystery=null; G.mysterySolvedLevel=null;
+  G.mystery=null; G.mysterySolvedLevel=null; G.mysterySolves=0; G.beatStreak=0; G.mysteryLevel=null; G.mysterySkip=[]; G.secondOpinionRound=null; G._mysteryLoading=false;
   G.letterPlays={}; G._dealerCardId=null;
   G.shopSeen=[];
   G.boss=null; document.body.classList.remove("boss-round");
@@ -7273,6 +7488,17 @@ $("seedBtn").addEventListener("click",()=>{
   openCharSelect(s||null);
 });
 $("charStartBtn").addEventListener("click",beginSelectedRun);
+/* v497a: tapping the definition of the word you just set dismisses it early and
+   returns the strip to the mystery clue (or its loading state). */
+$("defStrip").addEventListener("click",(ev)=>{
+  if(ev.target && ev.target.id==="secondOpinionBtn") return;
+  const el=$("defStrip");
+  if(el.dataset.dismissable!=="1") return;
+  if(+(el.dataset.hold||0) <= Date.now()) return;
+  el.dataset.hold="0"; el.dataset.dismissable="0"; el.dataset.token="";
+  haptic(8);
+  renderMystery();
+});
 $("charBackBtn").addEventListener("click",closeCharSelect);
 $("submitBtn").addEventListener("click",submitWord);
 $("discardBtn").addEventListener("click",discardCanvas);
