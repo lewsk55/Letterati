@@ -1481,7 +1481,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "497a";
+const VERSION = "497b";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -1655,7 +1655,7 @@ const CHALLENGE_EPIC_POOL = [
   {name:"The Midnight Press",art:"🌙", desc:"Overtime words score double, and the first overtime word each round costs no heart.", d:{type:"midnightPress"}},
   /* Desk-specific rewards. `char` gates them exactly as it does in the shop, so a
      Writer or Editor run never sees these on a challenge card. */
-  {name:"On the Beat",   art:"👮", char:"detective", desc:"Solve mystery words back to back and the bonus climbs: ×1.5, ×1.75, ×2, ×2.25. Miss and it resets.", d:{type:"onTheBeat"}},
+  {name:"On the Beat",   art:"👮", char:"detective", desc:"Solve mystery words back to back and the bonus climbs: ×2, ×2.25, ×2.5, ×2.75. Miss and it resets.", d:{type:"onTheBeat"}},
   {name:"Dragnet",       art:"🕸️", char:"detective", desc:"Any word containing every letter of the mystery word scores the mystery bonus. CRATE solves CART.", d:{type:"dragnet"}},
   {name:"Smoking Gun",   art:"🔫", char:"detective", desc:"Mystery words score triple, but you get one clue per round instead of one per hand.", d:{type:"smokingGun"}},
   {name:"Case Closed",   art:"🗃️", char:"detective", desc:"Solving a mystery word gives you a discard back.", d:{type:"caseClosed"}},
@@ -1703,7 +1703,7 @@ const CHARACTERS = {
   detective: {
     id:"detective", name:"The Detective", art:"\uD83D\uDD0D", tag:"Mystery",
     blurb:"Every hand carries a clue. Solve as many as you can find, but the press expects more of you.",
-    boon:"Unlimited mystery words, a fresh clue every hand",
+    boon:"Unlimited mystery words at double points, a fresh clue every hand",
     bane:"Every round target is 25 percent higher",
     targetMult:1.25, unlimitedMystery:true
   },
@@ -1720,14 +1720,14 @@ function charDef(){ return CHARACTERS[G.character] || CHARACTERS.writer; }
 function charHas(k){ return !!charDef()[k]; }
 /* The Detective gets a clue every hand with no per-round lockout, so each one is
    worth less: x1.5 instead of the standard x2. */
-const BEAT_LADDER = [1.5, 1.75, 2, 2.25];
+const BEAT_LADDER = [2, 2.25, 2.5, 2.75];   // v497b: rebased with the x2 mystery value so the perk always climbs
 function mysteryWordMult(){
   if(G.perks && G.perks.smokingGun) return 3;                       // Smoking Gun trades clue rate for power
   if(G.perks && G.perks.onTheBeat){
     const n=Math.max(0, Math.min(BEAT_LADDER.length-1, (G.beatStreak||0)));
     return BEAT_LADDER[n];
   }
-  return charHas("unlimitedMystery") ? 1.5 : 2;
+  return 2;
 }
 function mysteryMultLabel(m){
   m = (m==null) ? mysteryWordMult() : m;
@@ -5157,7 +5157,7 @@ function blotterOffer(){ return {kind:"Perk",rarity:"rare",name:"The Blotter",
   desc:"Every third mystery word you solve this run pays $5.",
   price:px(8), art:"\uD83D\uDCD2", d:{type:"blotter"}}; }
 function onTheBeatOffer(){ return {kind:"Perk",rarity:"epic",name:"On the Beat",
-  desc:"Solve mystery words back to back and the bonus climbs: \u00d71.5, \u00d71.75, \u00d72, \u00d72.25. Set a word that is not the mystery and it resets.",
+  desc:"Solve mystery words back to back and the bonus climbs: \u00d72, \u00d72.25, \u00d72.5, \u00d72.75. Set a word that is not the mystery and it resets.",
   price:px(12), art:"\uD83D\uDC6E", d:{type:"onTheBeat"}}; }
 function fingerprintOffer(){ return {kind:"Perk",rarity:"common",name:"Fingerprint",
   desc:"The clue also shows how long the mystery word is and what it starts with.",
