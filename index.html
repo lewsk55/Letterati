@@ -1524,7 +1524,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "498d";
+const VERSION = "499a";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -1771,11 +1771,16 @@ function charHas(k){ return !!charDef()[k]; }
    so a Common word with a maxed streak reproduces the old numbers exactly.
    ============================================================ */
 const MYSTERY_TIERS = [
-  {key:"common",   name:"Common",   mult:2,    max:20},
-  {key:"uncommon", name:"Uncommon", mult:2.25, max:36},
-  {key:"rare",     name:"Rare",     mult:2.5,  max:52},
-  {key:"cryptic",  name:"Cryptic",  mult:3,    max:Infinity}
+  {key:"common",   name:"Common",   mult:2,    pct:0.46, max:20},
+  {key:"uncommon", name:"Uncommon", mult:2.25, pct:0.75, max:36},
+  {key:"rare",     name:"Rare",     mult:2.5,  pct:0.92, max:52},
+  {key:"cryptic",  name:"Cryptic",  mult:3,    pct:1.00, max:Infinity}
 ];
+/* Cut points measured from the word list actually loaded. `pct` is the share of
+   the pool at or below each tier, so the mix stays sensible no matter how long
+   the list is or how deep into the frequency tail it runs. The static `max`
+   values remain as a fallback for a tiny or missing list. */
+let _MCUTS=null;
 const BEAT_BONUS = [0, 0.25, 0.5, 0.75];   // On the Beat adds to the tier, it does not replace it
 const SMOKING_GUN_BONUS = 1;
 function mysteryDifficulty(w){
@@ -1792,8 +1797,20 @@ function mysteryDifficulty(w){
   d += Math.max(0, avg-1.6) * 9;                                        // awkward letters
   return d;
 }
+function buildRarityCuts(){
+  _MCUTS=null;
+  if(!_MWORDS || _MWORDS.length<400) return;          // too small to calibrate against
+  const ds=new Float64Array(_MWORDS.length);
+  for(let i=0;i<_MWORDS.length;i++) ds[i]=mysteryDifficulty(_MWORDS[i]);
+  ds.sort();
+  _MCUTS=MYSTERY_TIERS.slice(0,-1).map(t=>ds[Math.min(ds.length-1, Math.floor(ds.length*t.pct))]);
+}
 function mysteryRarity(w){
   const d=mysteryDifficulty(w);
+  if(_MCUTS){
+    for(let i=0;i<_MCUTS.length;i++) if(d<=_MCUTS[i]) return MYSTERY_TIERS[i];
+    return MYSTERY_TIERS[MYSTERY_TIERS.length-1];
+  }
   return MYSTERY_TIERS.find(t=>d<t.max) || MYSTERY_TIERS[MYSTERY_TIERS.length-1];
 }
 function mysteryWordMult(w){
@@ -6923,6 +6940,7 @@ function mysteryIndex(){
   for(let i=1;i<Math.min(words.length,600);i++){ if(words[i]<words[i-1]){ sorted=false; break; } }
   if(sorted || words.length<50){ _MRANKS=null; }
   else { _MRANKS={}; for(let i=0;i<words.length;i++) _MRANKS[words[i]]=i; }
+  buildRarityCuts();   // must run after ranks exist, since difficulty depends on them
 }
 /* Uniform reservoir sample of the words this hand can spell. Two reservoirs so
    longer words are preferred when the hand has them. Uses its own rng instance,
