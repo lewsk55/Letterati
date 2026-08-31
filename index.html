@@ -329,6 +329,14 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
 .def-strip .dd.muted{font-style:italic}
 .def-strip .dw.mys{color:var(--brass-deep);letter-spacing:.14em}
 .def-strip .dmy{display:block;margin-top:6px;font-family:var(--ui);font-size:.66rem;font-weight:800;letter-spacing:.04em;text-transform:uppercase;color:var(--brass-deep);opacity:.85}
+.def-strip .dtier{display:inline-block;margin-left:7px;padding:2px 8px;border-radius:999px;vertical-align:2px;
+  font-family:var(--ui);font-size:.6rem;font-weight:900;letter-spacing:.1em;text-transform:uppercase;
+  border:1.5px solid currentColor}
+.def-strip .dtier.t-common{color:#7A7060}
+.def-strip .dtier.t-uncommon{color:var(--moss)}
+.def-strip .dtier.t-rare{color:var(--brass-deep);background:rgba(184,140,58,.12)}
+.def-strip .dtier.t-cryptic{color:var(--oxblood);background:rgba(158,59,46,.12);
+  animation:mysGlow 1.6s ease-in-out infinite}
 .def-strip .dfp{display:block;margin-top:5px;font-family:var(--ui);font-size:.7rem;font-weight:800;letter-spacing:.06em;
   text-transform:uppercase;color:var(--oxblood)}
 .def-strip .dso{display:inline-block;margin-top:8px;padding:5px 11px;border-radius:999px;cursor:pointer;
@@ -359,6 +367,40 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
   color:var(--ink-soft);font-size:.82rem;font-style:italic;font-family:var(--serif);
 }
 .canvas.shake{animation:nudge .4s ease}
+/* ---------- Balatro-style tally (v498a) ---------- */
+.word-tally{position:fixed;transform:translate(-50%,-100%);z-index:26;pointer-events:none;
+  font-family:var(--serif);font-weight:700;font-size:2.6rem;line-height:1;color:var(--brass-deep);
+  text-shadow:0 2px 0 rgba(255,255,255,.55), 0 0 14px rgba(184,140,58,.45)}
+.word-tally.pop{animation:tallyPop .13s ease-out}
+.word-tally.big{font-size:3.6rem;color:var(--oxblood);text-shadow:0 2px 0 rgba(255,255,255,.5), 0 0 26px rgba(212,168,74,.85)}
+.word-tally.out{opacity:0;transform:translate(-50%,-135%) scale(1.12);transition:opacity .3s ease, transform .3s ease}
+@keyframes tallyPop{0%{transform:translate(-50%,-100%) scale(1)}55%{transform:translate(-50%,-100%) scale(1.24)}100%{transform:translate(-50%,-100%) scale(1)}}
+/* each letter jiggles as its own points land */
+.tile.tally{animation:tileTally .30s cubic-bezier(.34,1.56,.64,1)}
+@keyframes tileTally{
+  0%  {transform:translateY(0)      rotate(0deg)   scale(1)}
+  22% {transform:translateY(-9px)   rotate(-6deg)  scale(1.16,.9)}
+  48% {transform:translateY(2px)    rotate(5deg)   scale(.94,1.08)}
+  72% {transform:translateY(-3px)   rotate(-2.5deg) scale(1.05,.97)}
+  100%{transform:translateY(0)      rotate(0deg)   scale(1)}
+}
+/* the freeze frame: everything stops and swells for a beat before the payoff */
+.canvas.hitstop{transform:scale(1.07);filter:brightness(1.16) saturate(1.1);transition:none}
+.canvas.hitstop .tile{animation:none !important}
+/* released: the word wobbles on damped springs until it settles */
+.canvas.settle{animation:canvasSettle .68s cubic-bezier(.22,1.4,.36,1)}
+@keyframes canvasSettle{
+  0%  {transform:scale(1.07) rotate(0deg)}
+  18% {transform:scale(.975) rotate(-1.5deg)}
+  38% {transform:scale(1.028) rotate(1.1deg)}
+  58% {transform:scale(.991) rotate(-.6deg)}
+  78% {transform:scale(1.008) rotate(.3deg)}
+  100%{transform:scale(1) rotate(0deg)}
+}
+@media (prefers-reduced-motion:reduce){
+  .word-tally.pop,.tile.tally,.canvas.settle{animation:none}
+  .canvas.hitstop{transform:none;filter:none}
+}
 @keyframes nudge{0%,100%{transform:translateX(0)}20%{transform:translateX(-5px)}40%{transform:translateX(5px)}60%{transform:translateX(-3px)}80%{transform:translateX(3px)}}
 .canvas-foot{display:flex;align-items:center;justify-content:center;gap:10px;margin-top:10px;min-height:24px}
 .live-word{font-family:var(--serif);font-weight:600;letter-spacing:.12em;text-transform:uppercase;font-size:.9rem}
@@ -967,6 +1009,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
       <button class="btn btn-ghost" id="revisionBtn">✒️ Revision</button>
       <button class="btn btn-ghost" id="compositorBtn">🧩 Compositor</button>
     </div>
+    <div class="word-tally hidden" id="wordTally" aria-hidden="true"></div>
     <div class="def-strip hidden" id="defStrip" aria-live="polite"></div>
     </div><!-- /play-center -->
 
@@ -1481,7 +1524,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "497b";
+const VERSION = "498b";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -1702,10 +1745,10 @@ const CHARACTERS = {
   },
   detective: {
     id:"detective", name:"The Detective", art:"\uD83D\uDD0D", tag:"Mystery",
-    blurb:"Every hand carries a clue. Solve as many as you can find, but the press expects more of you.",
-    boon:"Unlimited mystery words at double points, a fresh clue every hand",
-    bane:"Every round target is 25 percent higher",
-    targetMult:1.25, unlimitedMystery:true
+    blurb:"Every hand carries a clue. The rarer the answer, the harder it pays.",
+    boon:"Unlimited mystery words, a fresh clue every hand",
+    bane:"Lives or dies on the clues. Ordinary words pay ordinary money.",
+    targetMult:1, unlimitedMystery:true
   },
   editor: {
     id:"editor", name:"The Editor", art:"\u2702\uFE0F", tag:"Revision",
@@ -1720,14 +1763,47 @@ function charDef(){ return CHARACTERS[G.character] || CHARACTERS.writer; }
 function charHas(k){ return !!charDef()[k]; }
 /* The Detective gets a clue every hand with no per-round lockout, so each one is
    worth less: x1.5 instead of the standard x2. */
-const BEAT_LADDER = [2, 2.25, 2.5, 2.75];   // v497b: rebased with the x2 mystery value so the perk always climbs
-function mysteryWordMult(){
-  if(G.perks && G.perks.smokingGun) return 3;                       // Smoking Gun trades clue rate for power
-  if(G.perks && G.perks.onTheBeat){
-    const n=Math.max(0, Math.min(BEAT_LADDER.length-1, (G.beatStreak||0)));
-    return BEAT_LADDER[n];
+/* ============================================================
+   Mystery word rarity (v498a)
+   Harder answers pay more. Difficulty is blended from three signals:
+   how rare the word is in the common-word corpus, how long it is, and
+   how awkward its letters are. Perks then add on TOP of the tier value,
+   so a Common word with a maxed streak reproduces the old numbers exactly.
+   ============================================================ */
+const MYSTERY_TIERS = [
+  {key:"common",   name:"Common",   mult:2,    max:20},
+  {key:"uncommon", name:"Uncommon", mult:2.25, max:36},
+  {key:"rare",     name:"Rare",     mult:2.5,  max:52},
+  {key:"cryptic",  name:"Cryptic",  mult:3,    max:Infinity}
+];
+const BEAT_BONUS = [0, 0.25, 0.5, 0.75];   // On the Beat adds to the tier, it does not replace it
+const SMOKING_GUN_BONUS = 1;
+function mysteryDifficulty(w){
+  w=String(w||"").toLowerCase(); if(!w) return 0;
+  let d=0;
+  // Corpus rarity, only when the source list is genuinely frequency-ordered.
+  if(_MRANKS && _MRANKS[w]!=null && _MWORDS && _MWORDS.length){
+    d += (_MRANKS[w]/_MWORDS.length) * 55;
+  } else {
+    d += 18;   // no usable frequency signal: sit everything mid-band and let length and letters decide
   }
-  return 2;
+  d += Math.max(0, w.length-4) * 7;                                     // longer is harder to spot
+  const avg=[...w].reduce((n,c)=>n+(LETTER_VALUES[c.toUpperCase()]||1),0)/w.length;
+  d += Math.max(0, avg-1.6) * 9;                                        // awkward letters
+  return d;
+}
+function mysteryRarity(w){
+  const d=mysteryDifficulty(w);
+  return MYSTERY_TIERS.find(t=>d<t.max) || MYSTERY_TIERS[MYSTERY_TIERS.length-1];
+}
+function mysteryWordMult(w){
+  if(w==null) w = (G.mystery && G.mystery.word) || "";
+  let m = w ? mysteryRarity(w).mult : 2;
+  if(G.perks && G.perks.onTheBeat){
+    m += BEAT_BONUS[Math.max(0, Math.min(BEAT_BONUS.length-1, (G.beatStreak||0)))];
+  }
+  if(G.perks && G.perks.smokingGun) m += SMOKING_GUN_BONUS;
+  return Math.round(m*100)/100;
 }
 function mysteryMultLabel(m){
   m = (m==null) ? mysteryWordMult() : m;
@@ -2665,6 +2741,69 @@ function wordChime(len){
 }
 
 /* ---------- screen shake ---------- */
+/* ============================================================
+   Balatro-style word tally (v498a)
+   Points are walked letter by letter with a rising tone and a jiggle on each
+   tile, then the word freezes for a beat (hit stop) before the payoff fires and
+   the letters wobble down to rest. The payoff callback carries the existing
+   juice, so the burst, shake and chime land on the release rather than up front.
+   ============================================================ */
+const TALLY_HITSTOP = 190;
+function reducedMotion(){
+  try{ return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); }
+  catch(e){ return false; }
+}
+function tallyStepMs(n){ return n>=8 ? 62 : n>=6 ? 74 : 88; }
+function tallyWord(tiles, sc, power, done){
+  const el=$("wordTally");
+  const vals=(sc.letterVals||[]).map(v=>+v||0);
+  const n=Math.min(tiles.length, vals.length);
+  if(!el || !n || reducedMotion()){ done(); return; }
+  const place=()=>{ const cr=$("canvas").getBoundingClientRect();
+    el.style.left=(cr.left+cr.width/2)+"px"; el.style.top=(cr.top-4)+"px"; };
+  place();
+  el.className="word-tally"; el.textContent="0";
+  const step=tallyStepMs(n);
+  let run=0;
+  for(let i=0;i<n;i++){
+    setTimeout(()=>{
+      place();
+      run+=vals[i];
+      el.textContent=String(Math.round(run));
+      el.classList.remove("pop"); void el.offsetWidth; el.classList.add("pop");
+      const t=tiles[i];
+      if(t){
+        t.classList.remove("tally"); void t.offsetWidth;
+        t.classList.add("tally"); t.classList.add("glow");
+        spawnCellJuice(t,{n:3+Math.round(power*5),color:"var(--brass)"});
+      }
+      // a faint rise in pitch across the word, about a fifth from first to last
+      const k = n>1 ? i/(n-1) : 1;
+      _tone(370*Math.pow(2, k*0.62), 0.05, 0.045, "triangle");
+    }, i*step);
+  }
+  const end=n*step;
+  // hit stop: the total lands, everything freezes and swells
+  setTimeout(()=>{
+    place();
+    el.textContent=String(sc.total);
+    el.classList.remove("pop"); el.classList.add("big");
+    $("canvas").classList.add("hitstop");
+    _tone(150, 0.10, 0.085, "sawtooth");
+    haptic(22);
+  }, end+30);
+  // release: the payoff fires and the letters settle on damped springs
+  setTimeout(()=>{
+    const c=$("canvas");
+    c.classList.remove("hitstop");
+    c.classList.remove("settle"); void c.offsetWidth; c.classList.add("settle");
+    setTimeout(()=>c.classList.remove("settle"), 700);
+    tiles.forEach(t=>t&&t.classList.remove("tally"));
+    el.classList.add("out");
+    setTimeout(()=>{ el.className="word-tally hidden"; el.textContent=""; }, 340);
+    done();
+  }, end+30+TALLY_HITSTOP);
+}
 function screenShake(amp){
   const el=$("app"); if(!el||reduceMotion()) return;
   const a=(typeof amp==="number" && isFinite(amp)) ? amp : 8;
@@ -3255,10 +3394,12 @@ function scoreOf(res){
   goldMult=Math.round(goldMult*1000)/1000;
   // Ditto Mark: this tile copies the highest value among the OTHER tiles in the word
   res.forEach((r,i)=>{ if(r.card&&r.card.ditto){ let mx=0; res.forEach((o,j)=>{ if(j!==i && !(o.card&&o.card.ditto) && vals[j]>mx) mx=vals[j]; }); if(mx>0) vals[i]=mx; } });
+  const letterVals=[];
   res.forEach((r,i)=>{
     let v=vals[i];
     if(r.card&&r.card.dropcap && i===0) v*=3;                        // Drop Cap: triple as the first letter
     if(r.card&&r.card.serif && (i===0||i===res.length-1)) v*=2;      // Serif Stamp: double at either end
+    letterVals.push(v);                                              // v498a: the tally animation reads these
     sum+=v;
   });
   const boldCount=res.reduce((n,r)=>n+((r.card&&r.card.boldface)?1:0),0);
@@ -3365,7 +3506,7 @@ function scoreOf(res){
       for(const ch of G.mystery.word){ if(!have[ch]){ solved=false; break; } have[ch]--; }
       if(solved) dragnetHit=true;
     }
-    if(solved){ mysteryHit=true; mysteryMult=mysteryWordMult(); total*=mysteryMult; }
+    if(solved){ mysteryHit=true; mysteryMult=mysteryWordMult(G.mystery.word); total*=mysteryMult; }
     // Red Herring: near misses pay too, as long as they are not the solve itself.
     else if(G.perks.redHerring){
       const my=new Set(G.mystery.word.split(""));
@@ -3418,7 +3559,7 @@ function scoreOf(res){
   if(G.perks.blindFaith && (G.discardsLeft||0)>0){ bfAdd=8*G.discardsLeft; total+=bfAdd; }
   let inkPts=0;
   if(G.perks.indiaInk && (G.inkPtsPending||0)>0){ inkPts=G.inkPtsPending; total+=inkPts; }
-  return {total:Math.round(total),sum:Math.round(sum*10)/10,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,fuMult,luMult,twinHit,pairHit,shortHit,shortMult,kernHit,fiveHit,bigHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit,effLen,ligHit,crossHit,alphaHit,coloHit,fwMult,midnightHit,secondEdHit,binderAdd,movableHit,anthMult,vanityHit,liqMult,goldMult,mysteryHit,mysteryMult,dragnetHit,herringHit,pulpAdd,commissionAdd,inkBallHit,vmSurplus,ccSurplus,justMult,emQuadHit,wetHit,deptMult,eyeAdd,slugAdd,bfAdd,inkPts};
+  return {total:Math.round(total),sum:Math.round(sum*10)/10,letterVals,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,fuMult,luMult,twinHit,pairHit,shortHit,shortMult,kernHit,fiveHit,bigHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit,effLen,ligHit,crossHit,alphaHit,coloHit,fwMult,midnightHit,secondEdHit,binderAdd,movableHit,anthMult,vanityHit,liqMult,goldMult,mysteryHit,mysteryMult,dragnetHit,herringHit,pulpAdd,commissionAdd,inkBallHit,vmSurplus,ccSurplus,justMult,emQuadHit,wetHit,deptMult,eyeAdd,slugAdd,bfAdd,inkPts};
 }
 function updateLive(){
   const res=resolvedCanvas();
@@ -4430,7 +4571,7 @@ function startLevel(){
   G.lastWordLetters=null; G.pulpPending=0;
   G.justStacks=0; G.lastWordLen=null; G.wetProofPending=false; G.inkPtsPending=0;
   G.mystery=null;   // a fresh mystery is drawn with the opening hand
-  G.mysteryLevel=null; G._mysteryLoading=false; G.mysterySkip=[]; G.secondOpinionRound=null;
+  G.mysteryLevel=null; G._mysteryLoading=false; G.mysterySkip=[]; G.secondOpinionRound=null; G._noMysteryMsg=false; G._noMysteryKey=null;
   G.levelStats={bestWord:"",bestScore:0,words:0};
   const rng=makeRng("lvl:"+G.level+":"+G.attempt);
   // Locked challenge: pull the banned letters out of the deck for this level only,
@@ -4625,17 +4766,25 @@ function submitWord(){
   // juice — scaled by BOTH word length and score, ramping harder for big plays
   const lenBoost = Math.max(0, res.length-4) * 0.11;        // +0.11 per letter past 4
   const power=Math.max(0,Math.min(1.5, sc.total/130 + lenBoost));
-  const cr=$("canvas").getBoundingClientRect();
   const tiles=[...$("canvas").querySelectorAll(".tile")];
-  tiles.forEach((t,i)=>{ setTimeout(()=>{ popEl(t); t.classList.add("glow"); spawnCellJuice(t,{n:8+Math.round(power*12),color:"var(--brass)"}); },i*45); });
-  bigBurst(cr.left+cr.width/2, cr.top+cr.height/2, power);
-  screenShake(Math.min(42, 5+power*26));
-  submitSound(power);
-  wordChime(res.length);   // celebratory chime + boom, scaled by word length
-  floatText(cr.left+cr.width/2, cr.top+6, "+"+sc.total, "#B98A2E", {size:(1.5+power*1.0).toFixed(2)+"rem"});
-  if(cash>0){ setTimeout(()=>{ floatText(cr.left+cr.width/2, cr.top+34, "+$"+cash, "#3C6E63", {slow:true, size:"1.7rem"}); blip(660,0.08); },180); }
-  if(pressGrew){ setTimeout(()=>{ floatText(cr.left+cr.width/2, cr.top+(cash>0?60:34), "Press ×"+Number(G.scoreMult).toFixed(3), "#7A5CA6", {slow:true, size:"1.25rem"}); },300); }
-  haptic([10,40,10,30]);
+  // v498a: the tally walks the letters first; this payoff fires on the release.
+  // The canvas rect is re-read inside payoff() because the hit stop scales it.
+  const payoff=()=>{
+    const r=$("canvas").getBoundingClientRect();
+    bigBurst(r.left+r.width/2, r.top+r.height/2, power);
+    screenShake(Math.min(42, 5+power*26));
+    submitSound(power);
+    wordChime(res.length);   // celebratory chime + boom, scaled by word length
+    floatText(r.left+r.width/2, r.top+6, "+"+sc.total, "#B98A2E", {size:(1.5+power*1.0).toFixed(2)+"rem"});
+    if(cash>0){ setTimeout(()=>{ floatText(r.left+r.width/2, r.top+34, "+$"+cash, "#3C6E63", {slow:true, size:"1.7rem"}); blip(660,0.08); },180); }
+    if(pressGrew){ setTimeout(()=>{ floatText(r.left+r.width/2, r.top+(cash>0?60:34), "Press \u00d7"+Number(G.scoreMult).toFixed(3), "#7A5CA6", {slow:true, size:"1.25rem"}); },300); }
+    haptic([10,40,10,30]);
+    animateScore(G.score, G.score+sc.total);
+  };
+  const _tallyN = Math.min(tiles.length, (sc.letterVals||[]).length);
+  const _tallyStep = tallyStepMs(_tallyN);
+  const tallyMs = (reducedMotion() || !_tallyN) ? 0 : _tallyN*_tallyStep + 30 + TALLY_HITSTOP;
+  tallyWord(tiles, sc, power, payoff);
   // v42b: on play, grow Growth-Mindset tiles by +1, and spend each Foil tile's once-per-round double.
   G.canvas.forEach(c=>{
     if(typeof c.growth==="number") c.growth++;
@@ -4643,15 +4792,14 @@ function submitWord(){
   });
   returnCanvasToPile();
   clearUndo();   // a set word is a hard boundary: no undo across it
-  animateScore(G.score, G.score+sc.total);
-  G.score+=sc.total;
+  G.score+=sc.total;   // animateScore now runs inside payoff(), on the release
   setTimeout(()=>{
     renderCanvas();
     if(G.score>=G.target){ levelCleared(); return; }
     if(G.handsLeft<=0){ levelFailed(); return; }
     dealUpToHand(true);
     renderHud();
-  }, 420);
+  }, tallyMs+420);
 }
 function setToGo(score){
   const el=$("toGo"); if(!el) return;
@@ -6685,7 +6833,7 @@ async function lookupDefinition(word){
    One per level. Candidates come from plain letter tiles only, so the promise
    ("you can definitely spell this") is never broken by a wild or fusion that
    still needs a choice made. */
-let _MWORDS=null, _MMASK=null;
+let _MWORDS=null, _MMASK=null, _MRANKS=null;
 function mysteryIndex(){
   if(_MWORDS) return;
   const words=[], masks=[];
@@ -6701,10 +6849,24 @@ function mysteryIndex(){
     words.push(w); masks.push(m);
   }
   _MWORDS=words; _MMASK=Int32Array.from(masks);
+  /* Frequency rank is only meaningful if the source list is ordered by frequency.
+     If it arrives alphabetised, position carries no information and using it would
+     make every word starting with A "common", so the signal is dropped instead. */
+  let sorted=true;
+  for(let i=1;i<Math.min(words.length,600);i++){ if(words[i]<words[i-1]){ sorted=false; break; } }
+  if(sorted || words.length<50){ _MRANKS=null; }
+  else { _MRANKS={}; for(let i=0;i<words.length;i++) _MRANKS[words[i]]=i; }
 }
 /* Uniform reservoir sample of the words this hand can spell. Two reservoirs so
    longer words are preferred when the hand has them. Uses its own rng instance,
    so the seeded shop/deal streams are never advanced by this. */
+/* One signature per dealt hand: used both to seed candidate selection and to make
+   sure the no-mystery discard is granted at most once for that hand. */
+function mysteryHandKey(){
+  // Deliberately excludes discardsLeft: noMysteryFallback grants a discard, which
+  // would otherwise change the key and let the same hand pay out on every render.
+  return G.level+":"+G.handsLeft+":"+(G.hand||[]).map(c=>c.id).join(",");
+}
 function mysteryCandidates(k){
   mysteryIndex();
   const pool=G.hand.filter(c=>c.kind==="letter" && c.letter);
@@ -6807,8 +6969,14 @@ function mysteryHtml(){
   if(G._mysteryLoading){
     return `<span class="dw mys">Mystery word</span><span class="dd muted">Mystery word is loading\u2026</span>`;
   }
+  if(G._noMysteryMsg && !G.mystery){
+    return `<span class="dw mys">No mystery word</span>`
+         + `<span class="dd">No mystery word available with these letters. We're sorry for your trouble. Here is a free discard.</span>`;
+  }
   const m=G.mystery; if(!m) return "";
   const pos=m.pos?`<span class="dpos">${escHtml(m.pos)}</span>`:"";
+  const tier=m.tier ? MYSTERY_TIERS.find(t=>t.key===m.tier) : null;
+  const badge=tier?`<span class="dtier t-${tier.key}">${escHtml(tier.name)} \u00b7 \u00d7${tier.mult}</span>`:"";
   let hint="";
   if(G.perks && G.perks.fingerprint && m.word){
     hint=`<span class="dfp">${m.word.length} letters \u00b7 starts with ${escHtml(m.word[0].toUpperCase())}</span>`;
@@ -6817,7 +6985,7 @@ function mysteryHtml(){
   if(G.perks && G.perks.secondOpinion && G.secondOpinionRound!==G.level){
     again=`<button class="dso" id="secondOpinionBtn" type="button">Second opinion</button>`;
   }
-  return `<span class="dw mys">Mystery word</span>${pos}<span class="dd">${escHtml(m.def)}</span>${hint}`
+  return `<span class="dw mys">Mystery word</span>${pos}${badge}<span class="dd">${escHtml(m.def)}</span>${hint}`
        + `<span class="dmy">Spell the mystery word for ${mysteryMultLabel()}.</span>${again}`;
 }
 function renderMystery(){
@@ -6851,12 +7019,12 @@ function useSecondOpinion(){
 }
 async function refreshMystery(force){
   const token=String(Date.now()+Math.random()); G._mysteryToken=token;
-  if(G.mysterySolvedLevel===G.level && !charHas("unlimitedMystery")){ G._mysteryLoading=false; G.mystery=null; renderMystery(); return; }
+  if(G.mysterySolvedLevel===G.level && !charHas("unlimitedMystery")){ G._mysteryLoading=false; G._noMysteryMsg=false; G.mystery=null; renderMystery(); return; }
   // Smoking Gun: one clue for the whole round, so an existing clue is kept.
   if(!force && mysteryPerRound() && G.mystery && G.mysteryLevel===G.level){ renderMystery(); return; }
   const cands=mysteryCandidates(8).filter(w=>!(G.mysterySkip||[]).includes(w));
-  if(!cands.length){ G._mysteryLoading=false; G.mystery=null; renderMystery(); return; }
-  G.mystery=null; G._mysteryLoading=true; renderMystery();
+  if(!cands.length){ noMysteryFallback(); return; }
+  G.mystery=null; G._noMysteryMsg=false; G._mysteryLoading=true; renderMystery();
   // v497a: the old loop awaited each lookup in turn, so a clue could take eight
   // round trips to appear. All candidates now go out at once and we take the
   // first clean one in preference order, which is one round trip in practice.
@@ -6868,11 +7036,25 @@ async function refreshMystery(force){
   for(let i=0;i<cands.length;i++){
     const w=cands[i], d=defs[i];
     if(!d || !d.def || defRevealsWord(d.def,w)) continue;
-    G.mystery={word:w, pos:d.pos||"", def:d.def};
+    const tier=mysteryRarity(w);
+    G.mystery={word:w, pos:d.pos||"", def:d.def, tier:tier.key, tierName:tier.name};
     G.mysteryLevel=G.level;
+    G._noMysteryMsg=false;
     renderMystery(); save(); prefetchMystery(); return;
   }
-  renderMystery();                              // nothing clean: this hand simply has no mystery
+  noMysteryFallback();                          // nothing clean: apologise and hand back a discard
+}
+/* v498a: a hand with no usable clue used to fail silently, which read as a bug.
+   It now says so and pays a discard for the trouble, once per dealt hand so
+   re-rendering or a Second Opinion cannot farm it. */
+function noMysteryFallback(){
+  const key=mysteryHandKey();
+  G.mystery=null; G._mysteryLoading=false;
+  if(G._noMysteryKey===key){ renderMystery(); return; }
+  G._noMysteryKey=key;
+  G._noMysteryMsg=true;
+  G.discardsLeft++;
+  renderHud(); renderMystery(); save();
 }
 /* Warm the cache for the next hand's likely candidates so the following clue is
    already local by the time it is asked for. Fire and forget. */
@@ -7009,7 +7191,7 @@ function ownedPerksList(){
   if(G.perks.rapSheet)     out.push("Rap Sheet · +0.05 Press per solve ("+(G.mysterySolves||0)+" so far)");
   if(G.perks.caseClosed)   out.push("Case Closed · a solve returns a discard");
   if(G.perks.blotter)      out.push("The Blotter · $5 every third solve ("+((G.mysterySolves||0)%3)+"/3)");
-  if(G.perks.onTheBeat)    out.push("On the Beat · streak ×"+mysteryWordMult());
+  if(G.perks.onTheBeat)    out.push("On the Beat · streak +"+BEAT_BONUS[Math.max(0,Math.min(3,G.beatStreak||0))]+" to the mystery bonus");
   if(G.perks.fingerprint)  out.push("Fingerprint · clue shows length and first letter");
   if(G.perks.secondOpinion)out.push("Second Opinion · swap the clue once a round"+(G.secondOpinionRound===G.level?" (used)":""));
   if(G.perks.redHerring)   out.push("Red Herring · +20% for 3 shared letters");
@@ -7404,7 +7586,7 @@ function newRun(seed, charId, asc){
   G.wordsPlayed=0; G.runScore=0; G.runBestWord=""; G.runBestScore=0; G.wordPlays={}; G.levelStats={bestWord:"",bestScore:0,words:0};
   G.attempt=0; G.best=1; G.shopOffers=[]; G.runMs=0;
   G.challenge=null; G.challengePending=null; G._rescues=0;   // never carry a challenge into a fresh run
-  G.mystery=null; G.mysterySolvedLevel=null; G.mysterySolves=0; G.beatStreak=0; G.mysteryLevel=null; G.mysterySkip=[]; G.secondOpinionRound=null; G._mysteryLoading=false;
+  G.mystery=null; G.mysterySolvedLevel=null; G.mysterySolves=0; G.beatStreak=0; G.mysteryLevel=null; G.mysterySkip=[]; G.secondOpinionRound=null; G._mysteryLoading=false; G._noMysteryMsg=false; G._noMysteryKey=null;
   G.letterPlays={}; G._dealerCardId=null;
   G.shopSeen=[];
   G.boss=null; document.body.classList.remove("boss-round");
