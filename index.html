@@ -1524,7 +1524,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "498c";
+const VERSION = "498d";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -6756,6 +6756,7 @@ function exportAllRuns(){
    rate-limited. Both return the same shape to the caller: {pos, def} or null.
    Data sourced from Wiktionary (CC BY-SA 4.0); see the attribution in How to Play. */
 const defCache={};
+const _defInFlight={};   // v498d: de-duplicates concurrent lookups of the same word
 /* Hard blocklist: words whose dictionary card is always suppressed (shown as
    "definition unavailable"), regardless of what the API returns. These are words
    whose only/dominant senses are slurs, fetish, or otherwise not PBS-appropriate,
@@ -6821,15 +6822,77 @@ async function defFromDictDev(key){
   }
   return null;
 }
+/* ============================================================
+   Definition lookup performance (v498d)
+   Three separate stalls were compounding here:
+   1. the fallback API only started after the primary had fully finished, so a
+      slow primary paid for both round trips back to back;
+   2. nothing timed out, so a hung request stalled the clue indefinitely;
+   3. the cache lived in memory only, so every reload re-fetched from scratch.
+   ============================================================ */
+const DEF_HEDGE   = 600;    // ms before the backup API is started alongside the primary
+const DEF_TIMEOUT = 3500;   // ms before a lookup is abandoned entirely
+const DEF_STORE_KEY = "letterati_defs_v1";
+const DEF_STORE_CAP = 1500;
+let _defStoreDirty=false, _defStoreTimer=null;
+function loadDefStore(){
+  try{
+    const o=JSON.parse(localStorage.getItem(DEF_STORE_KEY)||"{}");
+    for(const k in o){ if(o[k] && o[k].def && !(k in defCache)) defCache[k]=o[k]; }
+  }catch(e){}
+}
+function flushDefStore(){
+  if(!_defStoreDirty) return;
+  _defStoreDirty=false;
+  try{
+    const out={}; let n=0;
+    for(const k in defCache){
+      const v=defCache[k];
+      // Only successes are persisted. A miss may just mean the API was down, and
+      // caching that across sessions would permanently blank a good word.
+      if(v && v.def){ out[k]=v; if(++n>=DEF_STORE_CAP) break; }
+    }
+    localStorage.setItem(DEF_STORE_KEY, JSON.stringify(out));
+  }catch(e){}
+}
+function markDefStoreDirty(){
+  _defStoreDirty=true;
+  if(_defStoreTimer) return;
+  _defStoreTimer=setTimeout(()=>{ _defStoreTimer=null; flushDefStore(); }, 4000);
+}
+function withTimeout(p, ms){
+  return new Promise(resolve=>{
+    let done=false;
+    const t=setTimeout(()=>{ if(!done){ done=true; resolve(null); } }, ms);
+    Promise.resolve(p).then(
+      v=>{ if(!done){ done=true; clearTimeout(t); resolve(v); } },
+      ()=>{ if(!done){ done=true; clearTimeout(t); resolve(null); } });
+  });
+}
 async function lookupDefinition(word){
   const key=String(word||"").toLowerCase().replace(/[^a-z]/g,"");
   if(!key) return null;
   if(DEF_BLOCKLIST.has(key)){ defCache[key]=null; return null; }   // PBS: always "definition unavailable"
   if(key in defCache) return defCache[key];
-  let res=null;
-  try{ res=await defFromFreeDict(key); }catch(e){ res=null; }
-  if(!res){ try{ res=await defFromDictDev(key); }catch(e){ res=null; } }   // resilience fallback
-  defCache[key]=res; return res;
+  if(_defInFlight[key]) return _defInFlight[key];                  // never fetch the same word twice at once
+  const primary = withTimeout(Promise.resolve().then(()=>defFromFreeDict(key)), DEF_TIMEOUT);
+  // Hedged backup: started only if the primary is slow, then raced against it, so
+  // the common case still costs one request but a stalled primary cannot dominate.
+  const backup = new Promise(resolve=>{
+    setTimeout(()=>{
+      withTimeout(Promise.resolve().then(()=>defFromDictDev(key)), DEF_TIMEOUT).then(resolve, ()=>resolve(null));
+    }, DEF_HEDGE);
+  });
+  const job = (async()=>{
+    let res = await primary;
+    if(!res) res = await backup;
+    defCache[key]=res;
+    if(res && res.def) markDefStoreDirty();
+    delete _defInFlight[key];
+    return res;
+  })();
+  _defInFlight[key]=job;
+  return job;
 }
 /* ===== Mystery Word (v495a) =====================================================
    After every deal the definition strip shows the meaning of a word the current
@@ -6871,9 +6934,9 @@ function mysteryHandKey(){
   // would otherwise change the key and let the same hand pay out on every render.
   return G.level+":"+G.handsLeft+":"+(G.hand||[]).map(c=>c.id).join(",");
 }
-function mysteryCandidates(k){
+function mysteryCandidates(k, poolCards){
   mysteryIndex();
-  const pool=G.hand.filter(c=>c.kind==="letter" && c.letter);
+  const pool=(poolCards||G.hand).filter(c=>c.kind==="letter" && c.letter);
   if(pool.length<3) return [];
   const counts={}; let hm=0;
   pool.forEach(c=>{ const l=c.letter.toLowerCase(); counts[l]=(counts[l]||0)+1; hm|=(1<<(l.charCodeAt(0)-97)); });
@@ -6946,7 +7009,13 @@ function isFormOfDef(def){
   if(!/\bof\b/.test(head) && !/\bfor\b/.test(head)) return false;
   return FORM_OF_MARKERS.some(k=>head.indexOf(k)>=0);
 }
-function rootKey(x){ return wordRoot(x).replace(/e$/,""); }
+/* Comparison key: a trailing e or y carries no stem information and blocks
+   otherwise obvious matches (note/noting, leaky/leaking, happy/happiness), so
+   both are dropped before roots are compared. */
+function rootKey(x){
+  const r=wordRoot(x);
+  return r.length>=4 ? r.replace(/[ey]$/,"") : r;
+}
 function defRevealsWord(def, w){
   if(isFormOfDef(def)) return true;
   const d=String(def||"").toLowerCase(), esc=String(w||"").replace(/[^a-z]/g,"");
@@ -7028,25 +7097,69 @@ async function refreshMystery(force){
   if(!force && mysteryPerRound() && G.mystery && G.mysteryLevel===G.level){ renderMystery(); return; }
   const cands=mysteryCandidates(8).filter(w=>!(G.mysterySkip||[]).includes(w));
   if(!cands.length){ noMysteryFallback(); return; }
+  // v498d: a warm cache should never show a spinner. Decide synchronously first;
+  // this is the same preference walk as below, just over what we already hold.
+  const quick=cachedDecision(cands);
+  if(quick.hit){ setMystery(quick.hit.w, quick.hit.d); prefetchMystery(); return; }
+  if(quick.none){ noMysteryFallback(); return; }
+
   G.mystery=null; G._noMysteryMsg=false; G._mysteryLoading=true; renderMystery();
-  // v497a: the old loop awaited each lookup in turn, so a clue could take eight
-  // round trips to appear. All candidates now go out at once and we take the
-  // first clean one in preference order, which is one round trip in practice.
-  let defs;
-  try{ defs = await Promise.all(cands.map(w=>lookupDefinition(w).catch(()=>null))); }
-  catch(e){ defs = []; }
+  // v498d: Promise.all waited for the SLOWEST of eight lookups before choosing,
+  // even when the first candidate had already come back clean. This resolves as
+  // soon as the answer is knowable in preference order, so a fast first hit ends
+  // the wait immediately. Order is preserved, which keeps the clue identical for
+  // every player on a shared daily seed rather than depending on who replies first.
+  const found = await firstCleanInOrder(cands);
   if(G._mysteryToken!==token) return;           // a newer hand superseded this one
   G._mysteryLoading=false;
-  for(let i=0;i<cands.length;i++){
-    const w=cands[i], d=defs[i];
-    if(!d || !d.def || defRevealsWord(d.def,w)) continue;
-    const tier=mysteryRarity(w);
-    G.mystery={word:w, pos:d.pos||"", def:d.def, tier:tier.key, tierName:tier.name};
-    G.mysteryLevel=G.level;
-    G._noMysteryMsg=false;
-    renderMystery(); save(); prefetchMystery(); return;
-  }
+  if(found){ setMystery(found.w, found.d); prefetchMystery(); return; }
   noMysteryFallback();                          // nothing clean: apologise and hand back a discard
+}
+/* Commit a clue and tag its rarity. */
+function setMystery(w, d){
+  const tier=mysteryRarity(w);
+  G.mystery={word:w, pos:d.pos||"", def:d.def, tier:tier.key, tierName:tier.name};
+  G.mysteryLevel=G.level;
+  G._noMysteryMsg=false; G._mysteryLoading=false;
+  renderMystery(); save();
+}
+/* Walk the candidates in order using only what is already cached.
+   hit  = a clean clue is available right now with no network at all
+   none = every candidate is cached and none is usable
+   pending = the walk hit a candidate we have not looked up yet */
+function cachedDecision(words){
+  for(let i=0;i<words.length;i++){
+    const w=words[i];
+    if(!(w in defCache)) return {pending:true};
+    const d=defCache[w];
+    if(d && d.def && !defRevealsWord(d.def,w)) return {hit:{w,d}};
+  }
+  return {none:true};
+}
+/* All lookups start at once, but the result is still the first clean candidate in
+   preference order. A cursor advances as answers land, so we stop the moment the
+   leading candidate is decided rather than waiting for the whole batch. */
+function firstCleanInOrder(words){
+  return new Promise(resolve=>{
+    const n=words.length;
+    if(!n){ resolve(null); return; }
+    const state=new Array(n).fill(undefined);   // undefined = still pending
+    let cursor=0, settled=false;
+    const advance=()=>{
+      if(settled) return;
+      while(cursor<n && state[cursor]!==undefined){
+        const v=state[cursor];
+        if(v){ settled=true; resolve({w:words[cursor], d:v}); return; }
+        cursor++;
+      }
+      if(cursor>=n){ settled=true; resolve(null); }
+    };
+    words.forEach((w,i)=>{
+      const settle=d=>{ state[i]=(d && d.def && !defRevealsWord(d.def,w)) ? d : null; advance(); };
+      try{ lookupDefinition(w).then(settle, ()=>settle(null)); }
+      catch(e){ settle(null); }
+    });
+  });
 }
 /* v498a: a hand with no usable clue used to fail silently, which read as a bug.
    It now says so and pays a discard for the trouble, once per dealt hand so
@@ -7060,11 +7173,17 @@ function noMysteryFallback(){
   G.discardsLeft++;
   renderHud(); renderMystery(); save();
 }
-/* Warm the cache for the next hand's likely candidates so the following clue is
-   already local by the time it is asked for. Fire and forget. */
+/* Warm the cache for the NEXT hand. v498d: this used to run mysteryCandidates
+   against the current hand, whose candidates had just been fetched, so it warmed
+   nothing. The next hand is approximately whatever survives this turn plus the
+   top of the draw pile, which is enough to make the following clue instant. */
 function prefetchMystery(){
   try{
-    mysteryCandidates(8).slice(0,6).forEach(w=>{ if(!(w in defCache)) lookupDefinition(w).catch(()=>{}); });
+    const onCanvas=new Set((G.canvas||[]).map(c=>c.id));
+    const keep=(G.hand||[]).filter(c=>!onCanvas.has(c.id));
+    const room=Math.max(0,(G.handSize||START_HAND)-keep.length);
+    const pool=keep.concat((G.drawPile||[]).slice(0,room));
+    mysteryCandidates(6, pool).forEach(w=>{ if(!(w in defCache)) lookupDefinition(w).catch(()=>{}); });
   }catch(e){}
 }
 function showDefinition(word){
@@ -7661,6 +7780,11 @@ wireSeedRating(""); wireSeedRating("W");
 $("verTag").textContent="Prototype v"+VERSION+" · "+WORDS.size.toLocaleString()+" words";
 $("playBtn").addEventListener("click",()=>openCharSelect(null));
 $("continueBtn").addEventListener("click",continueRun);
+// v498d: rehydrate the definition cache before anything asks for a clue, so a
+// returning player's first mystery word is instant instead of a fresh round trip.
+loadDefStore();
+try{ window.addEventListener("pagehide", flushDefStore);
+     document.addEventListener("visibilitychange", ()=>{ if(document.hidden) flushDefStore(); }); }catch(e){}
 refreshContinue();
 $("cloneCancel").addEventListener("click",cancelClone);
 $("consCancel").addEventListener("click",cancelCons);
