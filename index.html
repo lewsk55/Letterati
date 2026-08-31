@@ -1524,7 +1524,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "498b";
+const VERSION = "498c";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -4767,6 +4767,10 @@ function submitWord(){
   const lenBoost = Math.max(0, res.length-4) * 0.11;        // +0.11 per letter past 4
   const power=Math.max(0,Math.min(1.5, sc.total/130 + lenBoost));
   const tiles=[...$("canvas").querySelectorAll(".tile")];
+  // v498c: captured BEFORE G.score is updated below. payoff() runs after the
+  // tally, so reading G.score inside it would double-count this word.
+  const scoreFrom = G.score;
+  const scoreTo   = G.score + sc.total;
   // v498a: the tally walks the letters first; this payoff fires on the release.
   // The canvas rect is re-read inside payoff() because the hit stop scales it.
   const payoff=()=>{
@@ -4779,7 +4783,7 @@ function submitWord(){
     if(cash>0){ setTimeout(()=>{ floatText(r.left+r.width/2, r.top+34, "+$"+cash, "#3C6E63", {slow:true, size:"1.7rem"}); blip(660,0.08); },180); }
     if(pressGrew){ setTimeout(()=>{ floatText(r.left+r.width/2, r.top+(cash>0?60:34), "Press \u00d7"+Number(G.scoreMult).toFixed(3), "#7A5CA6", {slow:true, size:"1.25rem"}); },300); }
     haptic([10,40,10,30]);
-    animateScore(G.score, G.score+sc.total);
+    animateScore(scoreFrom, scoreTo);
   };
   const _tallyN = Math.min(tiles.length, (sc.letterVals||[]).length);
   const _tallyStep = tallyStepMs(_tallyN);
