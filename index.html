@@ -71,7 +71,7 @@
    your fused pairs plus a letter (gilds and golden carry over) and
    is the featured path, with ready-made trios rarer as fallback.
    v492a: eight legendaries land: Word Binder, Second Edition,
-   Gemini, Gilded Age, Deadline Extension, Galley Proof, Revision,
+   Gemini, Gilded Age, Deadline Extension, Galley Proof,
    The Midnight Press. New epic trio fusion tiles (tap on the press
    to flip) and the common Triptych draw-3 card. Twinsies is epic
    and rarer. Explicit G.overtime flag feeds Midnight scoring.
@@ -565,8 +565,6 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 .post-actions{display:flex;gap:8px;justify-content:center;margin:6px 0 0}
 .post-actions .btn{font-size:.72rem;padding:7px 12px}
 #binderInput{display:block;width:100%;max-width:280px;margin:12px auto 4px;padding:10px 12px;font-family:var(--serif);font-weight:800;font-size:1.2rem;letter-spacing:.12em;text-transform:uppercase;text-align:center;border:2px solid var(--rule);border-radius:10px;background:var(--page);color:var(--ink)}
-#revisionWord .clone-choice.revtarget{outline:3px solid var(--brass-deep)}
-#revisionLetters{max-height:200px;overflow-y:auto}
 
 /* Wild vowel tile — tie-dye field with a combined-vowel glyph */
 .tile.wildvowel{border-color:#C77BB0;color:#fff;background:conic-gradient(from 0deg,#FE704E,#FFCF00,#48D3CD,#7A4FB0,#FE704E)}
@@ -840,6 +838,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 .turns .tnum{font-family:var(--serif);font-size:1.15rem;font-weight:800;color:var(--ink);line-height:1}
 .turns .tnum.low{color:var(--oxblood);animation:lastPulse 1.1s ease-in-out infinite}
 .turns .tlabel{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;color:var(--ink-soft);font-weight:800}
+.turns .tsep{margin:0 3px;font-size:.85rem;line-height:1;color:var(--brass);font-weight:400;opacity:.8}
 .discard-lab b{font-size:1rem;color:#fff}
 .btn-warn.low{opacity:.55}
 
@@ -1006,7 +1005,6 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 
     <div class="post-actions hidden" id="postActions">
       <button class="btn btn-ghost" id="secondEdBtn">📚 Second Edition</button>
-      <button class="btn btn-ghost" id="revisionBtn">✒️ Revision</button>
       <button class="btn btn-ghost" id="compositorBtn">🧩 Compositor</button>
     </div>
     <div class="word-tally hidden" id="wordTally" aria-hidden="true"></div>
@@ -1168,17 +1166,6 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
     <div class="gild-actions">
       <button class="menu-btn ghost" id="binderCancel" style="max-width:150px">Cancel</button>
       <button class="menu-btn" id="binderSave" style="max-width:170px">Bind it</button>
-    </div>
-  </div>
-</div>
-<div class="overlay hidden" id="revisionOverlay">
-  <div class="clone-sheet">
-    <div class="clone-title">✒️ Revision</div>
-    <div class="clone-sub" id="revisionSub">Tap the letter to rewrite.</div>
-    <div class="clone-choices" id="revisionWord"></div>
-    <div class="clone-choices" id="revisionLetters"></div>
-    <div class="gild-actions">
-      <button class="menu-btn ghost" id="revisionCancel" style="max-width:170px">Never mind</button>
     </div>
   </div>
 </div>
@@ -1524,7 +1511,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "499a";
+const VERSION = "4911b";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -1534,6 +1521,13 @@ const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 pr
    Failing a challenge just drops to normal overtime; clearing grants the reward.
    Everything here rolls off the seeded stream so the daily stays replay-valid. */
 const CHALLENGE_LEVELS = new Set([3,5,7]);
+const ASC_CHALLENGE_LEVEL = 9;   // A1 Challenger adds this one, live game only
+/* Never fold this into CHALLENGE_LEVELS: predictSeed reads that constant, so
+   widening it would change every validated daily seed. */
+function challengeLevelActive(lvl){
+  return CHALLENGE_LEVELS.has(lvl) || (ascHas(1) && lvl===ASC_CHALLENGE_LEVEL);
+}
+function challengeMandatory(lvl){ return ascHas(1) && lvl===ASC_CHALLENGE_LEVEL; }
 const CHALLENGE_TARGET_MULT = 1.75;  // "steep target" challenge: +75% over the round's base goal
 const CHALLENGE_BAN_COUNT  = 3;      // "letters locked": one vowel + two most-used consonants
 const CHALLENGE_MIN_LEN    = 5;      // "long form": no words under 5 letters
@@ -1694,7 +1688,6 @@ const CHALLENGE_EPIC_POOL = [
   {name:"Second Edition",   art:"📚", desc:"Once per round, right after a word scores, reset the press: those tiles return to your hand and your next word scores half.", d:{type:"secondEdition"}},
   {name:"Deadline Extension",art:"🕰️", desc:"The first round you fail this run costs no hearts: overtime words are free that round.", d:{type:"deadlineExt"}},
   {name:"Galley Proof",     art:"🔭", desc:"See the next three tiles of your draw pile at all times.", d:{type:"galleyProof"}},
-  {name:"Revision",         art:"✒️", desc:"Once per round, rewrite one letter of the word you just set. If the new word is real, score the improvement.", d:{type:"revision"}},
   {name:"The Midnight Press",art:"🌙", desc:"Overtime words score double, and the first overtime word each round costs no heart.", d:{type:"midnightPress"}},
   /* Desk-specific rewards. `char` gates them exactly as it does in the shop, so a
      Writer or Editor run never sees these on a challenge card. */
@@ -1741,26 +1734,31 @@ const CHARACTERS = {
     id:"writer", name:"The Writer", art:"\u270D\uFE0F", tag:"Standard",
     blurb:"The house hand. Four words a round, one mystery word a level, no thumb on the scale.",
     boon:"Nothing gained", bane:"Nothing lost",
-    targetMult:1
+    targetMult:1, hearts:3
   },
   detective: {
     id:"detective", name:"The Detective", art:"\uD83D\uDD0D", tag:"Mystery",
     blurb:"Every hand carries a clue. The rarer the answer, the harder it pays.",
     boon:"Unlimited mystery words, a fresh clue every hand",
     bane:"Lives or dies on the clues. Ordinary words pay ordinary money.",
-    targetMult:1, unlimitedMystery:true
+    targetMult:1, hearts:3, unlimitedMystery:true
   },
   editor: {
-    id:"editor", name:"The Editor", art:"\u2702\uFE0F", tag:"Revision",
-    blurb:"You do not set many lines, but nothing leaves the desk until it is right.",
-    boon:"Revise one letter after every word you set, all run",
-    bane:"One fewer word each round",
-    targetMult:1, alwaysRevision:true, handsDelta:-1
+    id:"editor", name:"The Editor", art:"\u2702\uFE0F", tag:"Standing type",
+    blurb:"The forme is never broken up. Your word stays set, and every line after it is a revision of the one before.",
+    boon:"Letters stay on the press after you set a word. Cut up to 3 per revision.",
+    bane:"Targets are 10 percent higher, and no word may be set twice running",
+    targetMult:1.10, hearts:3, standingForme:true, editsPerWord:3
   }
 };
 const CHAR_ORDER = ["writer","detective","editor"];
 function charDef(){ return CHARACTERS[G.character] || CHARACTERS.writer; }
 function charHas(k){ return !!charDef()[k]; }
+/* The Editor keeps her type standing: setting a word does not break up the forme,
+   so the canvas carries over and every following word is a revision of the last.
+   Cuts, not tiles, are the limiting resource. */
+function standingForme(){ return charHas("standingForme"); }
+function editsPerWord(){ return charDef().editsPerWord || 0; }
 /* The Detective gets a clue every hand with no per-round lockout, so each one is
    worth less: x1.5 instead of the standard x2. */
 /* ============================================================
@@ -1837,28 +1835,60 @@ function mysteryPerRound(){ return !!(G.perks && G.perks.smokingGun); }
    Every level also raises per-round targets by ASC_TARGET_STEP.
    Ascension is a free-play ladder: the daily always runs at A0.
    ============================================================ */
-const ASC_TARGET_STEP = 0.10;
-const MAX_ASC = 5;
+const ASC_TARGET_STEP = 0.05;   // v4910a: ten rungs at 5% lands A10 at +50%, the old A5 ceiling
+const MAX_ASC = 10;
 const ASCENSIONS = [
-  { n:1, name:"Tight Purse",    badge:"costs +20%",
-    desc:"Shop prices rise 20 percent and the re-roll ladder starts at 3 coins." },
-  { n:2, name:"Short Staffed",  badge:"1 fewer discard",
+  { n:1,  name:"Challenger",     badge:"round 9 challenge",
+    desc:"A challenge appears on round 9 as well, and it cannot be skipped." },
+  { n:2,  name:"Tight Purse",    badge:"costs +20%",
+    desc:"Shop prices rise 20 percent." },
+  { n:3,  name:"Short Staffed",  badge:"1 fewer discard",
     desc:"One fewer discard every round." },
-  { n:3, name:"Rush Order",     badge:"1 fewer word",
+  { n:4,  name:"Foul Case",      badge:"a letter banned",
+    desc:"One letter from your deck is banned each level, revealed at the start." },
+  { n:5,  name:"Overtime Rates", badge:"start 1 heart down",
+    desc:"You start one heart down. Your cap is unchanged, so Mend can still restore it." },
+  { n:6,  name:"Hard Bargain",   badge:"re-rolls from $3",
+    desc:"The re-roll ladder starts at 3 coins instead of 1." },
+  { n:7,  name:"Rush Order",     badge:"1 fewer word",
     desc:"One fewer word every round." },
-  { n:4, name:"Overtime Rates", badge:"2 hearts",
-    desc:"You start and cap at two hearts instead of three." },
-  { n:5, name:"Double Proof",   badge:"two bosses",
+  { n:8,  name:"Kill Fee",       badge:"payouts -25%",
+    desc:"Round-clear payouts drop 25 percent." },
+  { n:9,  name:"Burnt Out",      badge:"heart cap -1",
+    desc:"Your heart cap drops by one as well, so the loss cannot be healed back." },
+  { n:10, name:"Double Proof",   badge:"two bosses",
     desc:"Round 10 runs twice against two different bosses, with no shop between." }
 ];
 function ascLevel(){ return Math.max(0, Math.min(MAX_ASC, +G.ascension||0)); }
 function ascHas(n){ return ascLevel()>=n; }
 function ascTargetMult(){ return 1 + ASC_TARGET_STEP*ascLevel(); }
 function runTargetMult(){ return (charDef().targetMult||1) * ascTargetMult(); }
-function heartMax(){ return MAX_HEARTS - (ascHas(4)?1:0); }
+/* v4910a: hearts are per character now, and the rungs are deltas on that base
+   rather than hardcoded numbers, so a two- or four-heart desk scales correctly.
+   A5 takes a STARTING heart and leaves the cap alone, so Mend heals it back.
+   A9 lowers the cap too, which is what makes the loss permanent. */
+function charHearts(){ const h=charDef().hearts; return (typeof h==="number" && h>0) ? h : MAX_HEARTS; }
+function heartMax(){ return Math.max(1, charHearts() - (ascHas(9)?1:0)); }
+function startHearts(){ return Math.max(1, heartMax() - (ascHas(5)?1:0)); }
 
 /* ---- per-character ascension progress ---------------------------------- */
-const PROGRESS_KEY = "letterati_progress_v1";
+/* v4910a: the ladder went from five rungs to ten, so a stored "best cleared: 3"
+   no longer means what it did. Old progress is migrated once, mapping N to 2N
+   and capping at 10. That is mildly generous rather than punitive: clearing old
+   A3 meant facing the effects that now sit at A6, so the player keeps a rung
+   they have genuinely earned. */
+const PROGRESS_KEY = "letterati_progress_v2";
+const PROGRESS_KEY_V1 = "letterati_progress_v1";
+function migrateProgress(){
+  try{
+    if(localStorage.getItem(PROGRESS_KEY)) return;            // already migrated
+    const old=JSON.parse(localStorage.getItem(PROGRESS_KEY_V1)||"null");
+    if(!old) return;
+    const out={};
+    for(const k in old){ if(typeof old[k]==="number") out[k]=Math.min(MAX_ASC, old[k]*2); }
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify(out));
+  }catch(e){}
+}
 function loadProgress(){ try{ return JSON.parse(localStorage.getItem(PROGRESS_KEY))||{}; }catch(e){ return {}; } }
 function saveProgress(p){ try{ localStorage.setItem(PROGRESS_KEY, JSON.stringify(p)); }catch(e){} }
 // Highest ascension CLEARED with this character. -1 means never won with them.
@@ -1955,9 +1985,23 @@ function deckTopLetters(n){
 }
 function challengeActive(){ return !!(G.challenge && G.challenge.active); }
 function bannedLetterSet(){
-  if(challengeActive() && G.challenge.type==="locked") return new Set(G.challenge.banned||[]);
-  if(bossActive() && G.boss.type==="editor" && (G.boss.ban||[]).length) return new Set(G.boss.ban);
-  return null;
+  // v4910a: bans stack now. Foul Case can be live at the same time as a Locked
+  // Forme challenge or The Redactor, so these are unioned rather than exclusive.
+  let out=null;
+  const add=arr=>{ if(arr && arr.length){ out=out||new Set(); arr.forEach(L=>out.add(L)); } };
+  if(challengeActive() && G.challenge.type==="locked") add(G.challenge.banned||[]);
+  if(bossActive() && G.boss.type==="editor") add(G.boss.ban||[]);
+  if(ascHas(4) && G.foulLetter) add([G.foulLetter]);
+  return out;
+}
+/* Foul Case draws from the letters actually in your deck, on its own seeded
+   stream so it never disturbs the shop or draw order. */
+function rollFoulLetter(){
+  if(!ascHas(4)){ G.foulLetter=null; return; }
+  const pool=[...new Set((G.deck||[]).filter(c=>c.kind==="letter"&&c.letter).map(c=>c.letter))];
+  if(!pool.length){ G.foulLetter=null; return; }
+  const rng=makeRng("foul:"+G.seed+":"+G.level);
+  G.foulLetter=pool[Math.floor(rng()*pool.length)];
 }
 function challengeMinLen(){
   let m=(challengeActive() && G.challenge.type==="longform") ? CHALLENGE_MIN_LEN : 0;
@@ -2114,18 +2158,18 @@ function cardMult(c){ return c.mult||1; }                        // per-tile sco
 
 const G = {
   seed:null, level:1, hearts:MAX_HEARTS, coins:0, handSize:START_HAND,
-  character:"writer", ascension:0, proofStage:0,
+  character:"writer", ascension:0, proofStage:0, foulLetter:null, formeWord:null, editsLeft:null,
   deck:[],                 // run-long collection of cards
   perks:{ firstUp:{}, lastUp:{}, discardMoneyBoost:false, interest:false, twinsies:false,
           vowelPower:0, fireSale:false, bigWords:false, freeRerolls:false,
           proofSheet:false, twoOfAKind:false, shortKing:false,
-          kerning:false, fiveTimer:false, marginalia:false, mirror:false, reprint:false, repeater:false, powerTrio:false, verbose:false, fightingWords:false, superStore:false, wordBinder:false, secondEdition:false, gemini:false, gildedAge:false, deadlineExt:false, galleyProof:false, revision:false, midnightPress:false },
+          kerning:false, fiveTimer:false, marginalia:false, mirror:false, reprint:false, repeater:false, powerTrio:false, verbose:false, fightingWords:false, superStore:false, wordBinder:false, secondEdition:false, gemini:false, gildedAge:false, deadlineExt:false, galleyProof:false, midnightPress:false },
   scoreMult:1,             // live "press multiplier", applied to every word score
   pressGrowth:0,           // v41a: each 6+ letter word raises scoreMult by this (per Press multiplier stack)
   challenge:null,          // active challenge-level descriptor {type,reward,banned[],active} or null
   extraDiscards:0, extraTurns:0, reprintUsed:false, foilUsed:[],
   overtime:false, deadlineExtRound:null, midnightRound:null,
-  secondEdRound:null, secondEdHalf:false, revisionRound:null, lastPlay:null,
+  secondEdRound:null, secondEdHalf:false, lastPlay:null,
   wordsPlayed:0, runScore:0, runBestWord:"", runBestScore:0, wordPlays:{}, levelStats:{bestWord:"",bestScore:0,words:0},
   // per-level
   attempt:0, target:0, score:0, handsLeft:0, discardsLeft:0,
@@ -2906,7 +2950,13 @@ function renderHud(){
     const on=i<G.handsLeft;
     dots+=`<span class="dot${on?(G.handsLeft===1?" last":" on"):""}"></span>`;
   }
-  $("turns").innerHTML=`<b class="tnum${G.handsLeft===1?" low":""}">${G.handsLeft}</b> <span class="tlabel">word${G.handsLeft===1?"":"s"} left</span> <span class="dots">${dots}</span>`;
+  let editsHtml="";
+  if(standingForme()){
+    const e=(G.editsLeft==null)?editsPerWord():G.editsLeft;
+    editsHtml=`<b class="tnum${e===0?" low":""}">${e}</b> <span class="tlabel">cut${e===1?"":"s"} left</span>`
+      +`<span class="tsep" aria-hidden="true">\u2726</span>`;
+  }
+  $("turns").innerHTML=editsHtml+`<b class="tnum${G.handsLeft===1?" low":""}">${G.handsLeft}</b> <span class="tlabel">word${G.handsLeft===1?"":"s"} left</span> <span class="dots">${dots}</span>`;
   // danger halo: faint at one heart OR one word; bigger when both
   const halo=$("dangerHalo");
   if(halo){
@@ -3651,16 +3701,11 @@ function updatePostActions(){
   const standing = challengeActive() && G.challenge.type==="standing";
   const canSE = G.perks.secondEdition && inRound && !standing && G.secondEdRound!==G.level && !G.secondEdHalf
                 && G.lastPlay.ids.length>0 && G.lastPlay.ids.every(id=>(G.played||[]).some(c=>c.id===id));
-  // v496a: the Editor revises after every word she sets. G.lastPlay is cleared on
-  // each revision, so "once per word" needs no extra bookkeeping.
-  const revAlways = charHas("alwaysRevision");
-  const canRev = (G.perks.revision || revAlways) && inRound && (revAlways || G.revisionRound!==G.level);
   const canComp = G.perks.compositor && !G.paused && G.handsLeft>0 && G.compositorRound!==G.level
                   && G.hand.filter(c=>c.kind==="letter").length>=2;
   $("secondEdBtn").classList.toggle("hidden", !canSE);
-  $("revisionBtn").classList.toggle("hidden", !canRev);
   { const cb=$("compositorBtn"); if(cb) cb.classList.toggle("hidden", !canComp); }
-  row.classList.toggle("hidden", !(canSE||canRev||canComp));
+  row.classList.toggle("hidden", !(canSE||canComp));
 }
 function useSecondEdition(){
   if(!G.perks.secondEdition || !G.lastPlay || G.secondEdRound===G.level) return;
@@ -3675,71 +3720,6 @@ function useSecondEdition(){
   renderHand(); renderHud(); updateLive();
   toast("Second Edition: the type is back on the bank. Next word scores half.");
   haptic([12,30,12]); save();
-}
-/* ---- Revision (v492a) ---- */
-let _revIdx=null;
-function openRevision(){
-  if((!G.perks.revision && !charHas("alwaysRevision")) || !G.lastPlay || (!charHas("alwaysRevision") && G.revisionRound===G.level)) return;
-  _revIdx=null;
-  const wordWrap=$("revisionWord"); wordWrap.innerHTML="";
-  G.lastPlay.res.forEach((r,i)=>{
-    const b=document.createElement("button"); b.className="clone-choice";
-    b.innerHTML=`${r.letter}<span class="cc-val">${r.value}</span>`;
-    b.addEventListener("click",()=>{ _revIdx=i; renderRevisionTargets(); });
-    wordWrap.appendChild(b);
-  });
-  $("revisionLetters").innerHTML="";
-  $("revisionSub").textContent="Tap the letter to rewrite.";
-  $("revisionOverlay").classList.remove("hidden");
-}
-function renderRevisionTargets(){
-  const wordWrap=$("revisionWord");
-  [...wordWrap.children].forEach((el,i)=>el.classList.toggle("revtarget", i===_revIdx));
-  const wrap=$("revisionLetters"); wrap.innerHTML="";
-  const banned=bannedLetterSet();
-  const cur=G.lastPlay.res.map(r=>r.letter);
-  "ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("").forEach(L=>{
-    if(L===cur[_revIdx]) return;
-    if(banned && banned.has(L)) return;
-    const cand=cur.slice(); cand[_revIdx]=L;
-    const w=cand.join("").toLowerCase();
-    if(!WORDS.has(w)) return;
-    const diff=revisionDiff(_revIdx,L);
-    const b=document.createElement("button"); b.className="clone-choice"+(diff<=0?" disabled":"");
-    b.innerHTML=`${L}<span class="cc-val">${diff>0?"+"+diff:"±0"}</span>`;
-    b.addEventListener("click",()=>applyRevision(L));
-    wrap.appendChild(b);
-  });
-  $("revisionSub").textContent = wrap.children.length ? "Every real rewrite, with what it gains." : "No real word comes from rewriting that letter.";
-}
-function revisedRes(idx,L){
-  return G.lastPlay.res.map((r,i)=> i===idx
-    ? {letter:L, value:(LETTER_VALUES[L]||0), mult:1, card:r.card}
-    : {letter:r.letter, value:r.value, mult:r.mult, card:r.card});
-}
-function revisionDiff(idx,L){
-  const sc=scoreOf(revisedRes(idx,L));
-  return sc.total - G.lastPlay.total;
-}
-function applyRevision(L){
-  if(_revIdx==null || !G.lastPlay) return;
-  const diff=Math.max(0, revisionDiff(_revIdx,L));
-  const oldW=G.lastPlay.res.map(r=>r.letter).join("");
-  const newW=revisedRes(_revIdx,L).map(r=>r.letter).join("");
-  G.revisionRound=G.level;
-  $("revisionOverlay").classList.add("hidden");
-  _revIdx=null;
-  if(diff>0){
-    G.score+=diff; G.runScore=(G.runScore||0)+diff;
-    if(G.stats) G.stats.runScore=G.runScore;
-    toast("Revision: "+oldW+" becomes "+newW+", +"+diff);
-  } else {
-    toast("Revision: "+oldW+" becomes "+newW+". No points gained.");
-  }
-  G.lastPlay=null;
-  renderHud(); updatePostActions();
-  haptic([15,40,15]); save();
-  if(G.score>=G.target){ levelCleared(); }
 }
 function compositorRun(){
   if(!G.perks.compositor || G.compositorRound===G.level || G.paused || G.handsLeft<=0) return;
@@ -3928,6 +3908,7 @@ function snapshotState(){
     canvas:G.canvas.map(c=>c.id),
     pile:G.drawPile.map(c=>c.id),
     discardsLeft:G.discardsLeft,
+    editsLeft:(G.editsLeft==null?null:G.editsLeft),   // cuts undo like any other change
     rf:G.canvas.reduce((m,c)=>{
       if(c.kind==="clone") m[c.id]=["clone",c.cloneLetter,c.cloneBase,c.cloneUp,c.cloneTile||null];
       else if(c.kind==="wildvowel") m[c.id]=["vowel",c.vowel];
@@ -3936,7 +3917,7 @@ function snapshotState(){
     },{})
   };
 }
-function undoSig(s){ return s.hand.join(",")+"|"+s.canvas.join(",")+"|"+s.pile.join(",")+"|"+s.discardsLeft+"|"+Object.keys(s.rf).sort().map(k=>k+s.rf[k][0]+s.rf[k][1]).join(","); }
+function undoSig(s){ return s.hand.join(",")+"|"+s.canvas.join(",")+"|"+s.pile.join(",")+"|"+s.discardsLeft+"|"+s.editsLeft+"|"+Object.keys(s.rf).sort().map(k=>k+s.rf[k][0]+s.rf[k][1]).join(","); }
 function updateUndoBtn(){ const b=$("undoBtn"); if(b) b.disabled = undoStack.length===0; }
 function checkpoint(){
   const s=snapshotState();
@@ -3949,6 +3930,7 @@ function restoreState(s){
   const pick=ids=>ids.map(id=>all[id]).filter(Boolean);
   G.hand=pick(s.hand); G.canvas=pick(s.canvas); G.drawPile=pick(s.pile);
   G.discardsLeft=s.discardsLeft;
+  if(s.editsLeft!=null) G.editsLeft=s.editsLeft;
   // canvas tiles get their resolved letter back; loose tiles in hand carry none
   G.canvas.forEach(c=>{ const r=s.rf[c.id];
     if(c.kind==="clone"){ c.cloneLetter=(r&&r[0]==="clone")?r[1]:null; c.cloneBase=(r&&r[0]==="clone")?r[2]:null; c.cloneUp=(r&&r[0]==="clone")?(r[3]||0):0; c.cloneTile=(r&&r[0]==="clone")?(r[4]||null):null; }
@@ -3997,7 +3979,17 @@ function placeFromHand(id,idx){
 }
 function removeFromCanvas(id){
   const i=G.canvas.findIndex(c=>c.id===id); if(i<0)return;
+  /* Standing forme: once a word is set the type stays up, and taking a letter
+     back out of it is a CUT. Letters you have only just placed, before anything
+     is set, come out free as they always did. */
+  const cutting = standingForme() && !!G.formeWord;
+  if(cutting && (G.editsLeft||0)<=0){
+    toast("No cuts left. Set the line as it stands, or undo.");
+    haptic(20);
+    return;
+  }
   checkpoint();
+  if(cutting){ G.editsLeft=Math.max(0,(G.editsLeft||0)-1); renderHud(); }
   const first=tileRects();
   const [c]=G.canvas.splice(i,1);
   if(c.kind==="clone"){ c.cloneLetter=null; c.cloneTile=null; }   // unassign on return
@@ -4491,7 +4483,20 @@ function renderChallengeBanner(){
     if(B.type==="critic" && B.suspended) state=`<span class="cb-dot">·</span><span class="cb-locked">silenced: ${B.suspended}</span>`;
     el.innerHTML=`<span class="cb-tag boss">FINAL PROOF</span><span class="cb-name">${def.art} ${def.name}</span>${state}<span class="cb-desc">${escHtml(def.desc)}</span>`;
     el.classList.remove("hidden");
+  } else if(ascHas(4) && G.foulLetter){
+    el.innerHTML=`<span class="cb-tag">FOUL CASE</span><span class="cb-name">A4</span>`
+      +`<span class="cb-dot">\u00b7</span><span class="cb-locked">\uD83D\uDD12 ${escHtml(G.foulLetter)}</span>`
+      +`<span class="cb-desc">${escHtml(G.foulLetter)} is out of the case this level.</span>`;
+    el.classList.remove("hidden");
+    return;
   } else { el.classList.add("hidden"); el.innerHTML=""; }
+  // A challenge or boss banner is already showing, so append the foul letter to it
+  // rather than replacing it: both bans are live and both have to be readable.
+  if(ascHas(4) && G.foulLetter && !el.classList.contains("hidden")){
+    const desc=el.querySelector(".cb-desc");
+    const chip=`<span class="cb-dot">\u00b7</span><span class="cb-locked">\uD83D\uDD12 ${escHtml(G.foulLetter)}</span>`;
+    if(desc) desc.insertAdjacentHTML("beforebegin", chip); else el.insertAdjacentHTML("beforeend", chip);
+  }
 }
 // The final proof, shown as a card rather than a full-screen warning. Used by the
 // opening run screen and the foot of the deck sheet, so the player can always look
@@ -4509,7 +4514,7 @@ function showRunIntro(){
   G.deck.slice().sort(deckSortKey()).forEach(c=>list.appendChild(deckTileEl(c)));
   $("introCount").textContent=G.deck.length+" cards";
   $("introSummary").innerHTML=deckSummaryHtml();
-  $("introBoss").innerHTML=bossCardHtml("intro-boss","Round "+WIN_LEVEL+" · "+(ascHas(5)?"the first of two proofs":"the final proof"));
+  $("introBoss").innerHTML=bossCardHtml("intro-boss","Round "+WIN_LEVEL+" · "+(ascHas(10)?"the first of two proofs":"the final proof"));
   $("runIntroScreen").classList.remove("hidden");
   haptic(12);
 }
@@ -4535,9 +4540,9 @@ function startLevel(){
   if(challengeActive() && G.challenge.type==="steep"){ G.target=Math.round(G.target*CHALLENGE_TARGET_MULT); }
   renderChallengeBanner();
   G.score=0;
-  // A3 Rush Order and the Editor's desk both cut a word; A2 Short Staffed cuts a discard.
-  G.handsLeft=Math.max(1, HANDS_PER_LEVEL+G.extraTurns+(charDef().handsDelta||0)-(ascHas(3)?1:0));
-  G.discardsLeft=Math.max(0, DISCARDS_PER_LEVEL+G.extraDiscards-(ascHas(2)?1:0));
+  // A7 Rush Order and the Editor's desk both cut a word; A3 Short Staffed cuts a discard.
+  G.handsLeft=Math.max(1, HANDS_PER_LEVEL+G.extraTurns+(charDef().handsDelta||0)-(ascHas(7)?1:0));
+  G.discardsLeft=Math.max(0, DISCARDS_PER_LEVEL+G.extraDiscards-(ascHas(3)?1:0));
   G.roundLengths=[]; G.standingDone=false;
   // Smudged Ink is strictly a one-round condition: clear stale ink from every
   // zone (deck, piles, hand, canvas, stash) so no tile carries it out of the round.
@@ -4587,6 +4592,9 @@ function startLevel(){
   G._rescues=0;
   G.lastWordLetters=null; G.pulpPending=0;
   G.justStacks=0; G.lastWordLen=null; G.wetProofPending=false; G.inkPtsPending=0;
+  rollFoulLetter();   // A4 Foul Case, before the hand is dealt so the banner is right
+  G.formeWord=null;                       // the forme is broken up between rounds
+  G.editsLeft=editsPerWord();
   G.mystery=null;   // a fresh mystery is drawn with the opening hand
   G.mysteryLevel=null; G._mysteryLoading=false; G.mysterySkip=[]; G.secondOpinionRound=null; G._noMysteryMsg=false; G._noMysteryKey=null;
   G.levelStats={bestWord:"",bestScore:0,words:0};
@@ -4659,8 +4667,16 @@ function reshuffleDiscardIntoDraw(){
 function submitWord(){
   if(!wordValid()||G.handsLeft<=0) return;
   const res=resolvedCanvas();
+  const w0=res.map(r=>r.letter.toLowerCase()).join("");
+  // Standing forme: the line already on the press cannot simply be set again.
+  // Cutting a letter to make a different word is exactly the intended play.
+  if(standingForme() && G.formeWord && w0===G.formeWord){
+    toast("That line is already set. Cut or add a letter first.");
+    haptic(20);
+    return;
+  }
   const sc=scoreOf(res);
-  const w=res.map(r=>r.letter.toLowerCase()).join("");
+  const w=w0;
   if(!G.wordPlays) G.wordPlays={}; G.wordPlays[w]=(G.wordPlays[w]||0)+1;   // v43a: Repeater history (after scoreOf read the prior count)
   if(!G.letterPlays) G.letterPlays={};
   res.forEach(r=>{ if(r.letter) G.letterPlays[r.letter]=(G.letterPlays[r.letter]||0)+1; });   // v491a: workhorse tracking for the gild offer
@@ -4721,7 +4737,7 @@ function submitWord(){
   // included the previous banked total).
   { const wb=G.perks.wordBinder;
     if(wb && wb.word && w===wb.word){ wb.banked=Math.round(sc.total*BINDER_RETAIN); toast("Bound: "+w.toUpperCase()+" holds "+wb.banked); } }
-  // Second Edition / Revision bookkeeping: remember what was just played.
+  // Second Edition bookkeeping: remember what was just played.
   // v492e: fused/trio side cards resolve to their parent deck tile, so Second
   // Edition works on words containing fused pairs and trios (it never did for
   // fused before; the composite side ids could not match the discard pile).
@@ -4811,7 +4827,20 @@ function submitWord(){
     if(typeof c.growth==="number") c.growth++;
     if(tileHas(c,"foil")){ if(!G.foilUsed) G.foilUsed=[]; if(!G.foilUsed.includes(c.id)) G.foilUsed.push(c.id); }
   });
-  returnCanvasToPile();
+  if(standingForme()){
+    /* The forme stays standing. Tiles are NOT returned to the pile, so the next
+       word is built out of this one. Per-play tile state still has to advance,
+       which returnCanvasToPile would normally have handled on the way out. */
+    G.formeWord=w;
+    G.editsLeft=editsPerWord();
+    /* The Standing Type challenge marks tiles to leave the round on their way to
+       the pile. The forme never goes to the pile, so that mark would never be
+       consumed. The two mechanics want the same thing here, so clear it. */
+    G.canvas.forEach(c=>{ delete c._standingGone; });
+    G.standingDone=true;
+  } else {
+    returnCanvasToPile();
+  }
   clearUndo();   // a set word is a hard boundary: no undo across it
   G.score+=sc.total;   // animateScore now runs inside payoff(), on the release
   setTimeout(()=>{
@@ -4900,7 +4929,7 @@ function levelCleared(){
   G.level++;
   /* A5 Double Proof: the first proof does not end the run. Stay on round 10, roll
      a different boss, and go straight back to the press with no shop between. */
-  if(justCleared===WIN_LEVEL && !G.infinite && !G.wonRun && ascHas(5) && !(G.proofStage||0)){
+  if(justCleared===WIN_LEVEL && !G.infinite && !G.wonRun && ascHas(10) && !(G.proofStage||0)){
     G.proofStage=1;
     G.level=WIN_LEVEL;
     G.boss=null;                      // startLevel rolls the second proof
@@ -4935,6 +4964,7 @@ function computeReward(){
   const CLEAR_BONUS=2;                                                     // v47d: flat stipend on every cleared round
   let total=Math.round(preBonus*(1+discardBonus))+interest+CLEAR_BONUS;
   const discardAmt=total-interest-CLEAR_BONUS-preBonus;                    // the actual coins the discard bonus added
+  if(ascHas(8)) total=Math.max(1, Math.round(total*0.75));   // A8 Kill Fee
   let doubled=challengeDoublePay();
   if(doubled) total=Math.round(total*1.5);   // v48g: payout challenge reward is +50% on the round purse
   return {base,core,turnsBonus,wordsLeft:G.handsLeft,preBonus,discardCount,discardBonus,discardAmt,clearBonus:CLEAR_BONUS,interest,marginalia,total,doubled};
@@ -5094,7 +5124,7 @@ function levelFailed(){
 function priceMult(){ return 1; }   // shop inflation removed
 function px(base){
   const infl=Math.pow(1.1, Math.max(0,(G.level||1)-1));   // +10% per round, compounding
-  return Math.max(1,Math.round(base*0.65*SHOP_PRICE_SCALE*(G.perks.fireSale?0.75:1)*(G.perks.vanityPress?1.25:1)*(ascHas(1)?1.2:1)*infl));
+  return Math.max(1,Math.round(base*0.65*SHOP_PRICE_SCALE*(G.perks.fireSale?0.75:1)*(G.perks.vanityPress?1.25:1)*(ascHas(2)?1.2:1)*infl));
 }   // 35% off base, then 20% off (v3a); Fire sale = 25% more off
 
 const SHOP_SLOTS_BASE  = 6;   // v491f: an even shelf, half letters half perks
@@ -5239,7 +5269,6 @@ function perkPool(rng){
   if(!G.perks.gildedAge)         e.push({make:()=>gildedAgeOffer(),     weight:0.15});
   if(!G.perks.deadlineExt)       e.push({make:()=>deadlineExtOffer(),   weight:0.15});
   if(!G.perks.galleyProof)       e.push({make:()=>galleyProofOffer(),   weight:0.15});
-  if(!G.perks.revision)          e.push({make:()=>revisionOffer(),      weight:0.15});
   if(!G.perks.midnightPress)     e.push({make:()=>midnightPressOffer(), weight:0.15});
   if(!G.perks.mirror)            e.push({make:()=>mirrorOffer(),      weight:0.8});
   if(!G.perks.verbose)           e.push({make:()=>verboseOffer(),     weight:1.2});
@@ -5554,7 +5583,6 @@ function applyOffer(o){
     case "gildedAge":    openDeck("gildedAge"); break;
     case "deadlineExt":  G.perks.deadlineExt=true; break;
     case "galleyProof":  G.perks.galleyProof=true; renderProofPeek(); break;
-    case "revision":     G.perks.revision=true; break;
     case "midnightPress": G.perks.midnightPress=true; break;
     case "superStore":   G.perks.superStore=true;
       // widen the shelf immediately: restock in place so the new seats are usable now
@@ -5673,11 +5701,6 @@ function galleyProofOffer(){
   return {kind:"Perk",rarity:"legendary",name:"Galley Proof",
     desc:"See the next three tiles of your draw pile at all times.",
     price:px(13), art:"🔭", d:{type:"galleyProof"}};
-}
-function revisionOffer(){
-  return {kind:"Perk",rarity:"legendary",name:"Revision",
-    desc:"Once per round, rewrite one letter of the word you just set. If the new word is real, score the improvement.",
-    price:px(15), art:"✒️", d:{type:"revision"}};
 }
 function midnightPressOffer(){
   return {kind:"Perk",rarity:"legendary",name:"The Midnight Press",
@@ -5978,7 +6001,7 @@ function renderShop(){
     grid.appendChild(card);
   });
 }
-function rerollCost(){ if(G.perks.freeRerolls && !G.freeRerollUsed) return 0; return G.rerollCount + (ascHas(1)?3:1); }   // A1 Tight Purse starts the ladder at 3   // first reroll each shop is free with the perk; otherwise 1,2,3… (count persists all run)
+function rerollCost(){ if(G.perks.freeRerolls && !G.freeRerollUsed) return 0; return G.rerollCount + (ascHas(6)?3:1); }   // A6 Hard Bargain starts the ladder at 3   // first reroll each shop is free with the perk; otherwise 1,2,3… (count persists all run)
 function buyOffer(i){
   const o=G.shopOffers[i];
   if(o.sold) return;
@@ -6046,7 +6069,7 @@ function nextRound(){
 function enterNextLevel(){
   G.challenge=null;   // clear any spent challenge before the new round
   const lvl=G.level;
-  const offerable = CHALLENGE_LEVELS.has(lvl) && (!G.infinite || lvl<=WIN_LEVEL);
+  const offerable = challengeLevelActive(lvl) && (!G.infinite || lvl<=WIN_LEVEL);
   if(offerable){ openChallenge(lvl); }
   else { startLevel(); }
 }
@@ -6066,7 +6089,9 @@ function openChallenge(lvl){
 }
 function renderChallenge(lvl){
   const p=G.challengePending; const def=CHALLENGE_TYPES[p.type];
-  $("chalRound").textContent="Round "+lvl;
+  const forced=challengeMandatory(lvl);
+  $("chalSkipBtn").classList.toggle("hidden", forced);
+  $("chalRound").textContent = forced ? ("Round "+lvl+" \u00b7 required") : ("Round "+lvl);
   $("chalName").textContent=def.name;
   $("chalBadge").textContent=def.badge;
   $("chalDesc").textContent=challengeDescText(p.type, p.banned, true);
@@ -6101,6 +6126,7 @@ function takeChallenge(){
   startLevel();
 }
 function skipChallenge(){
+  if(challengeMandatory(G.level)) return;   // A1 Challenger: round 9 cannot be skipped
   G.challenge=null; G.challengePending=null;
   $("challengeScreen").classList.add("hidden");
   startLevel();
@@ -6652,7 +6678,7 @@ function statFinish(result){
   G.stats.runScore=G.runScore||0;
   G.stats.bestWord=G.runBestWord||""; G.stats.bestScore=G.runBestScore||0;
   G.stats.perks={ firstUp:G.perks.firstUp, lastUp:G.perks.lastUp, vowelPower:G.perks.vowelPower,
-    bigWords:G.perks.bigWords, fireSale:G.perks.fireSale, interest:G.perks.interest, fightingWords:!!G.perks.fightingWords, superStore:!!G.perks.superStore, wordBinder:(G.perks.wordBinder?{word:G.perks.wordBinder.word,banked:G.perks.wordBinder.banked}:false), gemini:!!G.perks.gemini, gildedAge:G.perks.gildedAge||false, deadlineExt:!!G.perks.deadlineExt, galleyProof:!!G.perks.galleyProof, revision:!!G.perks.revision, midnightPress:!!G.perks.midnightPress, secondEdition:!!G.perks.secondEdition,
+    bigWords:G.perks.bigWords, fireSale:G.perks.fireSale, interest:G.perks.interest, fightingWords:!!G.perks.fightingWords, superStore:!!G.perks.superStore, wordBinder:(G.perks.wordBinder?{word:G.perks.wordBinder.word,banked:G.perks.wordBinder.banked}:false), gemini:!!G.perks.gemini, gildedAge:G.perks.gildedAge||false, deadlineExt:!!G.perks.deadlineExt, galleyProof:!!G.perks.galleyProof, midnightPress:!!G.perks.midnightPress, secondEdition:!!G.perks.secondEdition,
     scoreMult:G.scoreMult, handSize:G.handSize, extraTurns:G.extraTurns };
   if(G.stats){ G.stats.character=G.character||"writer"; G.stats.ascension=+G.ascension||0; }
   try{ localStorage.setItem("letterati_laststats", JSON.stringify(G.stats)); }catch(e){}
@@ -7289,7 +7315,6 @@ function ownedPerksList(){
   if(G.perks.gildedAge) out.push("Gilded Age · every "+G.perks.gildedAge+" arrives gilded and golden");
   if(G.perks.deadlineExt) out.push("Deadline Extension · first failed round costs no hearts"+(G.deadlineExtRound!=null?" (used)":""));
   if(G.perks.galleyProof) out.push("Galley Proof · see the next 3 tiles");
-  if(G.perks.revision) out.push("Revision · rewrite one letter per round");
   if(G.perks.midnightPress) out.push("The Midnight Press · overtime words ×2, first is free");
   if(G.perks.mirror)     out.push("Mirror · ×3 palindromes");
   if(G.perks.verbose)    out.push("Verbose · ×1.5 verbs");
@@ -7369,7 +7394,6 @@ function ownedPerkCards(){
   if(P.gildedAge) push("🏛️","Gilded Age","Every "+P.gildedAge+" in your deck, present and future, arrives gilded once and golden.");
   if(P.deadlineExt) push("🕰️","Deadline Extension","Your first failed round costs no hearts."+(G.deadlineExtRound!=null?" Used.":""));
   if(P.galleyProof) push("🔭","Galley Proof","The next three tiles of your draw pile are always visible.");
-  if(P.revision) push("✒️","Revision","Once per round, rewrite one letter of the word you just set and score the improvement.");
   if(P.midnightPress) push("🌙","The Midnight Press","Overtime words score double. The first overtime word each round costs no heart.");
   if(P.mirror)     push("🪞","Mirror","×3 on palindromes.");
   if(P.verbose)    push("🅥","Verbose","×1.5 on verbs, in any form.");
@@ -7536,7 +7560,7 @@ function save(){
       perks:G.perks, scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, reprintUsed:G.reprintUsed, foilUsed:G.foilUsed, challenge:G.challenge, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, runMs:G.runMs, stats:G.stats,
       wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, wordPlays:G.wordPlays, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
       attempt:G.attempt, target:G.target, score:G.score, handsLeft:G.handsLeft, discardsLeft:G.discardsLeft,
-      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), roundLengths:(G.roundLengths||[]), standingDone:!!G.standingDone, _marginsApplied:(+G._marginsApplied||0), overtime:!!G.overtime, deadlineExtRound:(G.deadlineExtRound==null?null:G.deadlineExtRound), midnightRound:(G.midnightRound==null?null:G.midnightRound), secondEdRound:(G.secondEdRound==null?null:G.secondEdRound), secondEdHalf:!!G.secondEdHalf, revisionRound:(G.revisionRound==null?null:G.revisionRound), boss:(G.boss||null), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0, justStacks:G.justStacks||0, lastWordLen:(G.lastWordLen==null?null:G.lastWordLen), wetProofPending:!!G.wetProofPending, inkPtsPending:G.inkPtsPending||0, compositorRound:(G.compositorRound==null?null:G.compositorRound), mystery:(G.mystery||null), mysterySolvedLevel:(G.mysterySolvedLevel==null?null:G.mysterySolvedLevel), mysterySolves:G.mysterySolves||0, beatStreak:G.beatStreak||0, mysteryLevel:(G.mysteryLevel==null?null:G.mysteryLevel), mysterySkip:(G.mysterySkip||[]), secondOpinionRound:(G.secondOpinionRound==null?null:G.secondOpinionRound),
+      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), roundLengths:(G.roundLengths||[]), standingDone:!!G.standingDone, _marginsApplied:(+G._marginsApplied||0), overtime:!!G.overtime, deadlineExtRound:(G.deadlineExtRound==null?null:G.deadlineExtRound), midnightRound:(G.midnightRound==null?null:G.midnightRound), secondEdRound:(G.secondEdRound==null?null:G.secondEdRound), secondEdHalf:!!G.secondEdHalf, boss:(G.boss||null), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0, justStacks:G.justStacks||0, lastWordLen:(G.lastWordLen==null?null:G.lastWordLen), wetProofPending:!!G.wetProofPending, inkPtsPending:G.inkPtsPending||0, compositorRound:(G.compositorRound==null?null:G.compositorRound), foulLetter:(G.foulLetter||null), formeWord:(G.formeWord||null), editsLeft:(G.editsLeft==null?null:G.editsLeft), mystery:(G.mystery||null), mysterySolvedLevel:(G.mysterySolvedLevel==null?null:G.mysterySolvedLevel), mysterySolves:G.mysterySolves||0, beatStreak:G.beatStreak||0, mysteryLevel:(G.mysteryLevel==null?null:G.mysteryLevel), mysterySkip:(G.mysterySkip||[]), secondOpinionRound:(G.secondOpinionRound==null?null:G.secondOpinionRound),
       rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed, letterPlays:G.letterPlays||{}, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
     };
     localStorage.setItem(SAVE_KEY,JSON.stringify(data));
@@ -7553,7 +7577,7 @@ function continueRun(){
   G.proofStage = +d.proofStage||0;
   G.seed=d.seed; G.level=d.level; G.hearts=d.hearts; G.coins=d.coins; G.handSize=d.handSize;
   G.infinite=!!d.infinite; G.wonRun=!!d.wonRun;
-  G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false,superStore:false,wordBinder:false, secondEdition:false, gemini:false, gildedAge:false, deadlineExt:false, galleyProof:false, revision:false, midnightPress:false, vowelPuller:false, slugLine:false, eyeLevel:false, typeHigh:false, blindFaith:false, inkBall:false, vowelMovement:false, consonantCluster:false, justified:false, emQuad:false, descender:false, department:false, wetProof:false, compositor:false, foundryFire:false, fusedFocus:false, indiaInk:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
+  G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false,superStore:false,wordBinder:false, secondEdition:false, gemini:false, gildedAge:false, deadlineExt:false, galleyProof:false, midnightPress:false, vowelPuller:false, slugLine:false, eyeLevel:false, typeHigh:false, blindFaith:false, inkBall:false, vowelMovement:false, consonantCluster:false, justified:false, emQuad:false, descender:false, department:false, wetProof:false, compositor:false, foundryFire:false, fusedFocus:false, indiaInk:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
   if(G.perks.vowelPower===true) G.perks.vowelPower=1;   // v42a: legacy boolean -> 1 stack
   G.reprintUsed=!!d.reprintUsed;
   G.foilUsed=Array.isArray(d.foilUsed)?d.foilUsed.slice():[];
@@ -7564,9 +7588,9 @@ function continueRun(){
   G.roundLengths=Array.isArray(d.roundLengths)?d.roundLengths:[]; G.standingDone=!!d.standingDone; G._marginsApplied=(d._marginsApplied===true?2:(+d._marginsApplied||0));   // legacy saves stored a boolean for the old 2-tile cut
   G.rerollCount=d.rerollCount||0; G.freeRerollUsed=!!d.freeRerollUsed;   // v492d: the reroll price ladder was only restored on shop-phase resumes
   G.overtime=!!d.overtime; G.deadlineExtRound=(d.deadlineExtRound==null?null:d.deadlineExtRound); G.midnightRound=(d.midnightRound==null?null:d.midnightRound);
-  G.secondEdRound=(d.secondEdRound==null?null:d.secondEdRound); G.secondEdHalf=!!d.secondEdHalf; G.revisionRound=(d.revisionRound==null?null:d.revisionRound); G.lastPlay=null;
+  G.secondEdRound=(d.secondEdRound==null?null:d.secondEdRound); G.secondEdHalf=!!d.secondEdHalf; G.lastPlay=null;
   G.boss=d.boss||null; normalizeBoss(); if(G.boss&&G.boss.active&&G.level===WIN_LEVEL) document.body.classList.add("boss-round");
-  G.anagramSigs=d.anagramSigs||{}; G.anthologyCount=d.anthologyCount||0; G.letterPlays=d.letterPlays||{}; G.abcSeen=d.abcSeen||{}; G.lastWordLetters=d.lastWordLetters||null; G.pulpPending=d.pulpPending||0; G.justStacks=d.justStacks||0; G.lastWordLen=(d.lastWordLen==null?null:d.lastWordLen); G.wetProofPending=!!d.wetProofPending; G.inkPtsPending=d.inkPtsPending||0; G.compositorRound=(d.compositorRound==null?null:d.compositorRound); G.mystery=d.mystery||null; G.mysterySolvedLevel=(d.mysterySolvedLevel==null?null:d.mysterySolvedLevel); G.mysterySolves=d.mysterySolves||0; G.beatStreak=d.beatStreak||0; G.mysteryLevel=(d.mysteryLevel==null?null:d.mysteryLevel); G.mysterySkip=d.mysterySkip||[]; G.secondOpinionRound=(d.secondOpinionRound==null?null:d.secondOpinionRound); G._mysteryLoading=false;
+  G.anagramSigs=d.anagramSigs||{}; G.anthologyCount=d.anthologyCount||0; G.letterPlays=d.letterPlays||{}; G.abcSeen=d.abcSeen||{}; G.lastWordLetters=d.lastWordLetters||null; G.pulpPending=d.pulpPending||0; G.justStacks=d.justStacks||0; G.lastWordLen=(d.lastWordLen==null?null:d.lastWordLen); G.wetProofPending=!!d.wetProofPending; G.inkPtsPending=d.inkPtsPending||0; G.compositorRound=(d.compositorRound==null?null:d.compositorRound); G.foulLetter=d.foulLetter||null; G.formeWord=d.formeWord||null; G.editsLeft=(d.editsLeft==null?null:d.editsLeft); G.mystery=d.mystery||null; G.mysterySolvedLevel=(d.mysterySolvedLevel==null?null:d.mysterySolvedLevel); G.mysterySolves=d.mysterySolves||0; G.beatStreak=d.beatStreak||0; G.mysteryLevel=(d.mysteryLevel==null?null:d.mysteryLevel); G.mysterySkip=d.mysterySkip||[]; G.secondOpinionRound=(d.secondOpinionRound==null?null:d.secondOpinionRound); G._mysteryLoading=false;
   // v491h migration: Free jazz is retired; strip any lingering jazz cards from a
   // saved run so nothing unplayable sits in a pile.
   { const noJazz=a=>Array.isArray(a)?a.filter(c=>c.kind!=="jazz"):a;
@@ -7718,15 +7742,16 @@ function newRun(seed, charId, asc){
   G.character = CHARACTERS[charId] ? charId : "writer";
   G.ascension = Math.max(0, Math.min(MAX_ASC, +asc||0));
   G.proofStage = 0;
-  G.level=1; G.hearts=heartMax(); G.coins=0; G.handSize=START_HAND;
-  G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false,superStore:false,wordBinder:false, secondEdition:false, gemini:false, gildedAge:false, deadlineExt:false, galleyProof:false, revision:false, midnightPress:false};
+  G.level=1; G.hearts=startHearts(); G.coins=0; G.handSize=START_HAND;
+  G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false,superStore:false,wordBinder:false, secondEdition:false, gemini:false, gildedAge:false, deadlineExt:false, galleyProof:false, midnightPress:false};
   G.reprintUsed=false;
-  G.scoreMult=1; G.pressGrowth=0; G.heavyPress=0; G.extraDiscards=0; G.extraTurns=0; G.lastReward=null; G.overtime=false; G.deadlineExtRound=null; G.midnightRound=null; G.secondEdRound=null; G.secondEdHalf=false; G.revisionRound=null; G.lastPlay=null;
+  G.scoreMult=1; G.pressGrowth=0; G.heavyPress=0; G.extraDiscards=0; G.extraTurns=0; G.lastReward=null; G.overtime=false; G.deadlineExtRound=null; G.midnightRound=null; G.secondEdRound=null; G.secondEdHalf=false; G.lastPlay=null;
   G.infinite=false; G.wonRun=false;
   G.rerollCount=0; G.freeRerollUsed=false;   // reroll-price ladder resets each run
   G.wordsPlayed=0; G.runScore=0; G.runBestWord=""; G.runBestScore=0; G.wordPlays={}; G.levelStats={bestWord:"",bestScore:0,words:0};
   G.attempt=0; G.best=1; G.shopOffers=[]; G.runMs=0;
   G.challenge=null; G.challengePending=null; G._rescues=0;   // never carry a challenge into a fresh run
+  G.foulLetter=null; G.formeWord=null; G.editsLeft=null;
   G.mystery=null; G.mysterySolvedLevel=null; G.mysterySolves=0; G.beatStreak=0; G.mysteryLevel=null; G.mysterySkip=[]; G.secondOpinionRound=null; G._mysteryLoading=false; G._noMysteryMsg=false; G._noMysteryKey=null;
   G.letterPlays={}; G._dealerCardId=null;
   G.shopSeen=[];
@@ -7800,6 +7825,7 @@ $("playBtn").addEventListener("click",()=>openCharSelect(null));
 $("continueBtn").addEventListener("click",continueRun);
 // v498d: rehydrate the definition cache before anything asks for a clue, so a
 // returning player's first mystery word is instant instead of a fresh round trip.
+migrateProgress();   // must run before any progress is read
 loadDefStore();
 try{ window.addEventListener("pagehide", flushDefStore);
      document.addEventListener("visibilitychange", ()=>{ if(document.hidden) flushDefStore(); }); }catch(e){}
@@ -7881,9 +7907,7 @@ $("trioPickCancel").addEventListener("click",()=>{ trioSelCard=null; $("trioPick
 $("trioRemoveBtn").addEventListener("click",()=>{ const c=trioSelCard; trioSelCard=null; $("trioPick").classList.add("hidden"); if(c) removeFromCanvas(c.id); });
 $("binderSave").addEventListener("click",saveBinder);
 $("binderCancel").addEventListener("click",()=>{ $("binderOverlay").classList.add("hidden"); });
-$("revisionCancel").addEventListener("click",()=>{ $("revisionOverlay").classList.add("hidden"); _revIdx=null; });
 $("secondEdBtn").addEventListener("click",useSecondEdition);
-$("revisionBtn").addEventListener("click",openRevision);
 $("introGoBtn").addEventListener("click",()=>{
   $("runIntroScreen").classList.add("hidden"); haptic(15);
   startLevel();
