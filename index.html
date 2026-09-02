@@ -16,6 +16,26 @@
    Sibling to Verbatim. Tile engine + juice ported from Verbatim;
    roguelike systems (seeded streams, rising shop prices, rerolls,
    deck view, card removal, hearts) modelled on Golf Gone Wrong.
+   v4913a: The Editor is back to three hearts and four words a
+   round; the premium is the +20% target and one fewer discard.
+   Seven new Editor perks: Kill Fee ($1 a cut), Column Inch (a
+   longer revision x1.5), Tight Margins (a shorter revision x2),
+   Standing Head (keep the line's first letter, x1.5), Tailpiece
+   (keep its last letter, x1.5), Hot Metal (three sets running
+   gilds a slug for good) and Final Proof (last word x1.25 per cut
+   still held).
+   v4912a: discarding is a drag - pull letters onto the red Discard
+   button, which stretches to hold them, shivers while loaded, and
+   squashes back once the discard resolves; tap a chip to take a
+   letter back. Character-select boon/bane lines get an explicit
+   colour (they inherited ButtonText and went white on desktop).
+   The deck sheet opens with the desk you are playing and its
+   boon and bane. The Editor: target premium 30% -> 20%; cuts are
+   now charged only for letters that were part of the set line, and
+   are charged whether you tap OR drag them off; those letters carry
+   a heavier outline; Clear canvas spares them; Set the word goes
+   inactive until the line actually changes; new common perk Cut
+   Above (+1 cut per word, resets each set).
    v491a: boss preview at end of R7 shop + AHEAD banner (R8-9);
    boss-round target eased x0.85 (live + predictor in lockstep);
    Big Words reworked (6+ letter words x2); new perks: Fighting
@@ -445,6 +465,47 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
 }
 .btn-warn{background:var(--oxblood);color:#fff;border:none;flex:0 0 auto;min-width:120px}
 .btn-warn:disabled{opacity:.35;cursor:not-allowed}
+/* ---- Discard bin (v4912a): drag letters onto the button; it stretches to hold
+   them, jiggles while loaded, and squashes back once the discard resolves. ---- */
+#discardBtn{position:relative;display:flex;align-items:center;justify-content:center;gap:9px;overflow:visible;
+  transition:min-width .30s cubic-bezier(.34,1.5,.64,1), transform .16s ease, opacity .15s ease, box-shadow .18s ease}
+#discardBtn .dz-label{display:block;flex:0 0 auto;transition:opacity .18s ease}
+#discardBtn .dz-bin{display:flex;align-items:center;gap:4px;flex:0 1 auto;min-width:0;overflow:hidden}
+#discardBtn .dz-bin:empty{display:none}
+#discardBtn .dz-chip{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;position:relative;
+  min-width:24px;padding:0 5px;height:29px;border-radius:5px;background:linear-gradient(180deg,#FCF8EE,var(--tile));color:var(--ink);
+  border:1px solid rgba(35,32,46,.25);box-shadow:0 1px 0 rgba(0,0,0,.25);
+  font-family:var(--serif);font-weight:700;font-size:1rem;line-height:1;
+  animation:dzChipIn .34s cubic-bezier(.34,1.56,.64,1)}
+#discardBtn .dz-chip .dzv{position:absolute;right:2px;bottom:1px;font-family:var(--ui);font-size:.42rem;font-weight:800;color:var(--ink-soft);line-height:1}
+#discardBtn.dz-open{box-shadow:0 0 0 2px rgba(255,255,255,.35), 0 6px 16px rgba(122,29,36,.35)}
+#discardBtn.dz-hot{transform:scale(1.06);box-shadow:0 0 0 3px #F2D98B, 0 8px 20px rgba(122,29,36,.45)}
+#discardBtn.dz-loaded{animation:dzJiggle .34s ease-in-out infinite}
+#discardBtn.dz-loaded .dz-chip{animation:dzChipIn .34s cubic-bezier(.34,1.56,.64,1), dzChipJiggle .3s ease-in-out infinite .34s}
+#discardBtn.dz-loaded .dz-chip:nth-child(2n){animation-delay:0s,.42s}
+#discardBtn.dz-loaded .dz-chip:nth-child(3n){animation-delay:0s,.38s}
+#discardBtn.dz-pop{animation:dzPop .46s cubic-bezier(.34,1.56,.64,1)}
+@keyframes dzChipIn{0%{transform:scale(.3) rotate(-14deg);opacity:0}100%{transform:scale(1) rotate(0);opacity:1}}
+@keyframes dzJiggle{
+  0%,100%{transform:translate(0,0) rotate(0)}
+  25%{transform:translate(-1.2px,.6px) rotate(-.7deg)}
+  50%{transform:translate(1.2px,-.5px) rotate(.7deg)}
+  75%{transform:translate(-.8px,-.6px) rotate(-.4deg)}
+}
+@keyframes dzChipJiggle{
+  0%,100%{transform:translateY(0) rotate(0)}
+  33%{transform:translateY(-1.6px) rotate(-5deg)}
+  66%{transform:translateY(1.2px) rotate(5deg)}
+}
+@keyframes dzPop{
+  0%{transform:scale(1.16,.78)}
+  35%{transform:scale(.9,1.14)}
+  62%{transform:scale(1.05,.96)}
+  100%{transform:scale(1)}
+}
+@media (prefers-reduced-motion:reduce){
+  #discardBtn.dz-loaded,#discardBtn.dz-loaded .dz-chip,#discardBtn.dz-pop,#discardBtn .dz-chip{animation:none}
+}
 .btn-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--tile-edge);flex:0 0 auto;min-width:96px}
 
 /* discard counter chip */
@@ -472,6 +533,8 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
 .tile:active{transform:translateY(0)}
 .tile .val{position:absolute;right:5px;bottom:3px;font-family:var(--ui);font-size:.62rem;font-weight:800;color:var(--ink-soft);line-height:1}
 .tile.placed{box-shadow:0 2px 0 #C9B98F, 0 4px 11px rgba(60,110,99,.22);border-color:#B7C9BF}
+/* standing type: letters locked into the word already set (v4912a) */
+.tile.set-locked{border-width:2.5px;border-color:var(--ink);box-shadow:0 2px 0 #C9B98F, 0 0 0 1px rgba(35,32,46,.18), 0 4px 11px rgba(35,32,46,.22)}
 .tile.upgraded{background:linear-gradient(180deg,#FBEFC9,#F3DFA0);border-color:#D8B85C;box-shadow:0 2px 0 #B98A2E,0 4px 10px rgba(185,138,46,.3)}
 .tile.upgraded .val{color:var(--brass-deep)}
 .tile .val .up-sup{font-size:.78em;vertical-align:super;font-style:normal;color:var(--brass-deep);margin-left:1px;font-weight:900}
@@ -601,7 +664,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 @keyframes tileGlow{0%{box-shadow:0 2px 0 #C9B98F,0 0 0 0 rgba(60,110,99,0)}35%{box-shadow:0 2px 0 #C9B98F,0 0 22px 6px rgba(60,110,99,.5)}100%{box-shadow:0 2px 0 #C9B98F,0 0 0 0 rgba(60,110,99,0)}}
 @keyframes lockPop{0%{transform:scale(.86)}55%{transform:scale(1.07)}100%{transform:scale(1)}}
 .tile.pop{animation:lockPop .25s ease}
-.tile.fly-out{animation:flyOut .4s ease forwards}
+.tile.fly-out,.dz-chip.fly-out{animation:flyOut .4s ease forwards}
 @keyframes flyOut{to{opacity:0;transform:translateY(-30px) scale(.6) rotate(8deg)}}
 .dragclone{position:fixed;z-index:1200;pointer-events:none;transform:translate(-50%,-50%) rotate(-3deg) scale(1.06);
   box-shadow:0 14px 30px rgba(35,32,46,.34)}
@@ -666,18 +729,33 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 .deck-group .dg-empty{font-size:.76rem;font-style:italic;color:var(--ink-soft);text-align:center;width:100%}
 .deck-group.muted .dg-row{opacity:.62}
 .deck-group + .deck-group{margin-top:14px;padding-top:12px;border-top:1px dashed var(--tile-edge)}
+/* who you are playing, at the head of the deck sheet (v4912a) */
+.deck-char{display:flex;gap:11px;align-items:flex-start;text-align:left;color:var(--ink);
+  background:var(--paper);border:1.5px solid var(--tile-edge);border-radius:14px;padding:11px 12px;margin:0 0 12px}
+.deck-char .dc-art{font-size:1.35rem;line-height:1;flex:0 0 auto;width:38px;height:38px;display:flex;align-items:center;justify-content:center;
+  background:linear-gradient(180deg,#FBF6EA,#EFE4CC);border:1px solid var(--tile-edge);border-radius:10px}
+.deck-char .dc-body{min-width:0;flex:1}
+.deck-char .dc-eyebrow{font-size:.55rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);font-weight:800}
+.deck-char .dc-name{font-family:var(--serif);font-weight:700;font-size:1.02rem;color:var(--ink);display:block;margin-top:1px}
+.deck-char .dc-asc{font-size:.58rem;letter-spacing:.1em;text-transform:uppercase;font-weight:800;color:var(--brass-deep);margin-left:6px}
+.deck-char .dc-blurb{font-size:.72rem;color:var(--ink-soft);line-height:1.35;margin-top:3px}
+.deck-char .dc-line{font-size:.71rem;line-height:1.3;margin-top:5px;display:flex;gap:6px;align-items:baseline;color:var(--ink)}
+.deck-char .dc-plus{color:var(--moss);font-weight:900;flex:0 0 auto}
+.deck-char .dc-minus{color:var(--oxblood);font-weight:900;flex:0 0 auto}
 /* character select (v496a) */
 .cs-eyebrow{font-size:.6rem;letter-spacing:.18em;text-transform:uppercase;color:var(--ink-soft);font-weight:800;text-align:center;margin-bottom:12px}
 .cs-grid{display:flex;flex-direction:column;gap:10px}
 .cs-card{display:flex;gap:11px;align-items:flex-start;text-align:left;width:100%;cursor:pointer;
-  background:var(--paper);border:1.5px solid var(--tile-edge);border-radius:14px;padding:12px 13px;font-family:inherit}
+  background:var(--paper);border:1.5px solid var(--tile-edge);border-radius:14px;padding:12px 13px;font-family:inherit;
+  color:var(--ink)}   /* v4912a: without this the boon/bane lines fall back to the UA's ButtonText and go white on desktop */
 .cs-card.picked{border-color:var(--brass);box-shadow:0 0 0 2px rgba(184,140,58,.22)}
 .cs-card .cs-art{font-size:1.5rem;line-height:1;flex:0 0 auto;width:42px;height:42px;display:flex;align-items:center;justify-content:center;
   background:linear-gradient(180deg,#FBF6EA,#EFE4CC);border:1px solid var(--tile-edge);border-radius:10px}
 .cs-card .cs-body{min-width:0;flex:1}
 .cs-card .cs-name{font-family:var(--serif);font-weight:700;font-size:1.05rem;color:var(--ink)}
 .cs-card .cs-blurb{font-size:.74rem;color:var(--ink-soft);line-height:1.35;margin-top:3px}
-.cs-card .cs-line{font-size:.72rem;line-height:1.3;margin-top:5px;display:flex;gap:6px;align-items:baseline}
+.cs-card .cs-line{font-size:.72rem;line-height:1.3;margin-top:5px;display:flex;gap:6px;align-items:baseline;color:var(--ink)}
+.cs-card .cs-line > span:last-child{color:var(--ink)}
 .cs-card .cs-plus{color:var(--moss);font-weight:900;flex:0 0 auto}
 .cs-card .cs-minus{color:var(--oxblood);font-weight:900;flex:0 0 auto}
 .cs-card .cs-best{font-size:.6rem;letter-spacing:.1em;text-transform:uppercase;font-weight:800;color:var(--brass-deep);margin-top:6px}
@@ -996,9 +1074,10 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 
     <div class="turns" id="turns"></div>
 
-    <div class="actions">
+    <div class="actions" id="actionsRow">
       <button class="btn btn-warn" id="discardBtn" disabled>
-        Discard<span class="discard-lab" id="discardLab">3 left</span>
+        <span class="dz-label">Discard<span class="discard-lab" id="discardLab">3 left</span></span>
+        <span class="dz-bin" id="discardBin" aria-live="polite"></span>
       </button>
       <button class="btn btn-primary" id="submitBtn" disabled>Set the word</button>
     </div>
@@ -1124,6 +1203,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
       <div class="sheet-title">Your Deck<small id="deckCount">20 letters</small></div>
       <button class="icon-btn" id="deckCloseBtn">Close</button>
     </div>
+    <div class="deck-char" id="deckChar"></div>
     <div class="select-hint hidden" id="selectHint"></div>
     <div class="deck-list" id="deckList"></div>
     <div class="deck-summary" id="deckSummary"></div>
@@ -1310,7 +1390,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
     <div class="howto">
       <p><b>Forge words</b> from the 7 letter slugs in your case. Longer words and rarer letters score more. Set a word and its letters shuffle back into your deck, then you'll draw a fresh 7.</p>
       <p>Beat each round's <b>target</b> within your <b>words</b> (turns). Run out short and you go into <b>overtime</b>. Each extra word costs a heart (you have three), keeping your score and hand, until the target falls or your hearts run out.</p>
-      <p>Stuck with junk? Drop letters on the canvas and tap <b>Discard</b> to swap them (3 a round). The same word can be set as many times as you like.</p>
+      <p>Stuck with junk? Drag those letters onto the red <b>Discard</b> button — it stretches to hold them — then tap it to swap the lot for fresh tiles (3 a round). Tap a letter in the bin to take it back. The same word can be set as many times as you like.</p>
       <p>Made a placement you didn't mean? Tap <b>Undo</b> to step back, one move at a time, right up until you set a word or discard.</p>
       <p>Clear a round to earn coins for the <b>print shop</b>: new letters, gilding, perks and more. Beat all <b>10 rounds</b> to win the press and claim the rank of <b>Letterati</b>, then push your luck in <b>endless</b> if you dare.</p>
       <p>At rounds <b>3, 5 and 7</b> you can take an optional <b>challenge</b>: a tougher round in exchange for a reward you pick up front. Clear it to claim the reward. Miss it and you simply drop into normal overtime.</p>
@@ -1511,7 +1591,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "4911b";
+const VERSION = "4913a";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -1699,7 +1779,15 @@ const CHALLENGE_EPIC_POOL = [
   {name:"Rap Sheet",     art:"📋", char:"detective", desc:"Every mystery word you solve this run adds 0.05 to your Press, permanently.", d:{type:"rapSheet"}},
   {name:"Fingerprint",   art:"🖍️", char:"detective", desc:"The clue also shows how long the mystery word is and what it starts with.", d:{type:"fingerprint"}},
   {name:"Second Opinion",art:"🤔", char:"detective", desc:"Once per round, throw out the clue and draw a different one from the same hand.", d:{type:"secondOpinion"}},
-  {name:"Red Herring",   art:"🐟", char:"detective", desc:"Words sharing three or more letters with the live mystery word score +20%.", d:{type:"redHerring"}}
+  {name:"Red Herring",   art:"🐟", char:"detective", desc:"Words sharing three or more letters with the live mystery word score +20%.", d:{type:"redHerring"}},
+  {name:"Cut Above",     art:"✂️", char:"editor", desc:"One extra cut per word. Resets every time you set a line.", d:{type:"cutAbove"}},
+  {name:"Kill Fee",      art:"💵", char:"editor", desc:"Every letter you cut pays $1.", d:{type:"killFee"}},
+  {name:"Column Inch",   art:"📏", char:"editor", desc:"A revision longer than the line it replaced scores ×1.5.", d:{type:"columnInch"}},
+  {name:"Tight Margins", art:"📕", char:"editor", desc:"A revision shorter than the line it replaced scores ×2.", d:{type:"tightMargins"}},
+  {name:"Standing Head", art:"🗞️", char:"editor", desc:"Keep the first letter of your last line and the next word scores ×1.5.", d:{type:"standingHead"}},
+  {name:"Tailpiece",     art:"🔚", char:"editor", desc:"Keep the last letter of your last line and the next word scores ×1.5.", d:{type:"tailpiece"}},
+  {name:"Hot Metal",     art:"🔥", char:"editor", desc:"A letter that survives three sets running is gilded for good.", d:{type:"hotMetal"}},
+  {name:"Final Proof",   art:"📰", char:"editor", desc:"Your last word each round scores ×1.25 for every cut you still hold.", d:{type:"finalProof"}}
 ];
 const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:2,M:3,N:1,O:1,P:3,Q:10,R:1,S:2,T:2,U:1,V:4,W:4,X:8,Y:4,Z:10};
 // L,S,T bumped 1→2 (v2d): only vowels + N,R,U remain 1-point. Targets scaled to match (see TARGET_SCALE).
@@ -1747,8 +1835,8 @@ const CHARACTERS = {
     id:"editor", name:"The Editor", art:"\u2702\uFE0F", tag:"Standing type",
     blurb:"The forme is never broken up. Your word stays set, and every line after it is a revision of the one before.",
     boon:"Letters stay on the press after you set a word. Cut up to 3 per revision.",
-    bane:"Targets are 10 percent higher, and no word may be set twice running",
-    targetMult:1.10, hearts:3, standingForme:true, editsPerWord:3
+    bane:"Targets are 20 percent higher and you have one fewer discard. No word may be set twice running.",
+    targetMult:1.20, hearts:3, discardsDelta:-1, standingForme:true, editsPerWord:3
   }
 };
 const CHAR_ORDER = ["writer","detective","editor"];
@@ -1758,7 +1846,34 @@ function charHas(k){ return !!charDef()[k]; }
    so the canvas carries over and every following word is a revision of the last.
    Cuts, not tiles, are the limiting resource. */
 function standingForme(){ return charHas("standingForme"); }
-function editsPerWord(){ return charDef().editsPerWord || 0; }
+/* The round's word and discard budgets, in one place. startLevel sets from these
+   and the HUD draws from these, so the dots can never disagree with the counter. */
+function wordsForLevel(){
+  return Math.max(1, HANDS_PER_LEVEL+(G.extraTurns||0)+(charDef().handsDelta||0)-(ascHas(7)?1:0));
+}
+function discardsForLevel(){
+  return Math.max(0, DISCARDS_PER_LEVEL+(G.extraDiscards||0)+(charDef().discardsDelta||0)-(ascHas(3)?1:0));
+}
+/* Cuts allowed per revision. Cut Above (Editor perk) adds one on top of the
+   desk's own allowance; it resets with every word set, like the base budget. */
+function editsPerWord(){
+  const base=charDef().editsPerWord || 0;
+  if(!base) return 0;
+  return base + (G.perks && G.perks.cutAbove ? 1 : 0);
+}
+/* Tiles that were part of the word currently standing on the press. Taking one
+   of these back out is a CUT; letters added since the last set come out free. */
+function formeLocked(c){
+  if(!c || !standingForme() || !G.formeWord) return false;
+  return Array.isArray(G.formeIds) && G.formeIds.includes(String(c.id));
+}
+/* Setting the exact line that is already standing is not a revision. */
+function formeRepeat(){
+  if(!standingForme() || !G.formeWord) return false;
+  const res=resolvedCanvas();
+  if(!res.length || res.some(r=>!r.letter)) return false;
+  return res.map(r=>r.letter.toLowerCase()).join("")===G.formeWord;
+}
 /* The Detective gets a clue every hand with no per-round lockout, so each one is
    worth less: x1.5 instead of the standard x2. */
 /* ============================================================
@@ -2158,7 +2273,8 @@ function cardMult(c){ return c.mult||1; }                        // per-tile sco
 
 const G = {
   seed:null, level:1, hearts:MAX_HEARTS, coins:0, handSize:START_HAND,
-  character:"writer", ascension:0, proofStage:0, foulLetter:null, formeWord:null, editsLeft:null,
+  character:"writer", ascension:0, proofStage:0, foulLetter:null, formeWord:null, formeIds:[], editsLeft:null,
+  discardBin:[],           // tiles dragged onto the Discard button, waiting to be spent
   deck:[],                 // run-long collection of cards
   perks:{ firstUp:{}, lastUp:{}, discardMoneyBoost:false, interest:false, twinsies:false,
           vowelPower:0, fireSale:false, bigWords:false, freeRerolls:false,
@@ -2945,7 +3061,7 @@ function renderHud(){
   $("discardLab").innerHTML=`<b>${G.discardsLeft}</b> left`;
   $("discardBtn").classList.toggle("low",G.discardsLeft===0);
   let dots="";
-  const totalTurns=HANDS_PER_LEVEL+G.extraTurns;
+  const totalTurns=Math.max(G.handsLeft, wordsForLevel());   // dots must match the real budget
   for(let i=0;i<totalTurns;i++){
     const on=i<G.handsLeft;
     dots+=`<span class="dot${on?(G.handsLeft===1?" last":" on"):""}"></span>`;
@@ -3201,7 +3317,9 @@ function renderHand(){
 function renderCanvas(){
   const el=$("canvas"); el.innerHTML="";
   el.classList.toggle("empty",G.canvas.length===0);
-  G.canvas.forEach(c=>{ const t=buildTile(c,"canvas"); t.classList.add("placed"); el.appendChild(t); });
+  G.canvas.forEach(c=>{ const t=buildTile(c,"canvas"); t.classList.add("placed");
+    if(formeLocked(c)) t.classList.add("set-locked");   // v4912a: standing type reads as heavier on the press
+    el.appendChild(t); });
   fitCanvas();
   updateLive();
 }
@@ -3422,6 +3540,9 @@ function wordValid(){
   const res=resolvedCanvas();
   if(res.length<2) return false;
   if(res.some(r=>!r.letter)) return false; // unresolved clone / wild vowel
+  // Standing forme: the line already on the press is not a new word. The button
+  // goes inactive until a letter is cut or added (v4912a).
+  if(standingForme() && G.formeWord && res.map(r=>r.letter.toLowerCase()).join("")===G.formeWord) return false;
   // challenge gates (v3a): absolute, no bypass
   const minL=challengeMinLen();
   if(minL && res.length<minL) return false;
@@ -3603,6 +3724,18 @@ function scoreOf(res){
         else if(c.kind==="trio") n+=(c.letters||[]).filter(L=>L===dl).length; });
       if(n>0){ deptMult=Math.round((1+0.05*n)*100)/100; total*=deptMult; }
     } }
+  /* ---- Editor desk perks (v4913a). Every one of these reads the line you set
+     LAST, which submitWord records after scoring, so a revision is always
+     measured against the line it replaces. ---- */
+  let colInchHit=false, tightMarginHit=false, headHit=false, tailHit=false, proofMult=1;
+  { const prevLen=(G.lastWordLen==null?null:G.lastWordLen);
+    if(G.perks.columnInch   && prevLen!=null && res.length>prevLen){ colInchHit=true; total*=1.5; }
+    if(G.perks.tightMargins && prevLen!=null && res.length<prevLen){ tightMarginHit=true; total*=2; }
+    if(G.perks.standingHead && G.lastWordFirst && res.length && res[0].letter===G.lastWordFirst){ headHit=true; total*=1.5; }
+    if(G.perks.tailpiece    && G.lastWordLast  && res.length && res[res.length-1].letter===G.lastWordLast){ tailHit=true; total*=1.5; }
+    if(G.perks.finalProof && G.handsLeft===1 && (G.editsLeft||0)>0){
+      proofMult=Math.round(Math.pow(1.25,G.editsLeft)*100)/100; total*=proofMult; }
+  }
   const liqMult=liquidityMult();
   if(liqMult>1) total*=liqMult;   // Liquidity: the fuller your bank, the harder every word hits
   if(goldMult!==1) total*=goldMult;   // golden letters: compounding word multiplier
@@ -3626,7 +3759,7 @@ function scoreOf(res){
   if(G.perks.blindFaith && (G.discardsLeft||0)>0){ bfAdd=8*G.discardsLeft; total+=bfAdd; }
   let inkPts=0;
   if(G.perks.indiaInk && (G.inkPtsPending||0)>0){ inkPts=G.inkPtsPending; total+=inkPts; }
-  return {total:Math.round(total),sum:Math.round(sum*10)/10,letterVals,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,fuMult,luMult,twinHit,pairHit,shortHit,shortMult,kernHit,fiveHit,bigHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit,effLen,ligHit,crossHit,alphaHit,coloHit,fwMult,midnightHit,secondEdHit,binderAdd,movableHit,anthMult,vanityHit,liqMult,goldMult,mysteryHit,mysteryMult,dragnetHit,herringHit,pulpAdd,commissionAdd,inkBallHit,vmSurplus,ccSurplus,justMult,emQuadHit,wetHit,deptMult,eyeAdd,slugAdd,bfAdd,inkPts};
+  return {total:Math.round(total),sum:Math.round(sum*10)/10,letterVals,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,fuMult,luMult,twinHit,pairHit,shortHit,shortMult,kernHit,fiveHit,bigHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit,effLen,ligHit,crossHit,alphaHit,coloHit,fwMult,midnightHit,secondEdHit,binderAdd,movableHit,anthMult,vanityHit,liqMult,goldMult,mysteryHit,mysteryMult,dragnetHit,herringHit,pulpAdd,commissionAdd,inkBallHit,vmSurplus,ccSurplus,justMult,emQuadHit,wetHit,deptMult,eyeAdd,slugAdd,bfAdd,inkPts,colInchHit,tightMarginHit,headHit,tailHit,proofMult};
 }
 function updateLive(){
   const res=resolvedCanvas();
@@ -3646,6 +3779,7 @@ function updateLive(){
       const hit=[...new Set(res.filter(r=>r.letter&&banned.has(r.letter)).map(r=>r.letter))];
       label = hit.join(", ")+(hit.length>1?" are":" is")+" locked this round";
     }
+    else if(formeRepeat()) label = "already set · cut or add a letter";
     else label = res.length<2 ? "" : "not a word";
   }
   const parts=[`${sc.sum} base`, `×${sc.mult} length`];
@@ -3684,6 +3818,11 @@ function updateLive(){
   if(sc.justMult>1) parts.push(`×${sc.justMult.toFixed(1)} justified`);
   if(sc.emQuadHit) parts.push(`×1.3 em quad`);
   if(sc.wetHit) parts.push(`×1.25 wet proof`);
+  if(sc.colInchHit) parts.push(`×1.5 column inch`);
+  if(sc.tightMarginHit) parts.push(`×2 tight margins`);
+  if(sc.headHit) parts.push(`×1.5 standing head`);
+  if(sc.tailHit) parts.push(`×1.5 tailpiece`);
+  if(sc.proofMult>1) parts.push(`×${sc.proofMult} final proof`);
   if(sc.deptMult>1) parts.push(`×${sc.deptMult.toFixed(2)} department`);
   if(sc.eyeAdd) parts.push(`+${sc.eyeAdd} eye level`);
   if(sc.slugAdd) parts.push(`+${sc.slugAdd} slug line`);
@@ -3769,7 +3908,7 @@ function updateButtons(){
     btn.style.setProperty("--jspeed",Math.max(0.07,0.18-over*0.018).toFixed(3)+"s"); }
   else { btn.style.removeProperty("--amp"); btn.style.removeProperty("--jspeed"); }
   _btnWasReady = showReady;
-  $("discardBtn").disabled = G.canvas.length===0 || G.discardsLeft<=0;
+  $("discardBtn").disabled = (G.discardBin||[]).length===0 || G.discardsLeft<=0;
 }
 
 /* ============================================================
@@ -3828,12 +3967,29 @@ function onTileMove(e){
     document.body.appendChild(c); drag.clone=c;
     drag.el.classList.add("drag-source");      // the original becomes the invisible gap
     drag.curZone=drag.where; drag.curIndex=-1; // force the first layout pass
+    { const dz=$("discardBtn"); if(dz && G.discardsLeft>0 && !$("play").classList.contains("hidden")) dz.classList.add("dz-open"); }
   }
   if(drag.moved){
     e.preventDefault();
     drag.clone.style.left=e.clientX+"px"; drag.clone.style.top=e.clientY+"px";
     const _now=(window.performance&&performance.now)?performance.now():Date.now();
     if(_now-_lastDragJostle>55){ _lastDragJostle=_now; jostleAround(e.clientX,e.clientY); }
+    /* Discard bin: a plain geometric hit test, so it works even while the button
+       is disabled (empty bin) and never fights the hand/canvas reordering. */
+    {
+      const dz=$("discardBtn");
+      let over=false;
+      if(dz && G.discardsLeft>0 && !$("play").classList.contains("hidden")){
+        const r=dz.getBoundingClientRect();
+        over = e.clientX>=r.left-8 && e.clientX<=r.right+8 && e.clientY>=r.top-8 && e.clientY<=r.bottom+8;
+      }
+      if(over!==!!drag.overDiscard){
+        drag.overDiscard=over;
+        if(dz) dz.classList.toggle("dz-hot",over);
+        haptic(over?12:6);
+      }
+      if(over) return;   // hovering the bin: leave the rows exactly as they are
+    }
     const Z=rowZones();
     const under=document.elementFromPoint(e.clientX,e.clientY);
     let zoneEl = (under&&under.closest) ? (under.closest("#canvas")||under.closest("#hand")) : null;
@@ -3860,9 +4016,15 @@ function onTileUp(e){
   const d=drag; drag=null;
   if(d.clone) d.clone.remove();
   const Z=rowZones();
+  { const dz=$("discardBtn"); if(dz) dz.classList.remove("dz-hot","dz-open"); }
   if(d.el) d.el.classList.remove("drag-source");
   if(!d.moved) return;                       // a tap — let the click handler run
   justDragged=true; setTimeout(()=>justDragged=false,80);
+  if(d.overDiscard){
+    clearFlip(Z.hand); clearFlip(Z.canvas);
+    if(!moveToBin(d.card, d.where)){ renderHand(); renderCanvas(); }   // refused: snap everything back
+    return;
+  }
   // commit the final visual order straight from the DOM
   const inCanvas = Z.canvas.contains(d.el);
   const zoneEl = inCanvas ? Z.canvas : Z.hand;
@@ -3886,11 +4048,15 @@ function moveWithinCanvasAbs(id, idx){
 }
 function returnToHandAt(id, idx){
   const i=G.canvas.findIndex(c=>c.id===id); if(i<0){ renderHand(); renderCanvas(); return; }
+  /* v4912a: dragging a letter off the press is a cut, exactly like tapping it
+     back into the bank. It used to slip through this path for free. */
+  if(!canPullFromCanvas(G.canvas[i])){ renderHand(); renderCanvas(); return; }
   checkpoint();
+  if(formeLocked(G.canvas[i])) spendCutFor(G.canvas[i]);
   const [c]=G.canvas.splice(i,1);
   if(c.kind==="clone"){ c.cloneLetter=null; c.cloneTile=null; } if(c.kind==="wildvowel") c.vowel=null; if(c.kind==="wildcons") c.cons=null;
   idx=Math.max(0,Math.min(idx,G.hand.length)); G.hand.splice(idx,0,c);
-  renderHand(); renderCanvas(); save();
+  renderHand(); renderCanvas(); renderHud(); save();
 }
 function reorderHandAbs(id, idx){
   const i=G.hand.findIndex(c=>c.id===id); if(i<0){ renderHand(); return; }
@@ -3907,6 +4073,8 @@ function snapshotState(){
     hand:G.hand.map(c=>c.id),
     canvas:G.canvas.map(c=>c.id),
     pile:G.drawPile.map(c=>c.id),
+    bin:(G.discardBin||[]).map(c=>c.id),
+    forme:(G.formeIds||[]).slice(),
     discardsLeft:G.discardsLeft,
     editsLeft:(G.editsLeft==null?null:G.editsLeft),   // cuts undo like any other change
     rf:G.canvas.reduce((m,c)=>{
@@ -3917,7 +4085,7 @@ function snapshotState(){
     },{})
   };
 }
-function undoSig(s){ return s.hand.join(",")+"|"+s.canvas.join(",")+"|"+s.pile.join(",")+"|"+s.discardsLeft+"|"+s.editsLeft+"|"+Object.keys(s.rf).sort().map(k=>k+s.rf[k][0]+s.rf[k][1]).join(","); }
+function undoSig(s){ return s.hand.join(",")+"|"+s.canvas.join(",")+"|"+s.pile.join(",")+"|"+(s.bin||[]).join(",")+"|"+s.discardsLeft+"|"+s.editsLeft+"|"+Object.keys(s.rf).sort().map(k=>k+s.rf[k][0]+s.rf[k][1]).join(","); }
 function updateUndoBtn(){ const b=$("undoBtn"); if(b) b.disabled = undoStack.length===0; }
 function checkpoint(){
   const s=snapshotState();
@@ -3926,9 +4094,11 @@ function checkpoint(){
 }
 function clearUndo(){ undoStack=[]; updateUndoBtn(); }
 function restoreState(s){
-  const all={}; [...G.hand,...G.canvas,...G.drawPile].forEach(c=>all[c.id]=c);
+  const all={}; [...G.hand,...G.canvas,...G.drawPile,...(G.discardBin||[])].forEach(c=>all[c.id]=c);
   const pick=ids=>ids.map(id=>all[id]).filter(Boolean);
   G.hand=pick(s.hand); G.canvas=pick(s.canvas); G.drawPile=pick(s.pile);
+  G.discardBin=pick(s.bin||[]);
+  if(Array.isArray(s.forme)) G.formeIds=s.forme.slice();
   G.discardsLeft=s.discardsLeft;
   if(s.editsLeft!=null) G.editsLeft=s.editsLeft;
   // canvas tiles get their resolved letter back; loose tiles in hand carry none
@@ -3938,7 +4108,7 @@ function restoreState(s){
     if(c.kind==="wildcons")  c.cons=      (r&&r[0]==="cons") ?r[1]:null;
   });
   G.hand.forEach(c=>{ if(c.kind==="clone"){c.cloneLetter=null; c.cloneTile=null;} if(c.kind==="wildvowel")c.vowel=null; if(c.kind==="wildcons")c.cons=null; });
-  renderHand(); renderCanvas(); renderHud();
+  renderHand(); renderCanvas(); renderDiscardBin(); renderHud();
 }
 function wiggleAll(){   // a quick rigid-body shudder so the restored word settles into place
   if(reduceMotion()) return;
@@ -3982,14 +4152,10 @@ function removeFromCanvas(id){
   /* Standing forme: once a word is set the type stays up, and taking a letter
      back out of it is a CUT. Letters you have only just placed, before anything
      is set, come out free as they always did. */
-  const cutting = standingForme() && !!G.formeWord;
-  if(cutting && (G.editsLeft||0)<=0){
-    toast("No cuts left. Set the line as it stands, or undo.");
-    haptic(20);
-    return;
-  }
+  const card=G.canvas[i];
+  if(!canPullFromCanvas(card)) return;
   checkpoint();
-  if(cutting){ G.editsLeft=Math.max(0,(G.editsLeft||0)-1); renderHud(); }
+  if(formeLocked(card)){ spendCutFor(card); renderHud(); }
   const first=tileRects();
   const [c]=G.canvas.splice(i,1);
   if(c.kind==="clone"){ c.cloneLetter=null; c.cloneTile=null; }   // unassign on return
@@ -4012,11 +4178,16 @@ function moveWithinCanvas(id,idx){
 }
 function recallAll(){
   if(!G.canvas.length) return;
+  /* v4912a: with the forme standing, "Clear canvas" clears only the letters you
+     have added since the last set. Sweeping the set word away would undo the
+     whole point of the desk (and would cost every cut you own). */
+  const pullable=G.canvas.filter(c=>!formeLocked(c));
+  if(!pullable.length){ toast("The set line stays on the press. Cut a letter to change it."); haptic(16); return; }
   checkpoint();
   const first=tileRects();
   const ids=[];
-  G.canvas.forEach(c=>{ if(c.kind==="clone") c.cloneLetter=null; if(c.kind==="wildvowel") c.vowel=null; if(c.kind==="wildcons") c.cons=null; G.hand.push(c); ids.push(String(c.id)); });
-  G.canvas=[];   // tiles return to the bank in the same left-to-right order they sat in the canvas
+  pullable.forEach(c=>{ if(c.kind==="clone") c.cloneLetter=null; if(c.kind==="wildvowel") c.vowel=null; if(c.kind==="wildcons") c.cons=null; G.hand.push(c); ids.push(String(c.id)); });
+  G.canvas=G.canvas.filter(c=>formeLocked(c));   // tiles return to the bank in the same left-to-right order they sat in the canvas
   renderHand(); renderCanvas();
   flipFrom(first, null);   // every recalled tile springs from the canvas back into the bank
   if(!reduceMotion()) ids.forEach(id=>Spring.pop(id,(Math.random()*2-1)*8));
@@ -4424,8 +4595,8 @@ function dealUpToHand(animate){
           : "No "+G.challenge.houseLetter+" in this hand. Have a discard on the house.");
       } else {
         toast(challengeMinLen()
-          ? "This hand cannot set a "+challengeMinLen()+" letter word. Discard to redraw."
-          : "No "+G.challenge.houseLetter+" in this hand. Discard to redraw.");
+          ? "This hand cannot set a "+challengeMinLen()+" letter word. Drag letters onto Discard to redraw."
+          : "No "+G.challenge.houseLetter+" in this hand. Drag letters onto Discard to redraw.");
       }
     }
   }
@@ -4540,9 +4711,10 @@ function startLevel(){
   if(challengeActive() && G.challenge.type==="steep"){ G.target=Math.round(G.target*CHALLENGE_TARGET_MULT); }
   renderChallengeBanner();
   G.score=0;
-  // A7 Rush Order and the Editor's desk both cut a word; A3 Short Staffed cuts a discard.
-  G.handsLeft=Math.max(1, HANDS_PER_LEVEL+G.extraTurns+(charDef().handsDelta||0)-(ascHas(7)?1:0));
-  G.discardsLeft=Math.max(0, DISCARDS_PER_LEVEL+G.extraDiscards-(ascHas(3)?1:0));
+  // A7 Rush Order and A3 Short Staffed cut a word and a discard; the Editor's
+  // desk cuts one discard on top of that (v4913a: her word count is back to four).
+  G.handsLeft=wordsForLevel();
+  G.discardsLeft=discardsForLevel();
   G.roundLengths=[]; G.standingDone=false;
   // Smudged Ink is strictly a one-round condition: clear stale ink from every
   // zone (deck, piles, hand, canvas, stash) so no tile carries it out of the round.
@@ -4591,10 +4763,11 @@ function startLevel(){
   G.pileReshuffles=0;
   G._rescues=0;
   G.lastWordLetters=null; G.pulpPending=0;
-  G.justStacks=0; G.lastWordLen=null; G.wetProofPending=false; G.inkPtsPending=0;
+  G.justStacks=0; G.lastWordLen=null; G.lastWordFirst=null; G.lastWordLast=null; G.wetProofPending=false; G.inkPtsPending=0;
   rollFoulLetter();   // A4 Foul Case, before the hand is dealt so the banner is right
-  G.formeWord=null;                       // the forme is broken up between rounds
+  G.formeWord=null; G.formeIds=[];        // the forme is broken up between rounds
   G.editsLeft=editsPerWord();
+  G.discardBin=[]; renderDiscardBin();    // nothing carries over in the bin
   G.mystery=null;   // a fresh mystery is drawn with the opening hand
   G.mysteryLevel=null; G._mysteryLoading=false; G.mysterySkip=[]; G.secondOpinionRound=null; G._noMysteryMsg=false; G._noMysteryKey=null;
   G.levelStats={bestWord:"",bestScore:0,words:0};
@@ -4733,6 +4906,9 @@ function submitWord(){
   G.wetProofPending=false;                                                  // Wet Proof is consumed by this word
   if(G.perks.indiaInk) G.inkPtsPending=0;                                   // India Ink pool is consumed by this word
   { const L2=res.length; G.justStacks=(G.lastWordLen===L2)?((G.justStacks||0)+1):0; G.lastWordLen=L2; }   // Justified tracker
+  // v4913a: Standing Head / Tailpiece measure the next line against this one's ends
+  G.lastWordFirst = res.length ? res[0].letter : null;
+  G.lastWordLast  = res.length ? res[res.length-1].letter : null;
   // Word Binder: the new bound total is this play's full score (which already
   // included the previous banked total).
   { const wb=G.perks.wordBinder;
@@ -4831,8 +5007,21 @@ function submitWord(){
     /* The forme stays standing. Tiles are NOT returned to the pile, so the next
        word is built out of this one. Per-play tile state still has to advance,
        which returnCanvasToPile would normally have handled on the way out. */
+    const prevForme=new Set(G.formeIds||[]);
     G.formeWord=w;
+    G.formeIds=G.canvas.map(c=>String(c.id));   // these tiles are now locked type: pulling one is a cut
     G.editsLeft=editsPerWord();
+    /* Hot Metal (v4913a): a slug that survives three sets running is gilded for
+       good. The streak counts consecutive appearances in the standing forme, so
+       cutting a letter and putting it back starts it over. */
+    if(G.perks.hotMetal){
+      const gilded=[];
+      G.canvas.forEach(c=>{
+        c.setStreak = prevForme.has(String(c.id)) ? ((c.setStreak||0)+1) : 1;
+        if(c.setStreak>=3){ c.setStreak=0; c.upLevel=(c.upLevel||0)+1; gilded.push(c.kind==="letter"?c.letter:"a slug"); }
+      });
+      if(gilded.length) toast("Hot Metal: "+gilded.join(", ")+" gilded on the press");
+    }
     /* The Standing Type challenge marks tiles to leave the round on their way to
        the pile. The forme never goes to the pile, so that mark would never be
        consumed. The two mechanics want the same thing here, so clear it. */
@@ -4870,19 +5059,128 @@ function animateScore(from,to){
   }
   requestAnimationFrame(step);
 }
-function discardCanvas(){
-  if(G.canvas.length===0||G.discardsLeft<=0) return;
+/* ============================================================
+   Discard bin (v4912a)
+   Discarding is a drag now. Pull letters onto the red button: it stretches to
+   hold them and shivers while it is loaded, the "Set the word" button giving up
+   the room. Tapping Discard spends ONE discard on everything inside, and the
+   button squashes back into place. Tap a chip to take that letter back.
+   ============================================================ */
+function binFace(c){
+  if(!c) return "•";
+  if(c.kind==="letter")    return c.letter;
+  if(c.kind==="fused")     return (c.sides||[]).map(s=>s.letter).join("");
+  if(c.kind==="trio")      return (c.letters||[]).join("");
+  if(c.kind==="combo")     return comboLabel(c);
+  if(c.kind==="clone")     return "◇";
+  if(c.kind==="wildvowel") return "★";
+  if(c.kind==="wildcons")  return "✦";
+  if(c.kind==="copycat")   return "©";
+  return "•";
+}
+function binValue(c){
+  if(!c) return "";
+  if(c.kind==="letter") return effValue(c);
+  if(c.kind==="fused")  return fusedValue(c);
+  if(c.kind==="trio")   return trioValue(c);
+  if(c.kind==="combo")  return comboValue(c);
+  return "";
+}
+function renderDiscardBin(){
+  const btn=$("discardBtn"), row=$("discardBin"); if(!btn||!row) return;
+  const bin=G.discardBin||[];
+  row.innerHTML="";
+  bin.forEach(c=>{
+    const chip=document.createElement("span");
+    chip.className="dz-chip";
+    chip.dataset.id=String(c.id);
+    const v=binValue(c);
+    chip.innerHTML=escHtml(String(binFace(c)))+(v===""?"":`<span class="dzv">${v}</span>`);
+    chip.addEventListener("click",e=>{ e.preventDefault(); e.stopPropagation(); unbin(c.id); });
+    row.appendChild(chip);
+  });
+  btn.classList.toggle("dz-loaded", bin.length>0 && !reduceMotion());
+  const n=Math.min(bin.length,6);
+  btn.style.minWidth = n ? (120+n*32)+"px" : "";
+  updateButtons();
+}
+/* A tile only leaves the standing forme at the cost of a cut. Everything else —
+   loose letters in hand, letters added since the last set — moves for free. */
+function canPullFromCanvas(card,quiet){
+  if(!formeLocked(card)) return true;
+  if((G.editsLeft||0)>0) return true;
+  if(!quiet){ toast("No cuts left. Set the line as it stands, or undo."); haptic(20); }
+  return false;
+}
+function spendCutFor(card){
+  if(!formeLocked(card)) return;
+  G.editsLeft=Math.max(0,(G.editsLeft||0)-1);
+  G.formeIds=(G.formeIds||[]).filter(x=>x!==String(card.id));   // it is off the press now; putting it back is a new letter
+  if(G.perks.killFee){ G.coins=Math.min(999,(G.coins||0)+1); toast("Kill fee: $1"); }   // v4913a
+}
+function moveToBin(card, where){
+  if(!card) return false;
+  if(G.discardsLeft<=0){ toast("No discards left this round"); haptic(20); return false; }
+  if(where==="canvas" && !canPullFromCanvas(card)) return false;
+  checkpoint();
+  if(where==="canvas"){
+    const i=G.canvas.findIndex(c=>c.id===card.id); if(i<0){ renderCanvas(); return false; }
+    spendCutFor(card);
+    G.canvas.splice(i,1);
+  } else {
+    const i=G.hand.findIndex(c=>c.id===card.id); if(i<0){ renderHand(); return false; }
+    G.hand.splice(i,1);
+  }
+  if(card.kind==="clone"){ card.cloneLetter=null; card.cloneTile=null; }
+  if(card.kind==="wildvowel") card.vowel=null;
+  if(card.kind==="wildcons")  card.cons=null;
+  if(!G.discardBin) G.discardBin=[];
+  G.discardBin.push(card);
+  renderHand(); renderCanvas(); renderDiscardBin(); renderHud();
+  haptic(14); save();
+  return true;
+}
+function unbin(id){
+  const i=(G.discardBin||[]).findIndex(c=>String(c.id)===String(id)); if(i<0) return;
+  checkpoint();
+  const [c]=G.discardBin.splice(i,1);
+  G.hand.push(c);
+  renderHand(); renderDiscardBin(); renderHud();
+  haptic(10); save();
+}
+/* Anything still sitting in the bin when a round or run ends goes back to hand
+   so no tile can be stranded outside the deck's four piles. */
+function emptyBinToHand(){
+  if(G.discardBin && G.discardBin.length){ G.hand.push(...G.discardBin); G.discardBin=[]; }
+  const btn=$("discardBtn"); if(btn){ btn.classList.remove("dz-loaded","dz-hot","dz-open"); btn.style.minWidth=""; }
+  const row=$("discardBin"); if(row) row.innerHTML="";
+}
+function discardBinNow(){
+  const bin=(G.discardBin||[]).slice();
+  if(!bin.length || G.discardsLeft<=0) return;
   clearUndo();   // a discard is a hard boundary like setting a word: no undo across it
   G.discardsLeft--;
-  if(G.perks.pulpMill) G.pulpPending=3*G.canvas.length;                                     // next word: +3 per discarded tile
+  if(G.perks.pulpMill) G.pulpPending=3*bin.length;                                          // next word: +3 per discarded tile
   if(G.perks.recycledStock){ G.scoreMult=Math.round(((G.scoreMult||1)+0.01)*1000)/1000; toast("Press ×"+Number(G.scoreMult).toFixed(3)); }
   if(G.perks.wetProof) G.wetProofPending=true;                                              // next word gets the Wet Proof bump
-  const tiles=[...$("canvas").querySelectorAll(".tile")];
-  tiles.forEach((t,i)=>{ setTimeout(()=>t.classList.add("fly-out"),i*40); });
-  returnCanvasToPile();
+  const chips=[...$("discardBin").querySelectorAll(".dz-chip")];
+  chips.forEach((t,i)=>{ setTimeout(()=>t.classList.add("fly-out"),i*35); });
+  // discarded slugs go to the discard pile exactly as a played word's would
+  bin.forEach(c=>{ if(c.kind==="clone"){ c.cloneLetter=null; c.cloneTile=null; } if(c.kind==="wildvowel") c.vowel=null; if(c.kind==="wildcons") c.cons=null; });
+  const encore=bin.filter(c=>tileHas(c,"encore")), rest=bin.filter(c=>!tileHas(c,"encore"));
+  if(!G.played) G.played=[];
+  G.played.push(...rest);
+  if(encore.length) G.drawPile.unshift(...encore);
+  G.discardBin=[];
+  const btn=$("discardBtn");
+  btn.classList.remove("dz-loaded","dz-hot","dz-open");
   renderHud();
   haptic(16);
-  setTimeout(()=>{ renderCanvas(); dealUpToHand(true); renderHud(); },300);
+  setTimeout(()=>{
+    renderDiscardBin();                                   // clears the chips and releases the stretched width
+    if(!reduceMotion()){ btn.classList.remove("dz-pop"); void btn.offsetWidth; btn.classList.add("dz-pop"); setTimeout(()=>btn.classList.remove("dz-pop"),480); }
+    dealUpToHand(true); renderHud(); save();
+  },280);
 }
 
 /* ---------- level resolution ---------- */
@@ -5343,8 +5641,42 @@ function charOffers(){
     if(!G.perks.dragnet)       e.push({make:()=>dragnetOffer(),       weight:0.8, char:"detective"});
     if(!G.perks.smokingGun)    e.push({make:()=>smokingGunOffer(),    weight:0.7, char:"detective"});
   }
+  if(G.character==="editor"){
+    if(!G.perks.cutAbove)      e.push({make:()=>cutAboveOffer(),      weight:1.8, char:"editor"});
+    if(!G.perks.killFee)       e.push({make:()=>killFeeOffer(),       weight:1.6, char:"editor"});
+    if(!G.perks.columnInch)    e.push({make:()=>columnInchOffer(),    weight:1.3, char:"editor"});
+    if(!G.perks.tightMargins)  e.push({make:()=>tightMarginsOffer(),  weight:1.3, char:"editor"});
+    if(!G.perks.standingHead)  e.push({make:()=>standingHeadOffer(),  weight:1.0, char:"editor"});
+    if(!G.perks.tailpiece)     e.push({make:()=>tailpieceOffer(),     weight:1.0, char:"editor"});
+    if(!G.perks.hotMetal)      e.push({make:()=>hotMetalOffer(),      weight:0.9, char:"editor"});
+    if(!G.perks.finalProof)    e.push({make:()=>finalProofOffer(),    weight:0.7, char:"editor"});
+  }
   return e;
 }
+function cutAboveOffer(){ return {kind:"Perk",rarity:"common",name:"Cut Above",
+  desc:"One extra cut per word. Resets every time you set a line.",
+  price:px(5), art:"\u2702\uFE0F", d:{type:"cutAbove"}}; }
+function killFeeOffer(){ return {kind:"Perk",rarity:"common",name:"Kill Fee",
+  desc:"Every letter you cut pays $1.",
+  price:px(5), art:"\uD83D\uDCB5", d:{type:"killFee"}}; }
+function columnInchOffer(){ return {kind:"Perk",rarity:"uncommon",name:"Column Inch",
+  desc:"A revision longer than the line it replaced scores \u00d71.5.",
+  price:px(7), art:"\uD83D\uDCCF", d:{type:"columnInch"}}; }
+function tightMarginsOffer(){ return {kind:"Perk",rarity:"uncommon",name:"Tight Margins",
+  desc:"A revision shorter than the line it replaced scores \u00d72.",
+  price:px(7), art:"\uD83D\uDCD5", d:{type:"tightMargins"}}; }
+function standingHeadOffer(){ return {kind:"Perk",rarity:"rare",name:"Standing Head",
+  desc:"Keep the first letter of your last line and the next word scores \u00d71.5.",
+  price:px(9), art:"\uD83D\uDDDE\uFE0F", d:{type:"standingHead"}}; }
+function tailpieceOffer(){ return {kind:"Perk",rarity:"rare",name:"Tailpiece",
+  desc:"Keep the last letter of your last line and the next word scores \u00d71.5.",
+  price:px(9), art:"\uD83D\uDD1A", d:{type:"tailpiece"}}; }
+function hotMetalOffer(){ return {kind:"Perk",rarity:"rare",name:"Hot Metal",
+  desc:"A letter that survives three sets running is gilded for good.",
+  price:px(10), art:"\uD83D\uDD25", d:{type:"hotMetal"}}; }
+function finalProofOffer(){ return {kind:"Perk",rarity:"epic",name:"Final Proof",
+  desc:"Your last word each round scores \u00d71.25 for every cut you still hold.",
+  price:px(12), art:"\uD83D\uDCF0", d:{type:"finalProof"}}; }
 function rapSheetOffer(){ return {kind:"Perk",rarity:"common",name:"Rap Sheet",
   desc:"Every mystery word you solve this run adds 0.05 to your Press, permanently.",
   price:px(5), art:"\uD83D\uDCCB", d:{type:"rapSheet"}}; }
@@ -5633,6 +5965,17 @@ function applyOffer(o){
     case "secondOpinion":G.perks.secondOpinion=true; renderMystery(); break;
     case "redHerring":   G.perks.redHerring=true; break;
     case "dragnet":      G.perks.dragnet=true; break;
+    case "killFee":      G.perks.killFee=true; break;
+    case "columnInch":   G.perks.columnInch=true; break;
+    case "tightMargins": G.perks.tightMargins=true; break;
+    case "standingHead": G.perks.standingHead=true; break;
+    case "tailpiece":    G.perks.tailpiece=true; break;
+    case "hotMetal":     G.perks.hotMetal=true; break;
+    case "finalProof":   G.perks.finalProof=true; break;
+    case "cutAbove":     G.perks.cutAbove=true;
+                         /* the extra cut is live immediately, mid-round included */
+                         if(standingForme()){ G.editsLeft=(G.editsLeft==null?editsPerWord():G.editsLeft+1); renderHud(); }
+                         break;
     case "smokingGun":   G.perks.smokingGun=true; renderMystery(); break;
     case "repeater":     G.perks.repeater=true; break;
     case "powerTrio":    G.perks.powerTrio=true; break;
@@ -6212,6 +6555,9 @@ function renderDeck(){
       {key:"draw", label:"Draw pile", cards:G.drawPile.slice(), count:G.drawPile.length+" / "+G.deck.length, muted:false, empty:"Empty — plays will reshuffle here."},
       {key:"disc", label:"Discard", cards:(G.played||[]).slice(), count:(G.played||[]).length||null, muted:true, empty:"Nothing played yet this round."}
     ];
+    if((G.discardBin||[]).length){
+      groups.splice(1,0,{key:"bin", label:"Waiting in the discard bin", cards:G.discardBin.slice(), count:G.discardBin.length, muted:true, empty:""});
+    }
     if(lockedOut.length){
       groups.push({key:"lock", label:"Locked out this round", cards:lockedOut, count:null, muted:true, empty:""});
     }
@@ -6233,12 +6579,29 @@ function renderDeck(){
   // header count
   $("deckCount").textContent = G.selectMode==="dealer" ? ((G.drawPile.length+(G.played||[]).length)+" outside your hand")
     : grouped ? (G.drawPile.length+" / "+G.deck.length+" in draw") : (G.deck.length+" cards");
+  renderDeckChar();
   $("deckSummary").innerHTML=deckSummaryHtml();
   // v491e: the final proof sits at the foot of the deck sheet, so it reads as
   // reference the player can check any time rather than an imminent threat.
   { const bf=$("deckBoss"); if(bf) bf.innerHTML=bossCardHtml("deck-boss","Round "+WIN_LEVEL+" · the final proof"); }
   renderDeckPerks();
   renderDeckWords();
+}
+/* Who you are playing, at the head of the deck sheet, with the same boon and
+   bane wording the character-select screen uses (v4912a). */
+function renderDeckChar(){
+  const el=$("deckChar"); if(!el) return;
+  const c=charDef(); if(!c){ el.style.display="none"; return; }
+  el.style.display="";
+  const asc=(+G.ascension||0)>0 ? `<span class="dc-asc">A${+G.ascension}</span>` : "";
+  el.innerHTML=`<span class="dc-art">${c.art}</span>
+    <span class="dc-body">
+      <span class="dc-eyebrow">Your desk</span>
+      <span class="dc-name">${escHtml(c.name)}${asc}</span>
+      <span class="dc-blurb">${escHtml(c.blurb)}</span>
+      <span class="dc-line"><span class="dc-plus">+</span><span>${escHtml(c.boon)}</span></span>
+      <span class="dc-line"><span class="dc-minus">−</span><span>${escHtml(c.bane)}</span></span>
+    </span>`;
 }
 function deckSummaryHtml(){
   let pts=0, clones=0, wilds=0, wconst=0, copies=0, fused=0, trios=0, combos=0, lucky=0, dealer=0, trip=0;
@@ -7260,7 +7623,7 @@ function updateChallengeBlockHint(){
   const el=$("defStrip"); if(!el) return;
   const gates = (challengeActive() && (challengeMinLen()>0 || !!bannedLetterSet() || ["house","reprints"].includes(G.challenge.type)))
              || (bossActive() && (challengeMinLen()>0 || !!bannedLetterSet() || G.boss.type==="perfect"));
-  const blocked = gates && isRealWord() && !wordValid();
+  const blocked = gates && isRealWord() && !wordValid() && !formeRepeat();
   if(blocked){
     if(el.dataset.chalblock!=="1"){
       el.dataset.savedHtml = el.innerHTML;
@@ -7363,6 +7726,14 @@ function ownedPerksList(){
   if(G.perks.redHerring)   out.push("Red Herring · +20% for 3 shared letters");
   if(G.perks.dragnet)      out.push("Dragnet · contain the mystery word to solve it");
   if(G.perks.smokingGun)   out.push("Smoking Gun · mystery ×3, one clue per round");
+  if(G.perks.cutAbove)     out.push("Cut Above · +1 cut per word");
+  if(G.perks.killFee)      out.push("Kill Fee · $1 per letter cut");
+  if(G.perks.columnInch)   out.push("Column Inch · longer revision ×1.5");
+  if(G.perks.tightMargins) out.push("Tight Margins · shorter revision ×2");
+  if(G.perks.standingHead) out.push("Standing Head · keep the first letter ×1.5"+(G.lastWordFirst?" (now "+G.lastWordFirst+")":""));
+  if(G.perks.tailpiece)    out.push("Tailpiece · keep the last letter ×1.5"+(G.lastWordLast?" (now "+G.lastWordLast+")":""));
+  if(G.perks.hotMetal)     out.push("Hot Metal · three sets running gilds a slug");
+  if(G.perks.finalProof)   out.push("Final Proof · last word ×1.25 per cut held");
   if((G.scoreMult||1)>1) out.push("Press · ×"+Number(G.scoreMult).toFixed(3));
   if((G.pressGrowth||0)>0) out.push("Press growth · +"+(G.pressGrowth*100).toFixed(1)+"% per 6+ word");
   if(G.handSize>START_HAND) out.push("Fuller Case · hand of "+G.handSize);
@@ -7430,6 +7801,14 @@ function ownedPerkCards(){
   if(P.vanityPress)push("🎩","Vanity Press","Shop prices rise 25%, and every word scores 25% higher.");
   if(P.repeater)   push("🔁","Repeater","Replaying a word you've used scores higher.");
   if(P.powerTrio)  push("🎯","Power Trio","×2 when a letter appears three or more times.");
+  if(P.cutAbove)   push("✂️","Cut Above","One extra cut per word, on top of the desk's own. Resets when you set a line.");
+  if(P.killFee)    push("💵","Kill Fee","Every letter you cut pays $1.");
+  if(P.columnInch) push("📏","Column Inch","A revision longer than the line it replaced scores ×1.5.");
+  if(P.tightMargins) push("📕","Tight Margins","A revision shorter than the line it replaced scores ×2.");
+  if(P.standingHead) push("🗞️","Standing Head","Keep the first letter of your last line and the next word scores ×1.5.");
+  if(P.tailpiece)  push("🔚","Tailpiece","Keep the last letter of your last line and the next word scores ×1.5.");
+  if(P.hotMetal)   push("🔥","Hot Metal","A letter that survives three sets running is gilded for good.");
+  if(P.finalProof) push("📰","Final Proof","Your last word each round scores ×1.25 for every cut you still hold.");
   if(P.reprint)    push("📋","Reprint","Spare the first heart you would lose."+(G.reprintUsed?" Used.":""));
   if(P.proofSheet) push("🔍","Proof Sheet","See the top tile of your draw pile.");
   if((G.pressGrowth||0)>0) push("🗜️","Press Multiplier","Each 6+ letter word lifts your score multiplier (now ×"+Number(G.scoreMult||1).toFixed(3)+").");
@@ -7560,7 +7939,7 @@ function save(){
       perks:G.perks, scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, reprintUsed:G.reprintUsed, foilUsed:G.foilUsed, challenge:G.challenge, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, runMs:G.runMs, stats:G.stats,
       wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, wordPlays:G.wordPlays, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
       attempt:G.attempt, target:G.target, score:G.score, handsLeft:G.handsLeft, discardsLeft:G.discardsLeft,
-      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), roundLengths:(G.roundLengths||[]), standingDone:!!G.standingDone, _marginsApplied:(+G._marginsApplied||0), overtime:!!G.overtime, deadlineExtRound:(G.deadlineExtRound==null?null:G.deadlineExtRound), midnightRound:(G.midnightRound==null?null:G.midnightRound), secondEdRound:(G.secondEdRound==null?null:G.secondEdRound), secondEdHalf:!!G.secondEdHalf, boss:(G.boss||null), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0, justStacks:G.justStacks||0, lastWordLen:(G.lastWordLen==null?null:G.lastWordLen), wetProofPending:!!G.wetProofPending, inkPtsPending:G.inkPtsPending||0, compositorRound:(G.compositorRound==null?null:G.compositorRound), foulLetter:(G.foulLetter||null), formeWord:(G.formeWord||null), editsLeft:(G.editsLeft==null?null:G.editsLeft), mystery:(G.mystery||null), mysterySolvedLevel:(G.mysterySolvedLevel==null?null:G.mysterySolvedLevel), mysterySolves:G.mysterySolves||0, beatStreak:G.beatStreak||0, mysteryLevel:(G.mysteryLevel==null?null:G.mysteryLevel), mysterySkip:(G.mysterySkip||[]), secondOpinionRound:(G.secondOpinionRound==null?null:G.secondOpinionRound),
+      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), roundLengths:(G.roundLengths||[]), standingDone:!!G.standingDone, _marginsApplied:(+G._marginsApplied||0), overtime:!!G.overtime, deadlineExtRound:(G.deadlineExtRound==null?null:G.deadlineExtRound), midnightRound:(G.midnightRound==null?null:G.midnightRound), secondEdRound:(G.secondEdRound==null?null:G.secondEdRound), secondEdHalf:!!G.secondEdHalf, boss:(G.boss||null), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0, justStacks:G.justStacks||0, lastWordLen:(G.lastWordLen==null?null:G.lastWordLen), lastWordFirst:(G.lastWordFirst||null), lastWordLast:(G.lastWordLast||null), wetProofPending:!!G.wetProofPending, inkPtsPending:G.inkPtsPending||0, compositorRound:(G.compositorRound==null?null:G.compositorRound), foulLetter:(G.foulLetter||null), formeWord:(G.formeWord||null), formeIds:(G.formeIds||[]).map(String), discardBin:ids(G.discardBin||[]), editsLeft:(G.editsLeft==null?null:G.editsLeft), mystery:(G.mystery||null), mysterySolvedLevel:(G.mysterySolvedLevel==null?null:G.mysterySolvedLevel), mysterySolves:G.mysterySolves||0, beatStreak:G.beatStreak||0, mysteryLevel:(G.mysteryLevel==null?null:G.mysteryLevel), mysterySkip:(G.mysterySkip||[]), secondOpinionRound:(G.secondOpinionRound==null?null:G.secondOpinionRound),
       rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed, letterPlays:G.letterPlays||{}, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
     };
     localStorage.setItem(SAVE_KEY,JSON.stringify(data));
@@ -7590,7 +7969,7 @@ function continueRun(){
   G.overtime=!!d.overtime; G.deadlineExtRound=(d.deadlineExtRound==null?null:d.deadlineExtRound); G.midnightRound=(d.midnightRound==null?null:d.midnightRound);
   G.secondEdRound=(d.secondEdRound==null?null:d.secondEdRound); G.secondEdHalf=!!d.secondEdHalf; G.lastPlay=null;
   G.boss=d.boss||null; normalizeBoss(); if(G.boss&&G.boss.active&&G.level===WIN_LEVEL) document.body.classList.add("boss-round");
-  G.anagramSigs=d.anagramSigs||{}; G.anthologyCount=d.anthologyCount||0; G.letterPlays=d.letterPlays||{}; G.abcSeen=d.abcSeen||{}; G.lastWordLetters=d.lastWordLetters||null; G.pulpPending=d.pulpPending||0; G.justStacks=d.justStacks||0; G.lastWordLen=(d.lastWordLen==null?null:d.lastWordLen); G.wetProofPending=!!d.wetProofPending; G.inkPtsPending=d.inkPtsPending||0; G.compositorRound=(d.compositorRound==null?null:d.compositorRound); G.foulLetter=d.foulLetter||null; G.formeWord=d.formeWord||null; G.editsLeft=(d.editsLeft==null?null:d.editsLeft); G.mystery=d.mystery||null; G.mysterySolvedLevel=(d.mysterySolvedLevel==null?null:d.mysterySolvedLevel); G.mysterySolves=d.mysterySolves||0; G.beatStreak=d.beatStreak||0; G.mysteryLevel=(d.mysteryLevel==null?null:d.mysteryLevel); G.mysterySkip=d.mysterySkip||[]; G.secondOpinionRound=(d.secondOpinionRound==null?null:d.secondOpinionRound); G._mysteryLoading=false;
+  G.anagramSigs=d.anagramSigs||{}; G.anthologyCount=d.anthologyCount||0; G.letterPlays=d.letterPlays||{}; G.abcSeen=d.abcSeen||{}; G.lastWordLetters=d.lastWordLetters||null; G.pulpPending=d.pulpPending||0; G.justStacks=d.justStacks||0; G.lastWordLen=(d.lastWordLen==null?null:d.lastWordLen); G.lastWordFirst=d.lastWordFirst||null; G.lastWordLast=d.lastWordLast||null; G.wetProofPending=!!d.wetProofPending; G.inkPtsPending=d.inkPtsPending||0; G.compositorRound=(d.compositorRound==null?null:d.compositorRound); G.foulLetter=d.foulLetter||null; G.formeWord=d.formeWord||null; G.formeIds=Array.isArray(d.formeIds)?d.formeIds.map(String):[]; G.editsLeft=(d.editsLeft==null?null:d.editsLeft); G.mystery=d.mystery||null; G.mysterySolvedLevel=(d.mysterySolvedLevel==null?null:d.mysterySolvedLevel); G.mysterySolves=d.mysterySolves||0; G.beatStreak=d.beatStreak||0; G.mysteryLevel=(d.mysteryLevel==null?null:d.mysteryLevel); G.mysterySkip=d.mysterySkip||[]; G.secondOpinionRound=(d.secondOpinionRound==null?null:d.secondOpinionRound); G._mysteryLoading=false;
   // v491h migration: Free jazz is retired; strip any lingering jazz cards from a
   // saved run so nothing unplayable sits in a pile.
   { const noJazz=a=>Array.isArray(a)?a.filter(c=>c.kind!=="jazz"):a;
@@ -7616,7 +7995,7 @@ function continueRun(){
   const map=a=>(a||[]).map(id=>byId[id]).filter(Boolean);
   G.attempt=d.attempt||0; G.target=d.target||targetFor(G.level);
   G.score=d.score||0; G.handsLeft=d.handsLeft||0; G.discardsLeft=d.discardsLeft||0;
-  G.drawPile=map(d.drawPile); G.hand=map(d.hand); G.canvas=map(d.canvas); G.played=map(d.played); G.pileReshuffles=d.pileReshuffles||0;
+  G.drawPile=map(d.drawPile); G.hand=map(d.hand); G.canvas=map(d.canvas); G.played=map(d.played); G.discardBin=map(d.discardBin); G.pileReshuffles=d.pileReshuffles||0;
   $("titleScreen").classList.add("hidden"); $("overScreen").classList.add("hidden");
   if(d.phase==="summary" && d.summaryInfo){
     hideGame();
@@ -7627,7 +8006,7 @@ function continueRun(){
     hideGame(); $("shopScreen").classList.remove("hidden");
     renderShop();
   } else {
-    showGame(); renderChallengeBanner(); renderCanvas(); renderHand(); renderHud(); updateLive();
+    showGame(); renderChallengeBanner(); renderCanvas(); renderHand(); renderDiscardBin(); renderHud(); updateLive();
     // v497a: the clue strip was never re-rendered after a reload, so the mystery
     // word stayed invisible until a discard forced a new hand.
     if(G.mystery && G.mystery.word){ renderMystery(); prefetchMystery(); }
@@ -7751,7 +8130,7 @@ function newRun(seed, charId, asc){
   G.wordsPlayed=0; G.runScore=0; G.runBestWord=""; G.runBestScore=0; G.wordPlays={}; G.levelStats={bestWord:"",bestScore:0,words:0};
   G.attempt=0; G.best=1; G.shopOffers=[]; G.runMs=0;
   G.challenge=null; G.challengePending=null; G._rescues=0;   // never carry a challenge into a fresh run
-  G.foulLetter=null; G.formeWord=null; G.editsLeft=null;
+  G.foulLetter=null; G.formeWord=null; G.formeIds=[]; G.editsLeft=null; G.discardBin=[];
   G.mystery=null; G.mysterySolvedLevel=null; G.mysterySolves=0; G.beatStreak=0; G.mysteryLevel=null; G.mysterySkip=[]; G.secondOpinionRound=null; G._mysteryLoading=false; G._noMysteryMsg=false; G._noMysteryKey=null;
   G.letterPlays={}; G._dealerCardId=null;
   G.shopSeen=[];
@@ -7855,7 +8234,7 @@ $("defStrip").addEventListener("click",(ev)=>{
 });
 $("charBackBtn").addEventListener("click",closeCharSelect);
 $("submitBtn").addEventListener("click",submitWord);
-$("discardBtn").addEventListener("click",discardCanvas);
+$("discardBtn").addEventListener("click",discardBinNow);
 $("compositorBtn").addEventListener("click",compositorRun);
 $("recallBtn").addEventListener("click",recallAll);
 $("undoBtn").addEventListener("click",undoMove);
