@@ -472,6 +472,11 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
 #discardBtn .dz-label{display:block;flex:0 0 auto;transition:opacity .18s ease}
 #discardBtn .dz-bin{display:flex;align-items:center;gap:4px;flex:0 1 auto;min-width:0;overflow:hidden}
 #discardBtn .dz-bin:empty{display:none}
+/* v4914a: the bin's empty state is a trash can, and it lifts when armed */
+#discardBtn .dz-can{flex:0 0 auto;font-size:1.05rem;line-height:1;opacity:.75;transition:opacity .18s ease}
+#discardBtn .dz-can.armed{opacity:1;animation:dzCan .9s ease-in-out infinite}
+@keyframes dzCan{0%,100%{transform:translateY(0) rotate(0)}50%{transform:translateY(-3px) rotate(-8deg)}}
+#discardBtn.dz-armed{box-shadow:0 0 0 3px #F2D98B, 0 6px 18px rgba(122,29,36,.45)}
 #discardBtn .dz-chip{flex:0 0 auto;display:inline-flex;align-items:center;justify-content:center;position:relative;
   min-width:24px;padding:0 5px;height:29px;border-radius:5px;background:linear-gradient(180deg,#FCF8EE,var(--tile));color:var(--ink);
   border:1px solid rgba(35,32,46,.25);box-shadow:0 1px 0 rgba(0,0,0,.25);
@@ -504,7 +509,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
   100%{transform:scale(1)}
 }
 @media (prefers-reduced-motion:reduce){
-  #discardBtn.dz-loaded,#discardBtn.dz-loaded .dz-chip,#discardBtn.dz-pop,#discardBtn .dz-chip{animation:none}
+  #discardBtn.dz-loaded,#discardBtn.dz-loaded .dz-chip,#discardBtn.dz-pop,#discardBtn .dz-chip,#discardBtn .dz-can.armed{animation:none}
 }
 .btn-ghost{background:transparent;color:var(--ink);border:1.5px solid var(--tile-edge);flex:0 0 auto;min-width:96px}
 
@@ -1591,7 +1596,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "4913a";
+const VERSION = "4914a";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -1896,6 +1901,8 @@ const MYSTERY_TIERS = [
 let _MCUTS=null;
 const BEAT_BONUS = [0, 0.25, 0.5, 0.75];   // On the Beat adds to the tier, it does not replace it
 const SMOKING_GUN_BONUS = 1;
+const MYSTERY_LONG_LEN = 6;     // a six-letter answer or better
+const MYSTERY_LONG_MULT = 1.5;  // pays half again on top of everything else
 function mysteryDifficulty(w){
   w=String(w||"").toLowerCase(); if(!w) return 0;
   let d=0;
@@ -1933,6 +1940,8 @@ function mysteryWordMult(w){
     m += BEAT_BONUS[Math.max(0, Math.min(BEAT_BONUS.length-1, (G.beatStreak||0)))];
   }
   if(G.perks && G.perks.smokingGun) m += SMOKING_GUN_BONUS;
+  // A long answer is harder to spot and harder to fit in a hand.
+  if(w && w.length>=MYSTERY_LONG_LEN) m *= MYSTERY_LONG_MULT;
   return Math.round(m*100)/100;
 }
 function mysteryMultLabel(m){
@@ -2274,7 +2283,8 @@ function cardMult(c){ return c.mult||1; }                        // per-tile sco
 const G = {
   seed:null, level:1, hearts:MAX_HEARTS, coins:0, handSize:START_HAND,
   character:"writer", ascension:0, proofStage:0, foulLetter:null, formeWord:null, formeIds:[], editsLeft:null,
-  discardBin:[],           // tiles dragged onto the Discard button, waiting to be spent
+  discardBin:[],
+  discardArmed:false,           // tiles dragged onto the Discard button, waiting to be spent
   deck:[],                 // run-long collection of cards
   perks:{ firstUp:{}, lastUp:{}, discardMoneyBoost:false, interest:false, twinsies:false,
           vowelPower:0, fireSale:false, bigWords:false, freeRerolls:false,
@@ -3908,7 +3918,14 @@ function updateButtons(){
     btn.style.setProperty("--jspeed",Math.max(0.07,0.18-over*0.018).toFixed(3)+"s"); }
   else { btn.style.removeProperty("--amp"); btn.style.removeProperty("--jspeed"); }
   _btnWasReady = showReady;
-  $("discardBtn").disabled = (G.discardBin||[]).length===0 || G.discardsLeft<=0;
+  // v4914a: live on an empty bin, because that is how tap-to-discard is armed.
+  $("discardBtn").disabled = G.discardsLeft<=0;
+  const _dlab=$("discardLab");
+  if(_dlab){
+    const _n=(G.discardBin||[]).length;
+    _dlab.textContent = _n ? (_n+" tile"+(_n===1?"":"s"))
+                     : (discardArmed() ? "tap tiles" : G.discardsLeft+" left");
+  }
 }
 
 /* ============================================================
@@ -3920,6 +3937,7 @@ function attachTileHandlers(el,card,where){
   el.addEventListener("pointerdown",e=>onTileDown(e,el,card,where));
   el.addEventListener("click",e=>{
     if(justDragged){ e.preventDefault(); return; }
+    if(tapToBin(card, where)) return;        // v4914a: armed, so this tap bins the tile
     if(where==="hand") placeFromHand(card.id);
     else removeFromCanvas(card.id);
   });
@@ -4767,7 +4785,7 @@ function startLevel(){
   rollFoulLetter();   // A4 Foul Case, before the hand is dealt so the banner is right
   G.formeWord=null; G.formeIds=[];        // the forme is broken up between rounds
   G.editsLeft=editsPerWord();
-  G.discardBin=[]; renderDiscardBin();    // nothing carries over in the bin
+  G.discardBin=[]; G.discardArmed=false; renderDiscardBin();    // nothing carries over in the bin
   G.mystery=null;   // a fresh mystery is drawn with the opening hand
   G.mysteryLevel=null; G._mysteryLoading=false; G.mysterySkip=[]; G.secondOpinionRound=null; G._noMysteryMsg=false; G._noMysteryKey=null;
   G.levelStats={bestWord:"",bestScore:0,words:0};
@@ -5090,6 +5108,19 @@ function renderDiscardBin(){
   const btn=$("discardBtn"), row=$("discardBin"); if(!btn||!row) return;
   const bin=G.discardBin||[];
   row.innerHTML="";
+  // v4914a: an empty bin shows the can, so the drop target is visible before a
+  // tile is ever dragged. The can is replaced by the chips as soon as it fills.
+  if(!bin.length){
+    if(G.discardsLeft>0){
+      const can=document.createElement("span");
+      can.className="dz-can"+(discardArmed()?" armed":"");
+      can.textContent="\uD83D\uDDD1\uFE0F";
+      row.appendChild(can);
+    }
+    btn.classList.remove("dz-loaded");
+    btn.style.minWidth="";
+    return;
+  }
   bin.forEach(c=>{
     const chip=document.createElement("span");
     chip.className="dz-chip";
@@ -5140,6 +5171,36 @@ function moveToBin(card, where){
   haptic(14); save();
   return true;
 }
+/* ============================================================
+   Tap-to-discard (v4914a)
+   Dragging tiles onto the Discard button already worked. Pressing the button on
+   an empty bin now ARMS it instead of doing nothing: every tile you then tap,
+   in the press or in your hand, drops into the bin. Press again to send them,
+   or press again on an empty bin to stand down. Everything below this is the
+   existing bin, untouched: tapping a chip still takes a tile back out, cuts are
+   still spent through moveToBin, and undo still works the same way.
+   ============================================================ */
+function discardArmed(){ return !!G.discardArmed; }
+function setDiscardArmed(on){
+  G.discardArmed=!!on;
+  const btn=$("discardBtn");
+  if(btn) btn.classList.toggle("dz-armed", !!on);
+  renderDiscardBin(); updateButtons();
+}
+function toggleDiscard(){
+  if(G.discardsLeft<=0) return;
+  const bin=(G.discardBin||[]);
+  if(bin.length){ discardBinNow(); setDiscardArmed(false); return; }   // send what is loaded
+  setDiscardArmed(!discardArmed());                                     // arm, or stand down
+  haptic(discardArmed()?12:8);
+}
+/* Routed from the tile tap handler while armed. Returns true if it took the tap. */
+function tapToBin(card, where){
+  if(!discardArmed()) return false;
+  if(G.discardsLeft<=0){ setDiscardArmed(false); return false; }
+  moveToBin(card, where);
+  return true;
+}
 function unbin(id){
   const i=(G.discardBin||[]).findIndex(c=>String(c.id)===String(id)); if(i<0) return;
   checkpoint();
@@ -5152,7 +5213,8 @@ function unbin(id){
    so no tile can be stranded outside the deck's four piles. */
 function emptyBinToHand(){
   if(G.discardBin && G.discardBin.length){ G.hand.push(...G.discardBin); G.discardBin=[]; }
-  const btn=$("discardBtn"); if(btn){ btn.classList.remove("dz-loaded","dz-hot","dz-open"); btn.style.minWidth=""; }
+  G.discardArmed=false;
+  const btn=$("discardBtn"); if(btn){ btn.classList.remove("dz-loaded","dz-hot","dz-open","dz-armed"); btn.style.minWidth=""; }
   const row=$("discardBin"); if(row) row.innerHTML="";
 }
 function discardBinNow(){
@@ -7341,16 +7403,33 @@ function mysteryHandKey(){
   // would otherwise change the key and let the same hand pay out on every render.
   return G.level+":"+G.handsLeft+":"+(G.hand||[]).map(c=>c.id).join(",");
 }
+/* v4914a: a fused pair carries two letters and a trio three, so a hand holding
+   them can spell more than its tile count suggests. The mystery pool counts
+   every letter a tile can actually contribute, not just plain letter tiles. */
+function poolLetters(cards){
+  const out=[];
+  (cards||[]).forEach(c=>{
+    if(!c) return;
+    if(c.kind==="letter" && c.letter) out.push(c.letter);
+    else if(c.kind==="fused") fusedEntries(c).forEach(x=>{ if(x && x.letter) out.push(x.letter); });
+    else if(c.kind==="trio") trioSeq(c).forEach(L=>{ if(L) out.push(L); });
+    else if(c.kind==="clone" && c.cloneLetter) out.push(c.cloneLetter);
+  });
+  return out;
+}
 function mysteryCandidates(k, poolCards){
   mysteryIndex();
-  const pool=(poolCards||G.hand).filter(c=>c.kind==="letter" && c.letter);
+  const cards=(poolCards||G.hand);
+  const pool=poolLetters(cards);
   if(pool.length<3) return [];
   const counts={}; let hm=0;
-  pool.forEach(c=>{ const l=c.letter.toLowerCase(); counts[l]=(counts[l]||0)+1; hm|=(1<<(l.charCodeAt(0)-97)); });
+  pool.forEach(L=>{ const l=L.toLowerCase(); counts[l]=(counts[l]||0)+1; hm|=(1<<(l.charCodeAt(0)-97)); });
   const minL=Math.max(4, challengeMinLen()||4);   // v496a: never offer a 3-letter mystery
   const ban=bannedLetterSet();
-  const rng=makeRng("mystery:"+G.seed+":"+G.level+":"+G.handsLeft+":"+G.discardsLeft+":"+pool.map(c=>c.id).join(","));
-  const longR=[], shortR=[]; let nLong=0, nShort=0;
+  const rng=makeRng("mystery:"+G.seed+":"+G.level+":"+G.handsLeft+":"+G.discardsLeft+":"+cards.map(c=>c.id).join(","));
+  // v4914a: three length bands, taken longest first, so a hand that can reach a
+  // six-letter answer is offered one instead of a four-letter one by chance.
+  const bigR=[], longR=[], shortR=[]; let nBig=0, nLong=0, nShort=0;
   for(let i=0;i<_MWORDS.length;i++){
     if((_MMASK[i] & ~hm)!==0) continue;              // uses a letter the hand lacks
     const w=_MWORDS[i];
@@ -7360,10 +7439,11 @@ function mysteryCandidates(k, poolCards){
     const need={}; let fit=true;
     for(const ch of w){ need[ch]=(need[ch]||0)+1; if(need[ch]>(counts[ch]||0)){ fit=false; break; } }
     if(!fit) continue;
-    if(w.length>=5){ nLong++; if(longR.length<k) longR.push(w); else { const j=Math.floor(rng()*nLong); if(j<k) longR[j]=w; } }
-    else           { nShort++; if(shortR.length<k) shortR.push(w); else { const j=Math.floor(rng()*nShort); if(j<k) shortR[j]=w; } }
+    if(w.length>=MYSTERY_LONG_LEN){ nBig++; if(bigR.length<k) bigR.push(w); else { const j=Math.floor(rng()*nBig); if(j<k) bigR[j]=w; } }
+    else if(w.length>=5){ nLong++; if(longR.length<k) longR.push(w); else { const j=Math.floor(rng()*nLong); if(j<k) longR[j]=w; } }
+    else { nShort++; if(shortR.length<k) shortR.push(w); else { const j=Math.floor(rng()*nShort); if(j<k) shortR[j]=w; } }
   }
-  return longR.concat(shortR).slice(0,k);
+  return bigR.concat(longR, shortR).slice(0,k);
 }
 /* A definition that spells out its own word gives the game away. Reject those,
    and reject near misses that share a long stem. */
@@ -8130,7 +8210,7 @@ function newRun(seed, charId, asc){
   G.wordsPlayed=0; G.runScore=0; G.runBestWord=""; G.runBestScore=0; G.wordPlays={}; G.levelStats={bestWord:"",bestScore:0,words:0};
   G.attempt=0; G.best=1; G.shopOffers=[]; G.runMs=0;
   G.challenge=null; G.challengePending=null; G._rescues=0;   // never carry a challenge into a fresh run
-  G.foulLetter=null; G.formeWord=null; G.formeIds=[]; G.editsLeft=null; G.discardBin=[];
+  G.foulLetter=null; G.formeWord=null; G.formeIds=[]; G.editsLeft=null; G.discardBin=[]; G.discardArmed=false;
   G.mystery=null; G.mysterySolvedLevel=null; G.mysterySolves=0; G.beatStreak=0; G.mysteryLevel=null; G.mysterySkip=[]; G.secondOpinionRound=null; G._mysteryLoading=false; G._noMysteryMsg=false; G._noMysteryKey=null;
   G.letterPlays={}; G._dealerCardId=null;
   G.shopSeen=[];
@@ -8234,7 +8314,7 @@ $("defStrip").addEventListener("click",(ev)=>{
 });
 $("charBackBtn").addEventListener("click",closeCharSelect);
 $("submitBtn").addEventListener("click",submitWord);
-$("discardBtn").addEventListener("click",discardBinNow);
+$("discardBtn").addEventListener("click",toggleDiscard);   // v4914a: arms on an empty bin, sends a loaded one
 $("compositorBtn").addEventListener("click",compositorRun);
 $("recallBtn").addEventListener("click",recallAll);
 $("undoBtn").addEventListener("click",undoMove);
