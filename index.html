@@ -1596,7 +1596,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "4914a";
+const VERSION = "4914b";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -4962,7 +4962,7 @@ function submitWord(){
     toast("Mystery word! "+String(G.mystery.word).toUpperCase()+" scores ×"+sc.mysteryMult);
     G.mysterySolves=(G.mysterySolves||0)+1;
     // On the Beat climbs on consecutive solves; the miss branch below resets it.
-    if(G.perks.onTheBeat) G.beatStreak=Math.min(BEAT_LADDER.length-1,(G.beatStreak||0)+1);
+    if(G.perks.onTheBeat) G.beatStreak=Math.min(BEAT_BONUS.length-1,(G.beatStreak||0)+1);
     if(G.perks.rapSheet){
       G.scoreMult=Math.round(((G.scoreMult||1)+0.05)*1000)/1000;
       toast("Rap Sheet: Press ×"+Number(G.scoreMult).toFixed(3));
