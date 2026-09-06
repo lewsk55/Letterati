@@ -342,7 +342,16 @@ body::before{
 main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;overflow:clip;overflow-clip-margin:40px}
 .play-center{flex:1;display:flex;flex-direction:column;justify-content:center;gap:10px;min-height:0}
 .def-strip{background:var(--paper);border:1px solid var(--tile-edge);border-radius:12px;padding:9px 13px;text-align:center;
-  box-shadow:0 1px 0 #fff inset, 0 4px 14px rgba(35,32,46,.06)}
+  box-shadow:0 1px 0 #fff inset, 0 4px 14px rgba(35,32,46,.06);
+  /* v4915a: the clue is not copy-pasteable. On iOS a long press over any text
+     raises the selection handles and the Look Up / Search sheet, which turns a
+     mystery word into a one-tap lookup. Killing selection and the callout on
+     the whole strip closes that door. The Second Opinion button still works:
+     it is a real button, not a text selection. */
+  -webkit-user-select:none;-moz-user-select:none;-ms-user-select:none;user-select:none;
+  -webkit-touch-callout:none}
+.def-strip *{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+.def-strip .dso{-webkit-user-select:none;user-select:none}
 .def-strip .dw{font-family:var(--serif);font-weight:700;font-size:.96rem;letter-spacing:.06em;text-transform:uppercase;color:var(--ink)}
 .def-strip .dpos{font-style:italic;font-family:var(--serif);font-size:.78rem;color:var(--brass-deep);margin-left:6px}
 .def-strip .dd{display:block;font-size:.82rem;color:var(--ink-soft);margin-top:3px;line-height:1.4}
@@ -544,11 +553,28 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
 .tile.upgraded .val{color:var(--brass-deep)}
 .tile .val .up-sup{font-size:.78em;vertical-align:super;font-style:normal;color:var(--brass-deep);margin-left:1px;font-weight:900}
 .tile.clone{background:linear-gradient(180deg,#EDEAF6,#DED8EE);border-color:#C3B8DD}
-.tile.multi{border-color:#E2B64B;box-shadow:0 2px 0 #B98A2E, 0 0 0 2px #E2B64B inset, 0 4px 12px rgba(185,138,46,.4)}
+.tile.multi{border-color:var(--gold-edge,#E2B64B);
+  box-shadow:0 2px 0 #B98A2E, 0 0 0 2px var(--gold-edge,#E2B64B) inset,
+             0 4px var(--gold-blur,12px) rgba(185,138,46,var(--gold-a,.4)),
+             0 0 var(--gold-halo,0px) rgba(255,208,92,var(--gold-a,.4))}
 .tile.multi::after{content:"";position:absolute;inset:0;border-radius:8px;pointer-events:none;
-  background:linear-gradient(120deg,transparent 40%,rgba(255,245,200,.65) 50%,transparent 60%);
-  background-size:250% 100%;animation:shimmer 2.6s linear infinite}
+  background:linear-gradient(120deg,transparent 40%,rgba(255,245,200,var(--gold-sheen,.65)) 50%,transparent 60%);
+  background-size:250% 100%;animation:shimmer var(--gold-spd,2.6s) linear infinite}
+.tile.multi .mult-badge{box-shadow:0 1px 2px rgba(120,80,0,.3), 0 0 var(--gold-halo,0px) rgba(255,208,92,var(--gold-a,.4))}
+.tile.fused.goldside,.tile.trio.goldside{--gold-a:.4}
 @keyframes shimmer{0%{background-position:160% 0}100%{background-position:-60% 0}}
+/* v4915a deep discount sale: the marked-down card pulses so the letter side of
+   the shelf can compete with a perk for the same coin. */
+.offer.on-sale{border-color:#C25B2E;animation:salePulse 1.7s ease-in-out infinite}
+@keyframes salePulse{
+  0%,100%{box-shadow:0 0 0 2px rgba(194,91,46,.24), 0 5px 16px rgba(194,91,46,.14)}
+  50%    {box-shadow:0 0 0 3px rgba(194,91,46,.58), 0 8px 26px rgba(194,91,46,.40)}}
+.offer .o-sale{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;
+  background:#C25B2E;color:#fff;font-family:var(--ui);font-size:.56rem;font-weight:900;letter-spacing:.07em}
+.offer .o-was{opacity:.55;margin-right:5px;font-weight:700;text-decoration:line-through}
+.offer .o-pin{display:inline-block;margin-left:6px;padding:1px 7px;border-radius:999px;
+  background:var(--ink-soft);color:var(--paper);font-family:var(--ui);font-size:.56rem;font-weight:900;letter-spacing:.07em}
+@media (prefers-reduced-motion:reduce){.offer.on-sale{animation:none;box-shadow:0 0 0 3px rgba(194,91,46,.5)}}
 .tile .mult-badge{position:absolute;left:3px;top:3px;font-family:var(--ui);font-size:.5rem;font-weight:900;
   color:#5A3E00;background:linear-gradient(180deg,#FBE08A,#E2B64B);border:1px solid #C8972E;border-radius:4px;
   padding:0 3px;line-height:1.25;z-index:3;box-shadow:0 1px 2px rgba(120,80,0,.3)}
@@ -1596,7 +1622,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "4914b";
+const VERSION = "4915a";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -2145,7 +2171,7 @@ const OFFER_REPEATABLE = new Set(["letter","clone","dealer","trio","trioUpgrade"
   "firstUp","lastUp","fuller","extraDiscard","extraTurn","pressMult","heavyPress","goldenLetter",
   "gildLetter","eraser","heart","wildVowel","wildCons","copyCat","combo","fusedPair","lucky7",
   "vowelPower","growthMind","fuse","foil","watermark","encore","boldfaceStamp","dropcapStamp",
-  "serifStamp","dittoStamp","inkwellStamp","gildedAge","gemini","wordBinder","department"]);
+  "serifStamp","dittoStamp","inkwellStamp","gildedAge","goldStandard","gemini","wordBinder","department"]);
 function epicOwned(e){
   const t = e && e.d && e.d.type;
   if(!t || OFFER_REPEATABLE.has(t)) return false;
@@ -2278,7 +2304,40 @@ function cardValue(c){ return (c.base|0) * Math.pow(2, c.upLevel||0); }   // poi
 function effValue(c){ return cardValue(c) + (c.growth||0); }              // v42b: Growth Mindset adds a flat, growing bonus
 function gildLevel(c){ return c.upLevel||0; }
 function valHtml(c){ const p=effValue(c), g=gildLevel(c); return p + (g>0?'<i class="up-sup">'+g+'</i>':''); }
-function cardMult(c){ return c.mult||1; }                        // per-tile score multiplier (e.g. 1.5×)
+function gildedAgeStacks(){ return (typeof G!=="undefined" && G.perks && +G.perks.gildedAge) || 0; }
+/* Gilded Age (v4915a): each stack adds a flat +0.25x to EVERY golden tile,
+   whatever multiplier it already carries. Applied here at read time rather than
+   written into the card, so (a) tiles acquired later inherit it with no extra
+   bookkeeping, (b) shop undo restores cleanly, and (c) the badge, the glow and
+   scoreOf() all read the SAME number and cannot drift apart.
+   A plain tile stays plain: 1x is never lifted off 1x. */
+function goldOf(m){
+  const b=+m||1; if(b<=1) return 1;
+  const s=gildedAgeStacks(); if(!s) return b;
+  return Math.round((b+0.25*s)*1000)/1000;
+}
+function cardMult(c){ return goldOf(c&&c.mult); }                // per-tile score multiplier (e.g. 1.5×)
+function multLabel(m){ return String(Math.round(m*100)/100); }   // 2 · 1.5 · 1.75, never "2.00"
+/* Strongest gold anywhere on a tile — a fused pair keeps its gold per side. */
+function tileGoldMult(c){
+  if(!c) return 1;
+  if(c.kind==="fused") return Math.max(1,...(c.sides||[]).map(sd=>goldOf(sd.mult)));
+  return cardMult(c);
+}
+/* The shine scales with the multiplier: a 2x tile reads as obviously richer
+   than a 1.25x, and a Gilded Age stack visibly brightens the whole deck. */
+function applyGoldGlow(t,m){
+  if(!t||!t.style) return;
+  if(!(m>1)){ ["--gold-a","--gold-blur","--gold-halo","--gold-sheen","--gold-spd","--gold-edge"]
+                .forEach(v=>t.style.removeProperty(v)); return; }
+  const i=Math.max(0,Math.min(1,(m-1.25)/1.25));            // 1.25x -> 0, 2.5x+ -> 1
+  t.style.setProperty("--gold-a",     (0.40+0.45*i).toFixed(3));
+  t.style.setProperty("--gold-blur",  (12+14*i).toFixed(1)+"px");
+  t.style.setProperty("--gold-halo",  (5+17*i).toFixed(1)+"px");
+  t.style.setProperty("--gold-sheen", (0.55+0.40*i).toFixed(3));
+  t.style.setProperty("--gold-spd",   (2.6-1.1*i).toFixed(2)+"s");
+  t.style.setProperty("--gold-edge",  i>0.55?"#F6CB4E":(i>0.20?"#ECBE4C":"#E2B64B"));
+}
 
 const G = {
   seed:null, level:1, hearts:MAX_HEARTS, coins:0, handSize:START_HAND,
@@ -2289,7 +2348,7 @@ const G = {
   perks:{ firstUp:{}, lastUp:{}, discardMoneyBoost:false, interest:false, twinsies:false,
           vowelPower:0, fireSale:false, bigWords:false, freeRerolls:false,
           proofSheet:false, twoOfAKind:false, shortKing:false,
-          kerning:false, fiveTimer:false, marginalia:false, mirror:false, reprint:false, repeater:false, powerTrio:false, verbose:false, fightingWords:false, superStore:false, wordBinder:false, secondEdition:false, gemini:false, gildedAge:false, deadlineExt:false, galleyProof:false, midnightPress:false },
+          kerning:false, fiveTimer:false, marginalia:false, mirror:false, reprint:false, repeater:false, powerTrio:false, verbose:false, fightingWords:false, superStore:false, wordBinder:false, secondEdition:false, gemini:false, gildedAge:0, goldStandard:false, goldenTicket:false, deadlineExt:false, galleyProof:false, midnightPress:false },
   scoreMult:1,             // live "press multiplier", applied to every word score
   pressGrowth:0,           // v41a: each 6+ letter word raises scoreMult by this (per Press multiplier stack)
   challenge:null,          // active challenge-level descriptor {type,reward,banned[],active} or null
@@ -2371,11 +2430,16 @@ function rollStartingDeck(){
   // A Q never travels alone: if the roll produced a Q with no U, convert the
   // cheapest non-Q, non-vowel tile into a U so the Q is always playable.
   ensureQueensU(cards);
-  // four starting golden slugs (1.25×), drawn from the WHOLE deck, vowels
-  // included (v49f: the old base>1 filter shrank the pool to the few high-value
-  // letters, which is why the same J and V kept turning up golden)
+  /* Eight starting golden slugs, drawn from the WHOLE deck, vowels included
+     (v49f: the old base>1 filter shrank the pool to the few high-value letters,
+     which is why the same J and V kept turning up golden).
+     v4915a: 4 -> 8, and the top two are richer than the rest, so a run opens
+     with a visible gold hierarchy instead of eight identical 1.25× tiles:
+       1 x 2.00   1 x 1.50   6 x 1.25
+     The shuffle already randomised the order, so slot 0 and slot 1 are just as
+     likely to be a vowel or a workhorse as any other tile. */
   const eligible=shuffle(cards.slice(),rng);
-  eligible.slice(0,4).forEach(c=>{ c.mult=1.25; });
+  eligible.slice(0,8).forEach((c,i)=>{ c.mult = i===0 ? 2 : (i===1 ? 1.5 : 1.25); });
   return cards;
 }
 
@@ -3130,7 +3194,9 @@ function isLastUp(c){ return c.kind==="letter" && (G.perks.lastUp[c.letter]||0)>
 function tileBadges(t,c){
   if(isFirstUp(c)){ const s=document.createElement("span"); s.className="fu-star"; s.textContent="⭐"; t.appendChild(s); }
   if(isLastUp(c)){ const e=document.createElement("span"); e.className="lu-end"; e.textContent="🔚"; t.appendChild(e); }
-  if(cardMult(c)!==1){ const m=document.createElement("span"); m.className="mult-badge"; m.textContent=cardMult(c)+"×"; t.appendChild(m); }
+  { const gm=cardMult(c);
+    if(gm!==1){ const m=document.createElement("span"); m.className="mult-badge"; m.textContent=multLabel(gm)+"×"; t.appendChild(m); }
+    applyGoldGlow(t, tileGoldMult(c)); }
   // Upgrade symbols live on two vertical rails flanking the letter: economy and
   // recurring marks on the left, scoring stamps on the right. Nothing sits over
   // the glyph, the mult chip, the star, or the value number.
@@ -3465,7 +3531,7 @@ function resolvedCanvas(){
       } else {
       const L=c.cloneLetter;
       const val = ((c.cloneBase!=null) ? (c.cloneBase*Math.pow(2,c.cloneUp||0)) : (LETTER_VALUES[L]||0)) + (c.growth||0);
-      out.push(L?{letter:L,value:val,mult:(c.mult||1),clone:true,card:c}:{letter:null,value:0,mult:1,clone:true,card:c});
+      out.push(L?{letter:L,value:val,mult:goldOf(c.mult),clone:true,card:c}:{letter:null,value:0,mult:1,clone:true,card:c});
       }
     } else if(c.kind==="wildvowel"){
       const L=c.vowel;
@@ -3496,7 +3562,7 @@ function resolvedCanvas(){
           foil:c.foil, watermark:c.watermark, encore:c.encore,
           boldface:c.boldface, dropcap:c.dropcap, serif:c.serif, ditto:c.ditto, inkwell:c.inkwell,
           _smudged:c._smudged, _fusedParent:c };
-        out.push({letter:L, value:trioSideValue(c,L)+(i===0?g:0), mult:(c.mult||1), trio:true, trioPart:i, card:sideCard});
+        out.push({letter:L, value:trioSideValue(c,L)+(i===0?g:0), mult:goldOf(c.mult), trio:true, trioPart:i, card:sideCard});
       });
     } else if(c.kind==="fused"){
       const g=(typeof c.growth==="number")?c.growth:0;   // v45a: whole-tile growth still rides on the first slot
@@ -3511,7 +3577,7 @@ function resolvedCanvas(){
           _smudged:c._smudged, _fusedParent:c };
         out.push({ letter:e.letter,
           value:e.value+(i===0?g:0)+(sd.growth||0),
-          mult:(sd.mult||1),
+          mult:goldOf(sd.mult),
           fused:true, fusedPart:i, card:sideCard });
       });
     } else if(c.kind==="combo"){
@@ -3886,7 +3952,7 @@ function compositorRun(){
     if(banned && [...w].some(ch=>banned.has(ch.toUpperCase()))) continue;
     const used=new Set(); const cards=[];
     for(const ch of w){ const c=pool.find(x=>!used.has(x.id)&&x.letter.toLowerCase()===ch); used.add(c.id); cards.push(c); }
-    const t=scoreOf(cards.map(c=>({letter:c.letter, value:cardValue(c), mult:(c.mult||1), card:c}))).total;
+    const t=scoreOf(cards.map(c=>({letter:c.letter, value:cardValue(c), mult:cardMult(c), card:c}))).total;
     if(t>bestScore){ bestScore=t; best=cards; }
   }
   if(!best){ toast("The Compositor finds no word in this hand"); return; }
@@ -5249,8 +5315,26 @@ function discardBinNow(){
 function clearSmudges(){
   [G.deck,G.drawPile,G.hand,G.played,G.canvas,G.lucky7Stash].forEach(arr=>(arr||[]).forEach(c=>{ if(c) delete c._smudged; }));
 }
+/* Golden Ticket (v4915a): one free gild every cleared round. Letters first, so
+   it reads as advertised; it falls back to fused pairs and trios only when no
+   letter can still take a gild, rather than silently doing nothing. Seeded off
+   the run seed and the round, so a shared daily seed gilds the same tile for
+   everyone holding the ticket. */
+function goldenTicketGild(){
+  const room=c=>(c.upLevel||0)<GILD_CAP;
+  let pool=G.deck.filter(c=>c.kind==="letter" && room(c));
+  if(!pool.length) pool=G.deck.filter(c=>(c.kind==="fused"||c.kind==="trio") && room(c));
+  if(!pool.length){ toast("Golden Ticket: every tile is already fully gilded"); return; }
+  const rng=makeRng("goldenTicket:"+G.level+":"+G.deck.length);
+  const c=pool[Math.floor(rng()*pool.length)] || pool[0];
+  c.upLevel=(c.upLevel||0)+1;
+  if(typeof syncGemini==="function") syncGemini(c);
+  const label = c.kind==="fused" ? fusedLabel(c) : (c.kind==="trio" ? trioLabel(c) : c.letter);
+  toast("Golden Ticket: your "+label+" is gilded, now ×"+(c.upLevel));
+}
 function levelCleared(){
   clearSmudges();
+  if(G.perks.goldenTicket) goldenTicketGild();
   const rw=computeReward();
   if(G.stats){ if(!G.stats.rounds) G.stats.rounds=[];
     G.stats.rounds.push({round:G.level, target:G.target, score:G.score, margin:G.score-G.target, cleared:true,
@@ -5532,10 +5616,10 @@ function buildShopPool(){
   const N=shopSlots(), perSide=N/2;
   // letter side
   add(()=> rng()<0.40 ? goldenLetterOffer(rng) : letterOffer(weightedLetter(rng,commonPool)));   // v48c seat, widened in v491f now that goldens left the perk pool
-  add(()=> rng()<0.22 ? pregildedLetterOffer(rng) : letterOffer(weightedLetter(rng,rarePool)));   // v42a: rare pre-gilded letter
+  add(()=> rng()<0.34 ? pregildedLetterOffer(rng) : letterOffer(weightedLetter(rng,rarePool)));   // v42a: rare pre-gilded letter (v4915a: 0.22 -> 0.34, upgraded letters are the sale stock)
   for(let i=0;i<perSide-3;i++){
     add(()=>{ const r=rng();   // v491d: a shelf can carry a second workhorse gild
-      return r<0.75 ? letterOffer(weightedLetter(rng,Object.assign({},commonPool,rarePool))) : gildOffer(rng); });
+      return r<0.62 ? letterOffer(weightedLetter(rng,Object.assign({},commonPool,rarePool))) : gildOffer(rng); });   // v4915a: 0.75 -> 0.62, more gilds to put on sale
   }
   add(()=>pickWeighted(rng,utilPool(rng)));
   // perk side
@@ -5545,9 +5629,19 @@ function buildShopPool(){
   const perkWide=()=>pickWeighted(rng,perkPool(rng));
   for(let i=0;i<perSide;i++) add(()=>pickWeighted(rng,perkPool(rng)), perkWide);
   const shelfOut=offers.slice(0,N).map(o=>({...o,sold:false}));
+  /* v4915a: the eraser is guaranteed stock every other shop from round 2 on
+     (the shops before rounds 2, 4, 6, 8, 10), pinned to the top of the shelf so
+     deck thinning is a plan you can make rather than a thing you hope for.
+     Prepended AFTER the seeded roll, exactly like Foundry Fire below, so the
+     seeded slots are byte-identical and the predictor stays blind to it. */
+  if(((G.level||1)%2===0) && !shelfOut.some(o=>o.d&&o.d.type==="eraser")){
+    shelfOut.unshift({...eraserOffer(), sold:false, pinned:true,
+      desc:"Remove one letter from your deck for good. Always in stock this shop."});
+  }
   if(G.perks.foundryFire && !shelfOut.some(o=>o.d&&o.d.type==="eraser")){
     shelfOut.push({...eraserOffer(), sold:false});   // Foundry Fire: the eraser is always in stock (appended, seeded slots untouched)
   }
+  rollSales(shelfOut,rng);
   G.shopSeen=[...new Set([...(G.shopSeen||[]), ...shelfOut.map(o=>o.name)])];   // remember across rerolls
   return shelfOut;
 }
@@ -5561,8 +5655,33 @@ function repriceGildOffers(){
     const m=t.find(x=>x.label===o.d.label);
     if(!m){ o.sold=true; return; }
     const fresh=gildOfferFor(m);
+    const pct = o.discount ? o.discount/100 : 0;   // v4915a: a repriced gild keeps its sale
+    o.listPrice=null; o.discount=0;
     o.price=fresh.price; o.desc=fresh.desc; o.art=fresh.art; o.d.cardId=fresh.d.cardId;
+    if(pct) markDown(o,pct);
   });
+}
+/* ---- Deep discount sales (v4915a) -----------------------------------------
+   Individual letters and letter upgrades were the deadest stock on the shelf:
+   telemetry had them passed over for a gild or a perk almost every visit. A
+   sale marks one or two of them down hard and SAYS SO on the card, so the cheap
+   side of the shop is a real choice rather than filler. Rolled off the shop rng
+   AFTER every seeded slot is already decided, so shelf composition is untouched
+   and a given shop/reroll always shows the same sale. A sale only ever lowers a
+   price, never raises one. */
+const SALE_TYPES=new Set(["letter","gildLetter","goldenLetter"]);
+function markDown(o,pct){
+  if(!o || o.discount) return o;
+  const list=o.price, p=Math.max(1,Math.round(list*(1-pct)));
+  if(p>=list) return o;                       // nothing to show at $1
+  o.listPrice=list; o.price=p; o.discount=Math.round((1-p/list)*100);
+  return o;
+}
+function rollSales(shelf,rng){
+  const eligible=shelf.filter(o=>!o.sold && o.d && SALE_TYPES.has(o.d.type) && o.price>1);
+  if(!eligible.length) return;
+  const n = rng()<0.35 ? 2 : 1;
+  shuffle(eligible,rng).slice(0,n).forEach(o=>markDown(o, 0.30+Math.floor(rng()*4)*0.10));   // 30/40/50/60% off
 }
 function pickWeighted(rng,entries){
   let tot=0; entries.forEach(e=>tot+=e.weight);
@@ -5626,7 +5745,9 @@ function perkPool(rng){
   if(!G.perks.wordBinder)        e.push({make:()=>wordBinderOffer(),    weight:0.15});
   if(!G.perks.secondEdition)     e.push({make:()=>secondEditionOffer(), weight:0.15});
   if(!G.perks.gemini)            e.push({make:()=>geminiOffer(),        weight:0.15});
-  if(!G.perks.gildedAge)         e.push({make:()=>gildedAgeOffer(),     weight:0.15});
+  if(!G.perks.goldStandard)      e.push({make:()=>goldStandardOffer(),  weight:0.15});
+  e.push({make:()=>gildedAgeOffer(), weight:1.5});                                    // v4915a: common and stackable, always offerable
+  if(!G.perks.goldenTicket)      e.push({make:()=>goldenTicketOffer(),  weight:0.5});
   if(!G.perks.deadlineExt)       e.push({make:()=>deadlineExtOffer(),   weight:0.15});
   if(!G.perks.galleyProof)       e.push({make:()=>galleyProofOffer(),   weight:0.15});
   if(!G.perks.midnightPress)     e.push({make:()=>midnightPressOffer(), weight:0.15});
@@ -5853,6 +5974,27 @@ function goldenLetterOffer(rng){
     art:`<span class="mini-tile" style="background:linear-gradient(180deg,#F6E7B7,#EAD292);border-color:#C9A94E">${L}<span class="mv">${v}</span></span>`,
     d:{type:"goldenLetter",L}};
 }
+/* Gilded Age (v4915a, common, stacks forever): +0.25x on EVERY golden tile,
+   flat, regardless of what that tile already carries. Reads through goldOf(),
+   so it lifts starting slugs, shop goldens and Gold Standard letters alike, and
+   any golden tile bought afterwards inherits the stacks for free.
+   Priced on a doubling ladder: gold compounds across the whole word, so each
+   stack is worth multiples of the last and a flat price would be a money pump. */
+function gildedAgeOffer(){
+  const s=gildedAgeStacks();
+  const held=G.deck.filter(c=>tileGoldMult(c)>1).length;
+  return {kind:"Perk",rarity:"common",name:"Gilded Age",
+    desc:"Every golden tile you own gains +0.25× on top of the multiplier it already has."
+        +(held?" You hold "+held+" golden "+(held===1?"tile":"tiles")+".":" You hold no golden tiles yet.")
+        +(s?" Owned ×"+s+", worth +"+multLabel(0.25*s)+"× each.":" Stacks forever."),
+    price:px(9*Math.pow(2,s)), art:"🏛️", d:{type:"gildedAge"}};
+}
+/* Golden Ticket (v4915a, epic): a free gild after every cleared round. */
+function goldenTicketOffer(){
+  return {kind:"Perk",rarity:"epic",name:"Golden Ticket",
+    desc:"After every round you clear, one letter in your deck is gilded free of charge.",
+    price:px(15), art:"🎫", d:{type:"goldenTicket"}};
+}
 function heavyPressOffer(rng){
   // score-threshold sibling of Press: grows on any word that clears 100 points,
   // regardless of length — rewards big multiplier plays and short-word builds.
@@ -5917,8 +6059,8 @@ function heartOffer(){
 function applyOffer(o){
   const d=o.d||{};
   switch(d.type){
-    case "letter":       { const card=makeLetterCard(d.L); if(d.gild) card.upLevel=d.gild|0; applyGildedAge(card); G.deck.push(card);
-                           if(d.L==="Q"){ const u=makeLetterCard("U"); applyGildedAge(u); G.deck.push(u); } } break;   // a Q never travels alone
+    case "letter":       { const card=makeLetterCard(d.L); if(d.gild) card.upLevel=d.gild|0; applyGoldStandard(card); G.deck.push(card);
+                           if(d.L==="Q"){ const u=makeLetterCard("U"); applyGoldStandard(u); G.deck.push(u); } } break;   // a Q never travels alone
     case "clone":        G.deck.push(makeCloneCard()); break;
     case "dealer":       G.deck.push(makeDealerCard()); break;
     case "trio":         G.deck.push(makeTrioCard(d.letters||["E","N","T"])); break;
@@ -5933,7 +6075,7 @@ function applyOffer(o){
     case "interest":     G.perks.interest=true; break;
     case "pressMult":    G.pressGrowth=Math.round(((G.pressGrowth||0)+(d.g||0.025))*1000)/1000; break;
     case "heavyPress":   G.heavyPress=Math.round(((G.heavyPress||0)+(d.g||0.03))*1000)/1000; break;
-    case "goldenLetter": { const gc=makeLetterCard(d.L); gc.mult=1.25; applyGildedAge(gc); G.deck.push(gc); } break;
+    case "goldenLetter": { const gc=makeLetterCard(d.L); gc.mult=1.25; applyGoldStandard(gc); G.deck.push(gc); } break;
     case "gildLetter":   {
       // Re-resolve at purchase time: an earlier buy this shelf may have gilded
       // the very tile this offer was priced against.
@@ -5974,7 +6116,10 @@ function applyOffer(o){
     case "wordBinder":   G.perks.wordBinder={word:null, banked:0}; openBinder(); break;
     case "secondEdition": G.perks.secondEdition=true; break;
     case "gemini":       G.perks.gemini=true; openDeck("gemini"); break;
-    case "gildedAge":    openDeck("gildedAge"); break;
+    /* Every applyOffer case gets its own branch — the stamp-bug checklist. */
+    case "goldStandard": openDeck("goldStandard"); break;
+    case "gildedAge":    G.perks.gildedAge=(+G.perks.gildedAge||0)+1; break;   // v4915a: stackable, +0.25× to every golden tile
+    case "goldenTicket": G.perks.goldenTicket=true; break;                     // v4915a: a free gild after every round
     case "deadlineExt":  G.perks.deadlineExt=true; break;
     case "galleyProof":  G.perks.galleyProof=true; renderProofPeek(); break;
     case "midnightPress": G.perks.midnightPress=true; break;
@@ -6092,10 +6237,10 @@ function geminiOffer(){
     desc:"Copy a letter in your deck. The twin stays in sync: when either gets an upgrade, both do.",
     price:px(14), art:"♊", d:{type:"gemini"}};
 }
-function gildedAgeOffer(){
-  return {kind:"Perk",rarity:"legendary",name:"Gilded Age",
+function goldStandardOffer(){
+  return {kind:"Perk",rarity:"legendary",name:"Gold Standard",
     desc:"Choose a letter. Every copy in your deck, now and in the future, arrives gilded once and golden.",
-    price:px(16), art:"🏛️", d:{type:"gildedAge"}};
+    price:px(16), art:"🥇", d:{type:"goldStandard"}};
 }
 function deadlineExtOffer(){
   return {kind:"Perk",rarity:"legendary",name:"Deadline Extension",
@@ -6391,16 +6536,19 @@ function renderShop(){
   const grid=$("shopGrid"); grid.innerHTML="";
   G.shopOffers.forEach((o,i)=>{
     const card=document.createElement("div");
-    card.className="offer r-"+(o.rarity||"common")+(o.sold?" sold":"");
+    card.className="offer r-"+(o.rarity||"common")+(o.sold?" sold":"")+((o.discount&&!o.sold)?" on-sale":"");
+    const tag = o.discount ? `<span class="o-sale">${o.discount}% off</span>`
+              : (o.pinned  ? `<span class="o-pin">In stock</span>` : "");
+    const was = (o.discount&&o.listPrice) ? `<span class="o-was">${o.listPrice}</span>` : "";
     card.innerHTML=`
-      <span class="o-kind">${(o.rarity||"common").toUpperCase()} · ${o.kind}</span>
+      <span class="o-kind">${(o.rarity||"common").toUpperCase()} · ${o.kind}${tag}</span>
       <div class="o-art">${o.art}</div>
       <div>
         <div class="o-name">${o.name}</div>
         <div class="o-desc">${o.desc}</div>
       </div>
       <button class="buy-btn" ${o.sold||G.coins<o.price?"disabled":""}>
-        ${o.sold?"Bought":'<span class="c-ico">◉</span>'+o.price}
+        ${o.sold?"Bought":was+'<span class="c-ico">◉</span>'+o.price}
       </button>`;
     if(!o.sold){ card.querySelector(".buy-btn").addEventListener("click",()=>buyOffer(i)); }
     grid.appendChild(card);
@@ -6558,7 +6706,7 @@ function openDeck(mode){
   else if(mode==="fuse"){ hint.textContent="Tap two letters to fuse into one tile. Pick the first."; hint.className="select-hint gild"; }
   else if(mode==="dealer"){ hint.textContent="Tap a tile in your draw pile to pull it into your hand."; hint.className="select-hint gild"; }
   else if(mode==="gemini"){ hint.textContent="Tap a letter to twin. The copy shares every upgrade with the original, both ways."; hint.className="select-hint gild"; }
-  else if(mode==="gildedAge"){ hint.textContent="Tap a letter. Every copy of it, present and future, arrives gilded once and golden."; hint.className="select-hint gild"; }
+  else if(mode==="goldStandard"){ hint.textContent="Tap a letter. Every copy of it, present and future, arrives gilded once and golden."; hint.className="select-hint gild"; }
   else if(mode==="triofuse"){ hint.textContent="Tap the fused pair to build on."; hint.className="select-hint gild"; }
   else hint.classList.add("hidden");
   if(mode){ hint.classList.remove("hidden"); }
@@ -6573,7 +6721,7 @@ function deckTileEl(c){
   if(G.selectMode==="growth"    && upgradable && typeof c.growth!=="number"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"growth")); }
   if(G.selectMode==="dealer" && !G.hand.includes(c) && !G.canvas.includes(c)){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doDealerSwap(c.id)); }
   if(G.selectMode==="gemini" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doGemini(c.id)); }
-  if(G.selectMode==="gildedAge" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doGildedAge(c.id)); }
+  if(G.selectMode==="goldStandard" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doGoldStandard(c.id)); }
   if(G.selectMode==="encore"    && c.kind!=="lucky7" && c.kind!=="dealer" && !tileHas(c,"encore")){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"encore")); }
   if(G.selectMode==="foil"      && upgradable && !tileHas(c,"foil")){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"foil")); }
   if(G.selectMode==="watermark" && upgradable && !tileHas(c,"watermark")){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"watermark")); }
@@ -6814,10 +6962,12 @@ function syncGemini(c){
   GEMINI_SYNC.forEach(k=>{ if(c[k]!==undefined) p[k]=c[k]; });
   if(typeof c.growth==="number" && typeof p.growth!=="number") p.growth=0;
 }
-/* Gilded Age (v492a): the chosen letter arrives gilded once and golden, for
-   every copy present and future. Called on selection and on every new letter. */
-function applyGildedAge(card){
-  const L=G.perks.gildedAge;
+/* Gold Standard (v492a, renamed in v4915a): the chosen letter arrives gilded
+   once and golden, for every copy present and future. Called on selection and
+   on every new letter. Renamed because "Gilded Age" is now the stackable
+   common perk that lifts every golden tile by +0.25x. */
+function applyGoldStandard(card){
+  const L=G.perks.goldStandard;
   if(!L || !card || card.kind!=="letter" || card.letter!==L) return;
   card.upLevel=Math.min(GILD_CAP,(card.upLevel||0)+1);
   if((card.mult||1)<1.25) card.mult=1.25;
@@ -6960,12 +7110,12 @@ function doGemini(id){
   haptic([12,30,12]);
   closeDeck(); save();
 }
-function doGildedAge(id){
+function doGoldStandard(id){
   const src=G.deck.find(x=>x.id===id); if(!src||src.kind!=="letter") return;
-  G.perks.gildedAge=src.letter;
-  G.deck.forEach(c=>applyGildedAge(c));
+  G.perks.goldStandard=src.letter;
+  G.deck.forEach(c=>applyGoldStandard(c));
   G.selectMode=null;
-  toast("Gilded Age: every "+src.letter+" arrives gilded and golden");
+  toast("Gold Standard: every "+src.letter+" arrives gilded and golden");
   haptic([12,30,12]);
   closeDeck(); save();
 }
@@ -7103,7 +7253,7 @@ function statFinish(result){
   G.stats.runScore=G.runScore||0;
   G.stats.bestWord=G.runBestWord||""; G.stats.bestScore=G.runBestScore||0;
   G.stats.perks={ firstUp:G.perks.firstUp, lastUp:G.perks.lastUp, vowelPower:G.perks.vowelPower,
-    bigWords:G.perks.bigWords, fireSale:G.perks.fireSale, interest:G.perks.interest, fightingWords:!!G.perks.fightingWords, superStore:!!G.perks.superStore, wordBinder:(G.perks.wordBinder?{word:G.perks.wordBinder.word,banked:G.perks.wordBinder.banked}:false), gemini:!!G.perks.gemini, gildedAge:G.perks.gildedAge||false, deadlineExt:!!G.perks.deadlineExt, galleyProof:!!G.perks.galleyProof, midnightPress:!!G.perks.midnightPress, secondEdition:!!G.perks.secondEdition,
+    bigWords:G.perks.bigWords, fireSale:G.perks.fireSale, interest:G.perks.interest, fightingWords:!!G.perks.fightingWords, superStore:!!G.perks.superStore, wordBinder:(G.perks.wordBinder?{word:G.perks.wordBinder.word,banked:G.perks.wordBinder.banked}:false), gemini:!!G.perks.gemini, gildedAge:(+G.perks.gildedAge||0), goldStandard:G.perks.goldStandard||false, goldenTicket:!!G.perks.goldenTicket, deadlineExt:!!G.perks.deadlineExt, galleyProof:!!G.perks.galleyProof, midnightPress:!!G.perks.midnightPress, secondEdition:!!G.perks.secondEdition,
     scoreMult:G.scoreMult, handSize:G.handSize, extraTurns:G.extraTurns };
   if(G.stats){ G.stats.character=G.character||"writer"; G.stats.ascension=+G.ascension||0; }
   try{ localStorage.setItem("letterati_laststats", JSON.stringify(G.stats)); }catch(e){}
@@ -7755,7 +7905,9 @@ function ownedPerksList(){
   if(G.perks.wordBinder) out.push("Word Binder · "+(G.perks.wordBinder.word?G.perks.wordBinder.word.toUpperCase()+" bound at "+(G.perks.wordBinder.banked||0):"no word bound yet"));
   if(G.perks.secondEdition) out.push("Second Edition · replay a word's tiles, next word half score");
   if(G.perks.gemini) out.push("Gemini · twinned letters share upgrades");
-  if(G.perks.gildedAge) out.push("Gilded Age · every "+G.perks.gildedAge+" arrives gilded and golden");
+  if(G.perks.goldStandard) out.push("Gold Standard · every "+G.perks.goldStandard+" arrives gilded and golden");
+  if(gildedAgeStacks()) out.push("Gilded Age ×"+gildedAgeStacks()+" · +"+multLabel(0.25*gildedAgeStacks())+"× on every golden tile");
+  if(G.perks.goldenTicket) out.push("Golden Ticket · a free gild after every round");
   if(G.perks.deadlineExt) out.push("Deadline Extension · first failed round costs no hearts"+(G.deadlineExtRound!=null?" (used)":""));
   if(G.perks.galleyProof) out.push("Galley Proof · see the next 3 tiles");
   if(G.perks.midnightPress) out.push("The Midnight Press · overtime words ×2, first is free");
@@ -7842,7 +7994,9 @@ function ownedPerkCards(){
   if(P.wordBinder) push("📖","Word Binder", P.wordBinder.word ? ("Bound: "+P.wordBinder.word.toUpperCase()+" holds "+(P.wordBinder.banked||0)+" points. Half of each play is bound. Tap to change (resets the binding).") : "No word bound yet. Tap to bind one.");
   if(P.secondEdition) push("📚","Second Edition","Once per round, replay a scored word's tiles. The next word scores half.");
   if(P.gemini) push("♊","Gemini","Twinned letters share every upgrade.");
-  if(P.gildedAge) push("🏛️","Gilded Age","Every "+P.gildedAge+" in your deck, present and future, arrives gilded once and golden.");
+  if(P.goldStandard) push("🥇","Gold Standard","Every "+P.goldStandard+" in your deck, present and future, arrives gilded once and golden.");
+  if(+P.gildedAge) push("🏛️","Gilded Age ×"+(+P.gildedAge),"Every golden tile scores +"+multLabel(0.25*(+P.gildedAge))+"× on top of its own multiplier.");
+  if(P.goldenTicket) push("🎫","Golden Ticket","One letter in your deck is gilded free after every round you clear.");
   if(P.deadlineExt) push("🕰️","Deadline Extension","Your first failed round costs no hearts."+(G.deadlineExtRound!=null?" Used.":""));
   if(P.galleyProof) push("🔭","Galley Proof","The next three tiles of your draw pile are always visible.");
   if(P.midnightPress) push("🌙","The Midnight Press","Overtime words score double. The first overtime word each round costs no heart.");
@@ -8036,7 +8190,15 @@ function continueRun(){
   G.proofStage = +d.proofStage||0;
   G.seed=d.seed; G.level=d.level; G.hearts=d.hearts; G.coins=d.coins; G.handSize=d.handSize;
   G.infinite=!!d.infinite; G.wonRun=!!d.wonRun;
-  G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false,superStore:false,wordBinder:false, secondEdition:false, gemini:false, gildedAge:false, deadlineExt:false, galleyProof:false, midnightPress:false, vowelPuller:false, slugLine:false, eyeLevel:false, typeHigh:false, blindFaith:false, inkBall:false, vowelMovement:false, consonantCluster:false, justified:false, emQuad:false, descender:false, department:false, wetProof:false, compositor:false, foundryFire:false, fusedFocus:false, indiaInk:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
+  G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false,superStore:false,wordBinder:false, secondEdition:false, gemini:false, gildedAge:0, goldStandard:false, goldenTicket:false, deadlineExt:false, galleyProof:false, midnightPress:false, vowelPuller:false, slugLine:false, eyeLevel:false, typeHigh:false, blindFaith:false, inkBall:false, vowelMovement:false, consonantCluster:false, justified:false, emQuad:false, descender:false, department:false, wetProof:false, compositor:false, foundryFire:false, fusedFocus:false, indiaInk:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
+  /* v4915a migration, no SAVE_VERSION break needed: the old rare perk stored a
+     LETTER string under gildedAge; the new common perk stores a STACK COUNT.
+     The type tells them apart, so an in-flight run keeps its perk under its new
+     name and starts the new one at zero. */
+  if(typeof G.perks.gildedAge==="string" && G.perks.gildedAge){ G.perks.goldStandard=G.perks.gildedAge; G.perks.gildedAge=0; }
+  if(typeof G.perks.gildedAge!=="number") G.perks.gildedAge=0;
+  G.perks.goldStandard=G.perks.goldStandard||false;
+  G.perks.goldenTicket=!!G.perks.goldenTicket;
   if(G.perks.vowelPower===true) G.perks.vowelPower=1;   // v42a: legacy boolean -> 1 stack
   G.reprintUsed=!!d.reprintUsed;
   G.foilUsed=Array.isArray(d.foilUsed)?d.foilUsed.slice():[];
@@ -8202,7 +8364,7 @@ function newRun(seed, charId, asc){
   G.ascension = Math.max(0, Math.min(MAX_ASC, +asc||0));
   G.proofStage = 0;
   G.level=1; G.hearts=startHearts(); G.coins=0; G.handSize=START_HAND;
-  G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false,superStore:false,wordBinder:false, secondEdition:false, gemini:false, gildedAge:false, deadlineExt:false, galleyProof:false, midnightPress:false};
+  G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false,superStore:false,wordBinder:false, secondEdition:false, gemini:false, gildedAge:0, goldStandard:false, goldenTicket:false, deadlineExt:false, galleyProof:false, midnightPress:false};
   G.reprintUsed=false;
   G.scoreMult=1; G.pressGrowth=0; G.heavyPress=0; G.extraDiscards=0; G.extraTurns=0; G.lastReward=null; G.overtime=false; G.deadlineExtRound=null; G.midnightRound=null; G.secondEdRound=null; G.secondEdHalf=false; G.lastPlay=null;
   G.infinite=false; G.wonRun=false;
