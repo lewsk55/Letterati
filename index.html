@@ -1622,7 +1622,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "4915a";
+const VERSION = "4915b";
 const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
@@ -2434,12 +2434,13 @@ function rollStartingDeck(){
      (v49f: the old base>1 filter shrank the pool to the few high-value letters,
      which is why the same J and V kept turning up golden).
      v4915a: 4 -> 8, and the top two are richer than the rest, so a run opens
-     with a visible gold hierarchy instead of eight identical 1.25× tiles:
-       1 x 2.00   1 x 1.50   6 x 1.25
+     with a visible gold hierarchy instead of eight identical 1.25× tiles.
+     v4915b: trimmed 8 -> 6, keeping the same two-rich-one-mid shape:
+       1 x 2.00   1 x 1.50   4 x 1.25
      The shuffle already randomised the order, so slot 0 and slot 1 are just as
      likely to be a vowel or a workhorse as any other tile. */
   const eligible=shuffle(cards.slice(),rng);
-  eligible.slice(0,8).forEach((c,i)=>{ c.mult = i===0 ? 2 : (i===1 ? 1.5 : 1.25); });
+  eligible.slice(0,6).forEach((c,i)=>{ c.mult = i===0 ? 2 : (i===1 ? 1.5 : 1.25); });
   return cards;
 }
 
@@ -5746,7 +5747,7 @@ function perkPool(rng){
   if(!G.perks.secondEdition)     e.push({make:()=>secondEditionOffer(), weight:0.15});
   if(!G.perks.gemini)            e.push({make:()=>geminiOffer(),        weight:0.15});
   if(!G.perks.goldStandard)      e.push({make:()=>goldStandardOffer(),  weight:0.15});
-  e.push({make:()=>gildedAgeOffer(), weight:1.5});                                    // v4915a: common and stackable, always offerable
+  e.push({make:()=>gildedAgeOffer(), weight:0.7});                                    // v4915b: epic and stackable, so always offerable but at epic frequency
   if(!G.perks.goldenTicket)      e.push({make:()=>goldenTicketOffer(),  weight:0.5});
   if(!G.perks.deadlineExt)       e.push({make:()=>deadlineExtOffer(),   weight:0.15});
   if(!G.perks.galleyProof)       e.push({make:()=>galleyProofOffer(),   weight:0.15});
@@ -5974,7 +5975,7 @@ function goldenLetterOffer(rng){
     art:`<span class="mini-tile" style="background:linear-gradient(180deg,#F6E7B7,#EAD292);border-color:#C9A94E">${L}<span class="mv">${v}</span></span>`,
     d:{type:"goldenLetter",L}};
 }
-/* Gilded Age (v4915a, common, stacks forever): +0.25x on EVERY golden tile,
+/* Gilded Age (v4915a, epic as of v4915b, stacks forever): +0.25x on EVERY golden tile,
    flat, regardless of what that tile already carries. Reads through goldOf(),
    so it lifts starting slugs, shop goldens and Gold Standard letters alike, and
    any golden tile bought afterwards inherits the stacks for free.
@@ -5983,7 +5984,7 @@ function goldenLetterOffer(rng){
 function gildedAgeOffer(){
   const s=gildedAgeStacks();
   const held=G.deck.filter(c=>tileGoldMult(c)>1).length;
-  return {kind:"Perk",rarity:"common",name:"Gilded Age",
+  return {kind:"Perk",rarity:"epic",name:"Gilded Age",
     desc:"Every golden tile you own gains +0.25× on top of the multiplier it already has."
         +(held?" You hold "+held+" golden "+(held===1?"tile":"tiles")+".":" You hold no golden tiles yet.")
         +(s?" Owned ×"+s+", worth +"+multLabel(0.25*s)+"× each.":" Stacks forever."),
@@ -6965,7 +6966,7 @@ function syncGemini(c){
 /* Gold Standard (v492a, renamed in v4915a): the chosen letter arrives gilded
    once and golden, for every copy present and future. Called on selection and
    on every new letter. Renamed because "Gilded Age" is now the stackable
-   common perk that lifts every golden tile by +0.25x. */
+   stackable epic perk that lifts every golden tile by +0.25x. */
 function applyGoldStandard(card){
   const L=G.perks.goldStandard;
   if(!L || !card || card.kind!=="letter" || card.letter!==L) return;
