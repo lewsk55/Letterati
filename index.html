@@ -12,7 +12,7 @@
 <link href="https://fonts.googleapis.com/css2?family=Fraunces:ital,opsz,wght@0,9..144,400;0,9..144,500;0,9..144,600;0,9..144,700;1,9..144,500&display=swap" rel="stylesheet" />
 <style>
 /* ============================================================
-   LETTERATI — a letter-forging roguelike (prototype)
+   LETTERATI, a letter-forging roguelike (prototype)
    Sibling to Verbatim. Tile engine + juice ported from Verbatim;
    roguelike systems (seeded streams, rising shop prices, rerolls,
    deck view, card removal, hearts) modelled on Golf Gone Wrong.
@@ -660,7 +660,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 .post-actions .btn{font-size:.72rem;padding:7px 12px}
 #binderInput{display:block;width:100%;max-width:280px;margin:12px auto 4px;padding:10px 12px;font-family:var(--serif);font-weight:800;font-size:1.2rem;letter-spacing:.12em;text-transform:uppercase;text-align:center;border:2px solid var(--rule);border-radius:10px;background:var(--page);color:var(--ink)}
 
-/* Wild vowel tile — tie-dye field with a combined-vowel glyph */
+/* Wild vowel tile, tie-dye field with a combined-vowel glyph */
 .tile.wildvowel{border-color:#C77BB0;color:#fff;background:conic-gradient(from 0deg,#FE704E,#FFCF00,#48D3CD,#7A4FB0,#FE704E)}
 .tile.wildvowel::before{content:"";position:absolute;inset:0;border-radius:8px;pointer-events:none;mix-blend-mode:screen;
   background:radial-gradient(circle at 30% 24%,rgba(255,255,255,.55),transparent 38%),radial-gradient(circle at 72% 76%,rgba(255,255,255,.42),transparent 40%)}
@@ -671,7 +671,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 .wv-design{position:relative;z-index:2;display:inline-block;width:1.25em;height:1.25em}
 .wv-stack{position:absolute;inset:0}
 .wv-stack i{position:absolute;left:50%;top:50%;font-style:normal;font-family:var(--serif);font-weight:700;font-size:.6em;opacity:.5;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.5);transform:translate(-50%,-52%) rotate(var(--r))}
-/* wild consonant — cool indigo/teal gradient to contrast the warm wild vowel */
+/* wild consonant, cool indigo/teal gradient to contrast the warm wild vowel */
 .tile.wildcons{border-color:#5B8DC0;color:#fff;background:conic-gradient(from 0deg,#2638C4,#48D3CD,#3C6E63,#5B8DC0,#2638C4)}
 .tile.wildcons .glyph{position:relative;z-index:2;text-shadow:0 1px 3px rgba(0,0,0,.5)}
 .tile.wildcons .val{color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.6);z-index:2}
@@ -679,7 +679,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 .tile.wildcons .glyph-sub{position:absolute;bottom:4px;left:0;right:0;text-align:center;font-family:var(--ui);font-size:.5rem;font-weight:900;letter-spacing:.1em;color:#fff;text-shadow:0 1px 2px rgba(0,0,0,.55);z-index:2}
 .offer .o-art .mini-tile.wc-mini{background:conic-gradient(from 0deg,#2638C4,#48D3CD,#3C6E63,#5B8DC0,#2638C4);border-color:#5B8DC0;color:#fff;overflow:hidden}
 .offer .o-art .mini-tile.wc-mini .wv-design{width:1.25em;height:1.25em}
-/* copy cat — parchment tile with a copy glyph */
+/* copy cat, parchment tile with a copy glyph */
 .tile.copycat{border-color:#C9B68C;background:linear-gradient(180deg,#FBF4E6,#EFE4CC)}
 .tile.copycat .glyph-sub{font-size:.5rem;letter-spacing:.08em;position:absolute;bottom:4px;left:0;right:0;text-align:center;font-family:var(--ui);font-weight:800;color:#9A8047}
 .tile.copycat .clone-mark{position:absolute;right:2px;top:1px;font-size:.5em;color:#9A8047;z-index:3}
@@ -1038,6 +1038,20 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 .chal-reward{display:flex;flex-direction:column;align-items:flex-start;text-align:left;gap:2px;width:100%;padding:11px 13px;border-radius:12px;cursor:pointer;
   background:var(--paper);border:1.5px solid var(--tile-edge);transition:border-color .12s,transform .08s}
 .chal-reward:active{transform:translateY(1px)}
+/* v0.5a: side job pill under the progress bar */
+#sideJob{display:flex;flex-wrap:wrap;align-items:center;justify-content:center;gap:6px;margin-top:6px;font-size:.68rem;font-weight:700;color:var(--ink-soft)}
+#sideJob.hidden{display:none}
+#sideJob .sj-tag{font-size:.56rem;font-weight:900;letter-spacing:.12em;color:#fff;background:var(--moss,#3C6E63);border-radius:999px;padding:3px 8px}
+#sideJob .sj-pay{color:var(--brass-deep,#8a6418);font-weight:900}
+#sideJob.done .sj-tag{background:var(--brass-deep,#8a6418)}
+#sideJob.failed{opacity:.55}
+#sideJob.failed .sj-name{text-decoration:line-through}
+/* v0.5a: title screen daily block */
+.daily-card{max-width:320px;margin:10px auto 4px;padding:10px 12px;border:1px solid var(--edge,#D8C9A5);border-radius:12px;font-size:.8rem;line-height:1.45;color:var(--ink-soft);text-align:center}
+.daily-card b{color:var(--ink)}
+.daily-card .dc-head{font-size:.62rem;letter-spacing:.16em;text-transform:uppercase;font-weight:900;color:var(--brass-deep,#8a6418);margin-bottom:3px}
+.daily-note{font-size:.72rem;color:var(--ink-soft);max-width:300px;margin:2px auto 0;text-align:center}
+.draft-sub{font-size:.8rem;color:var(--ink-soft);text-align:center;margin:0 auto 12px;max-width:320px;line-height:1.45}
 .chal-reward.picked{border-color:var(--moss);box-shadow:0 0 0 2px rgba(60,110,99,.18)}
 .chal-reward.is-epic{background:linear-gradient(180deg,#F3EEFA,#E7DEF4);border-color:#B9A6DC}
 .chal-reward.is-epic .cr-badge{color:#7A4FB0}
@@ -1088,6 +1102,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
       </div>
       <div class="bar" id="bar"><i id="barFill"></i></div>
       <div id="chalBanner" class="hidden"></div>
+      <div id="sideJob" class="hidden"></div>
     </div>
   </header>
 
@@ -1098,7 +1113,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
     <div class="canvas-wrap">
       <div class="canvas empty" id="canvas" aria-label="Word you are forging"></div>
       <div class="canvas-foot">
-        <span class="live-word bad" id="liveWord">—</span>
+        <span class="live-word bad" id="liveWord">·</span>
         <span class="live-score" id="liveScore"></span>
       </div>
     </div>
@@ -1140,9 +1155,12 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
     <div class="brand">Letter<span class="amp">ati</span></div>
     <div class="brand-sub">A Wordlike Deckbuilder</div>
     <div class="title-art">A · B · C · … · X · Y · Z</div>
+    <div class="daily-card" id="dailyCard"></div>
     <button class="menu-btn hidden" id="continueBtn">Continue run</button>
-    <button class="menu-btn" id="playBtn">Start a run</button>
-    <div class="field">
+    <button class="menu-btn" id="playBtn">Play today's press</button>
+    <div class="daily-note hidden" id="dailyNote"></div>
+    <button class="menu-btn alt hidden" id="freePlayBtn">Free play</button>
+    <div class="field hidden" id="seedField">
       <input id="seedInput" placeholder="seed (optional)" autocomplete="off" autocapitalize="characters" spellcheck="false" />
       <button class="menu-btn alt" id="seedBtn" style="margin:0;width:auto;padding:11px 16px">Use seed</button>
     </div>
@@ -1156,7 +1174,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 <!-- ===== Character select (v496a) ===== -->
 <div class="overlay hidden" id="charScreen">
   <div class="sheet">
-    <div class="cs-eyebrow">Who is at the desk</div>
+    <div class="cs-eyebrow" id="csEyebrow">Who is at the desk</div>
     <div class="cs-grid" id="charGrid"></div>
     <div class="cs-asc-head">Ascension</div>
     <div class="cs-asc-row" id="ascRow"></div>
@@ -1176,7 +1194,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
     <div class="sum-highlights">
       <div class="sum-card sum-best">
         <span class="sum-k">Best word</span>
-        <span class="sum-v" id="sumBest">—</span>
+        <span class="sum-v" id="sumBest">none</span>
       </div>
       <div class="sum-row">
         <div class="sum-card"><span class="sum-k">Score</span><span class="sum-v" id="sumScore">0 / 0</span></div>
@@ -1194,7 +1212,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 <!-- ===== Challenge fork (v3a) ===== -->
 <div class="overlay hidden" id="challengeScreen">
   <div class="sheet sheet-center">
-    <div class="chal-eyebrow">Optional challenge · <span id="chalRound">Round 3</span></div>
+    <div class="chal-eyebrow"><span id="chalKind">Optional challenge</span> · <span id="chalRound">Round 2</span></div>
     <div class="chal-head">
       <span class="chal-name" id="chalName">Steep Target</span>
       <span class="chal-badge" id="chalBadge">+50% target</span>
@@ -1247,7 +1265,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 <!-- ===== Game over / win ===== -->
 <div class="overlay hidden" id="bossScreen">
   <div class="sheet sheet-center boss-sheet">
-    <div class="boss-kicker" id="bossKicker">ROUND 10 · THE FINAL PROOF</div>
+    <div class="boss-kicker" id="bossKicker">ROUND 6 · THE FINAL PROOF</div>
     <div class="boss-art" id="bossArt">🖋️</div>
     <div class="boss-name" id="bossName">The Editor</div>
     <div class="boss-badge" id="bossBadge">letters struck</div>
@@ -1278,6 +1296,16 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
       <button class="menu-btn ghost" id="binderCancel" style="max-width:150px">Cancel</button>
       <button class="menu-btn" id="binderSave" style="max-width:170px">Bind it</button>
     </div>
+  </div>
+</div>
+<!-- ===== Opening perk draft (v0.5a) ===== -->
+<div class="overlay hidden" id="draftScreen">
+  <div class="sheet sheet-center">
+    <div class="chal-eyebrow">Before the first round</div>
+    <div class="chal-head"><span class="chal-name">Pick a perk, on the house</span></div>
+    <div class="draft-sub">One of these is yours for the whole run, free. Everyone on today's press sees the same three.</div>
+    <div class="chal-reward-grid" id="draftGrid"></div>
+    <button class="menu-btn" id="draftTakeBtn" disabled>Pick one first</button>
   </div>
 </div>
 <div class="overlay hidden" id="runIntroScreen">
@@ -1326,7 +1354,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
       <button class="menu-btn alt hidden" id="srSendW" style="max-width:220px;margin:8px auto 0">Send feedback</button>
       <div class="sr-thanks hidden" id="srThanksW">Thanks!</div>
     </div>
-    <button class="menu-btn" id="winEndlessBtn" style="margin-top:22px">Keep printing — Endless →</button>
+    <button class="menu-btn" id="winEndlessBtn" style="margin-top:22px">Keep printing in endless →</button>
     <button class="menu-btn alt" id="winFinishBtn">Finish &amp; savor it</button>
     <button class="menu-btn alt" id="winQuitBtn">Quit to title</button>
   </div>
@@ -1378,7 +1406,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 <div class="overlay hidden" id="fuseConfirm">
   <div class="clone-sheet">
     <div class="clone-title">Fuse these letters?</div>
-    <div class="clone-sub" id="fuseMsg">—</div>
+    <div class="clone-sub" id="fuseMsg"></div>
     <div class="gild-price" id="fusePrice"></div>
     <div class="gild-actions">
       <button class="menu-btn alt" id="fuseNo" style="max-width:150px">Cancel</button>
@@ -1391,7 +1419,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 <div class="overlay hidden" id="bonusChooser">
   <div class="clone-sheet">
     <div class="clone-title" id="bonusTitle">Pick a letter</div>
-    <div class="clone-sub" id="bonusSub">—</div>
+    <div class="clone-sub" id="bonusSub"></div>
     <div class="clone-choices" id="bonusChoices"></div>
     <button class="menu-btn alt" id="bonusCancel" style="max-width:200px">Cancel</button>
   </div>
@@ -1419,12 +1447,15 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
   <div class="sheet sheet-center">
     <div class="over-result">How to Play</div>
     <div class="howto">
-      <p><b>Forge words</b> from the 7 letter slugs in your case. Longer words and rarer letters score more. Set a word and its letters shuffle back into your deck, then you'll draw a fresh 7.</p>
-      <p>Beat each round's <b>target</b> within your <b>words</b> (turns). Run out short and you go into <b>overtime</b>. Each extra word costs a heart (you have three), keeping your score and hand, until the target falls or your hearts run out.</p>
-      <p>Stuck with junk? Drag those letters onto the red <b>Discard</b> button — it stretches to hold them — then tap it to swap the lot for fresh tiles (3 a round). Tap a letter in the bin to take it back. The same word can be set as many times as you like.</p>
-      <p>Made a placement you didn't mean? Tap <b>Undo</b> to step back, one move at a time, right up until you set a word or discard.</p>
-      <p>Clear a round to earn coins for the <b>print shop</b>: new letters, gilding, perks and more. Beat all <b>10 rounds</b> to win the press and claim the rank of <b>Letterati</b>, then push your luck in <b>endless</b> if you dare.</p>
-      <p>At rounds <b>3, 5 and 7</b> you can take an optional <b>challenge</b>: a tougher round in exchange for a reward you pick up front. Clear it to claim the reward. Miss it and you simply drop into normal overtime.</p>
+      <p>There is one <b>daily press</b> a day, and everyone plays the same seed. Finish it and <b>free play</b> opens until midnight.</p>
+      <p>Before the first round you pick <b>one free perk</b> from three. It stays with you for the whole run.</p>
+      <p><b>Forge words</b> from the 7 letter slugs in your case. Longer words and rarer letters score more. Set a word and its slugs go to your discard pile, and you draw back up to 7.</p>
+      <p>Beat each round's <b>target</b> within your <b>words</b> (4 a round). Run out short and you go into <b>overtime</b>: each extra word costs a heart (you have three), and you keep your score and hand until the target falls or your hearts run out.</p>
+      <p>Stuck with junk? Drag those letters onto the red <b>Discard</b> button (it stretches to hold them), then tap it to swap the lot for fresh tiles. You get 4 discards a round. Tap a letter in the bin to take it back.</p>
+      <p>Made a placement you didn't mean? Tap <b>Undo</b> to step back one move at a time, up until you set a word or discard.</p>
+      <p>Each round has a <b>side job</b> under the score bar. Do it and it pays extra coins when you clear the round. Skip it and nothing happens.</p>
+      <p>Clear a round to earn coins for the <b>print shop</b>: new letters, gilding, perks and more. Beat all <b>6 rounds</b> to win the press and claim the rank of <b>Letterati</b>, then push your luck in <b>endless</b> if you dare.</p>
+      <p>At rounds <b>2, 4 and 5</b> you can take an optional <b>challenge</b>: a tougher round in exchange for a reward you pick up front. Clear it to claim the reward. Miss it and you drop into normal overtime.</p>
     </div>
     <div style="font-size:.7rem;color:var(--ink-soft);margin-top:14px;line-height:1.45">Definitions sourced from <b>Wiktionary</b> (CC BY-SA 4.0), served by FreeDictionaryAPI.com.</div>
     <button class="menu-btn" id="howtoCloseBtn" style="margin-top:18px">Got it</button>
@@ -1439,7 +1470,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
       <span class="opt-label">Dark mode</span>
       <button class="theme-switch" id="themeSwitch" role="switch" aria-label="Toggle dark mode"><span class="knob" id="themeKnob">☀️</span></button>
     </div>
-    <div style="color:var(--ink-soft);font-size:.85rem;margin:6px 0 4px">Run data is recorded locally and can be exported as JSON. Online sync is coming later.</div>
+    <div style="color:var(--ink-soft);font-size:.85rem;margin:6px 0 4px">Run data is saved on this device and can be exported as JSON. Finished runs are also sent anonymously, with no personal details, to help balance the game.</div>
     <button class="menu-btn" id="optExportBtn" style="margin-top:18px">Export last run's stats</button>
     <button class="menu-btn alt" id="optBackBtn">Back</button>
   </div>
@@ -1450,7 +1481,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 <script src="letterati-common.js"></script>
 <script>
 /* ============================================================
-   WORD LIST — ENABLE ∪ open word list (words_alpha), family-filtered,
+   WORD LIST, ENABLE ∪ open word list (words_alpha), family-filtered,
    capped at 12 letters for playability. ~330k words. FIRST PASS:
    the family filter is exact-match only and MUST get an editorial
    review before any public release.
@@ -1465,15 +1496,15 @@ function isVerbWord(){ const w=resolvedCanvas().map(r=>r.letter||"").join("").to
 if(!(typeof window!=="undefined" && window.WORD_BLOB)){ try{ window.addEventListener("DOMContentLoaded",function(){document.body.innerHTML='<div style="font-family:system-ui;max-width:560px;margin:16vh auto;padding:24px;text-align:center;color:#3a2f2a;line-height:1.5">'+'<h2>Dictionary not loaded</h2><p>The word list <code>letterati-dictionary.js</code> could not be found. Put it in the <b>same folder</b> as this page, named exactly <code>letterati-dictionary.js</code>.</p></div>';}); }catch(e){} }
 
 /* ------------------------------------------------------------
-   EXTRA_WORDS — curated supplement layered on top of the big
+   EXTRA_WORDS, curated supplement layered on top of the big
    general list (ENABLE ∪ open word list). Two jobs:
      1. MODERN words that even large open lists miss (selfie, emoji,
-        vape…) — these are the proprietary NWL/Collins-era additions,
+        vape…), these are the proprietary NWL/Collins-era additions,
         so they're hand-added here rather than licensed.
      2. A VETTED proper-noun SCIENCE / GEOGRAPHY set (planets, eras,
         elements, landforms, taxa) for PBS's educational angle.
    All lowercase so proper nouns (e.g. "pangaea") still match.
-   FIRST PASS — still needs a human editorial sweep before release.
+   FIRST PASS, still needs a human editorial sweep before release.
    ------------------------------------------------------------ */
 const EXTRA_WORDS = [
   // --- everyday slang / modern usage ---
@@ -1571,7 +1602,7 @@ const EXTRA_WORDS = [
 EXTRA_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 
 /* ------------------------------------------------------------
-   REINSTATED_WORDS — words the family filter stripped from the
+   REINSTATED_WORDS, words the family filter stripped from the
    shipped list that are ordinary English and should be playable.
    Clinical and everyday senses dominate these; blocking them read
    as squeamish rather than safe, and they are common enough that
@@ -1585,7 +1616,7 @@ const REINSTATED_WORDS = [
 REINSTATED_WORDS.forEach(w=>WORDS.add(w.toLowerCase()));
 
 /* ------------------------------------------------------------
-   WORD_DENYLIST — playable-word removals (v491c). Applied AFTER the
+   WORD_DENYLIST, playable-word removals (v491c). Applied AFTER the
    additions above so a denied word can never be re-added by accident.
    Because it mutates the shared WORDS set, the pinned predictor reads
    exactly the same list with no separate wiring.
@@ -1622,23 +1653,37 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "4915b";
-const WIN_LEVEL = 10;   // clear this round to WIN (rank "Letterati"); afterwards, optional endless mode
+const VERSION = "0.5a";
+const WIN_LEVEL = 6;    // v0.5a: clear this round to WIN (rank "Letterati"); afterwards, optional endless mode. Was 10.
+/* v0.5a: the run is six rounds, not ten, so a daily fits in one sitting.
+   eqLevel() maps a live round onto the old ten-round curve, so targets, shop
+   inflation and word cash keep their shape, only compressed: round 1 is old
+   round 1, round 6 is old round 10, and endless rounds carry on one for one.
+   RUN_PAY_SCALE folds nine shops' worth of income into five, so a full run
+   earns roughly the coins it used to. */
+const LEGACY_WIN_LEVEL = 10;
+function eqLevel(level){
+  const L=Math.max(1,+level||1);
+  if(L<=WIN_LEVEL) return 1+(L-1)*(LEGACY_WIN_LEVEL-1)/(WIN_LEVEL-1);
+  return LEGACY_WIN_LEVEL+(L-WIN_LEVEL);
+}
+const RUN_PAY_SCALE = (LEGACY_WIN_LEVEL-1)/(WIN_LEVEL-1);   // 1.8
 const BOSS_TARGET_SCALE = 0.85;   // v491a: the boss modifier IS the round-10 premium, so the raw target eases
 
 /* ---- Challenge levels (v3a) ----------------------------------------------
-   At rounds 3, 5 and 7 the player is offered ONE seeded challenge: a harder
+   At rounds 2, 4 and 5 (v0.5a, was 3/5/7) the player is offered ONE seeded challenge: a harder
    round in exchange for a reward they pick up front. Take it or play standard.
    Failing a challenge just drops to normal overtime; clearing grants the reward.
    Everything here rolls off the seeded stream so the daily stays replay-valid. */
-const CHALLENGE_LEVELS = new Set([3,5,7]);
-const ASC_CHALLENGE_LEVEL = 9;   // A1 Challenger adds this one, live game only
+const CHALLENGE_LEVELS = new Set([2,4,5]);   // v0.5a: six-round run
+const ASC_CHALLENGE_LEVEL = 3;   // A1 Challenger adds round 3 (v0.5a: was round 9), live game only
+const ASC_MANDATORY_LEVEL = 5;   // v0.5a: and the round 5 challenge can no longer be skipped
 /* Never fold this into CHALLENGE_LEVELS: predictSeed reads that constant, so
    widening it would change every validated daily seed. */
 function challengeLevelActive(lvl){
   return CHALLENGE_LEVELS.has(lvl) || (ascHas(1) && lvl===ASC_CHALLENGE_LEVEL);
 }
-function challengeMandatory(lvl){ return ascHas(1) && lvl===ASC_CHALLENGE_LEVEL; }
+function challengeMandatory(lvl){ return ascHas(1) && lvl===ASC_MANDATORY_LEVEL; }
 const CHALLENGE_TARGET_MULT = 1.75;  // "steep target" challenge: +75% over the round's base goal
 const CHALLENGE_BAN_COUNT  = 3;      // "letters locked": one vowel + two most-used consonants
 const CHALLENGE_MIN_LEN    = 5;      // "long form": no words under 5 letters
@@ -1648,7 +1693,7 @@ const CHALLENGE_TYPES = {
             desc:"Clear a target that is 75 percent higher this round." },
   locked: { name:"Letters Locked", badge:"3 letters out", diff:2,
             desc:"Your three most-used letters are off the board this round." },
-  longform:{ name:"Long Form", badge:"5+ letters only", diff:3,
+  longform:{ name:"Long Form", badge:"5+ letters only", diff:2,   /* v0.5a: 7/7 cleared, was 3 */
             desc:"Only words of five letters or more will count this round." },
   smudged:{ name:"Smudged Ink", badge:"1 tile smudged", diff:2,
             desc:"One tile in every hand is smudged and scores zero." },
@@ -1660,9 +1705,9 @@ const CHALLENGE_TYPES = {
             desc:"Your hand holds one fewer tile this round." },
   union:  { name:"Union Rules", badge:"no discards", diff:2,
             desc:"No discards this round." },
-  heavy:  { name:"Heavy Stock", badge:"vowels worth 0", diff:3,
+  heavy:  { name:"Heavy Stock", badge:"vowels worth 0", diff:2,   /* v0.5a: 8/8 cleared, was 3 */
             desc:"Vowels score zero this round. They still spell." },
-  reprints:{ name:"No Reprints", badge:"unique lengths", diff:1,
+  reprints:{ name:"No Reprints", badge:"unique lengths", diff:3,   /* v0.5a: 6/9 cleared, the worst of the set, was 1 */
             desc:"Every word this round must be a different length." },
   standing:{ name:"Standing Type", badge:"first word leaves", diff:2,
             desc:"The slugs you set in your first word stay on the press for the round." }
@@ -1673,7 +1718,7 @@ const CHALLENGE_EARLY_ONLY = new Set(["rush"]);   // only offered at the first t
 /* ---------- Round 10 bosses: THE FINAL PROOF ---------- */
 const BOSS_TYPES = {
   editor:  { name:"The Redactor", art:"🖋️", badge:"letters struck",
-             desc:"After every word, your most valuable letter in it is pulled from the round entirely.",
+             desc:"After every word, the highest-scoring letter in it is pulled from the round entirely.",
              intro:"Every draft you hand him comes back with a hole in it. He strikes only your best lines.",
              taunt:"Struck. That letter is not coming back." },
   deadline:{ name:"The Deadline", art:"⏰", badge:"target rises",
@@ -1725,8 +1770,8 @@ const CHALLENGE_REWARDS = {
             desc:"Fifteen coins drop straight into the bank." },
   cash20: { name:"Twenty coin bonus", badge:"+$20",
             desc:"Twenty coins drop straight into the bank." },
-  upgrade:{ name:"Gilded letter", badge:"FREE GILD",
-            desc:"A letter that arrives already gilded joins your deck." }
+  upgrade:{ name:"Your pick of gild", badge:"FREE GILD",
+            desc:"Gild any tile you own, free, at the next shop." }
 };
 // The prize shelf is a seeded trio drawn from the pool, with the cash option
 // scaled to the challenge's difficulty. Harder ask, fatter purse.
@@ -1738,6 +1783,14 @@ function rewardTrioFor(level,type){
   // seeded shuffle, take three: every challenge offers a different mix
   for(let i=pool.length-1;i>0;i--){ const j=Math.floor(rng()*(i+1)); [pool[i],pool[j]]=[pool[j],pool[i]]; }
   return pool.slice(0,3);
+}
+/* v0.5a: cash rewards scale with the round. A flat $15 at round 7 bought almost
+   nothing after shop inflation, which is why telemetry showed cash picked 12 times
+   in 77 challenges against 59 for epic and double. Tier keys stay cash10/15/20 as
+   difficulty markers; the amount is $6 + $6 per round, x0.8 / x1 / x1.25. */
+function challengeCashFor(level,key){
+  const mult = key==="cash20" ? 1.25 : key==="cash15" ? 1 : 0.8;
+  return Math.round((6+6*(+level||1))*mult);
 }
 // the free gilded letter the "upgrade" reward grants, seeded per level
 function challengeUpgradeLetterFor(level){
@@ -1791,9 +1844,7 @@ const CHALLENGE_EPIC_POOL = [
   {name:"Commission",       art:"💼", desc:"Words gain 1 point for every coin in your bank.", d:{type:"commission"}},
   {name:"Anthology",        art:"📚", desc:"Every unique word you play this run permanently adds 0.5% to your multiplier.", d:{type:"anthology"}},
   {name:"Recycled Stock",   art:"♻️", desc:"Every discard you spend grows your Press by 0.01.", d:{type:"recycledStock"}},
-  {name:"Abridged",         art:"✂️", desc:"After every shop, cut one tile of your choice from your deck for $1.", d:{type:"abridged"}},
   {name:"The Compositor",   art:"🧩", desc:"Once per round, sets the highest scoring word your letter tiles can make.", d:{type:"compositor"}},
-  {name:"Foundry Fire",     art:"🔥", desc:"The eraser is always in stock. Every tile you remove grows your Press by 2%.", d:{type:"foundryFire"}},
   {name:"Fused Focus",      art:"🔗", desc:"Letters played from fused pairs and trios score ×1.25.", d:{type:"fusedFocus"}},
   {name:"India Ink",        art:"🖋️", desc:"Ink Well pays triple. Every $1 earned adds +1 to your next word.", d:{type:"indiaInk"}},
   {name:"Second Edition",   art:"📚", desc:"Once per round, right after a word scores, reset the press: those tiles return to your hand and your next word scores half.", d:{type:"secondEdition"}},
@@ -1822,7 +1873,7 @@ const CHALLENGE_EPIC_POOL = [
 ];
 const LETTER_VALUES = {A:1,B:3,C:3,D:2,E:1,F:4,G:2,H:4,I:1,J:8,K:5,L:2,M:3,N:1,O:1,P:3,Q:10,R:1,S:2,T:2,U:1,V:4,W:4,X:8,Y:4,Z:10};
 // L,S,T bumped 1→2 (v2d): only vowels + N,R,U remain 1-point. Targets scaled to match (see TARGET_SCALE).
-// Scrabble-bag style weights — E most common; AIOU vowels common; SNRT common
+// Scrabble-bag style weights, E most common; AIOU vowels common; SNRT common
 // consonants; JKQXZ rarest. Used to roll the starting deck and shop letters.
 const BAG_WEIGHTS = {E:12,A:9,I:9,O:8,N:6,R:6,T:6,L:4,S:4,U:4,D:4,G:3,B:2,C:2,M:2,P:2,F:2,H:2,V:2,W:2,Y:2,K:1,J:1,X:1,Q:1,Z:1};
 const VOWELS = new Set(["A","E","I","O","U"]);
@@ -1830,11 +1881,12 @@ const START_DECK = 24;
 const DECK_VOWEL_MIN = Math.round(START_DECK*0.30);   // 7 at 24, 6 at 20
 const DECK_VOWEL_MAX = Math.round(START_DECK*0.55);   // 13 at 24, 11 at 20
 const DECK_HI_MIN = 4;    // every starting deck has at least 4 letters worth >1 point
-const DECK_FACE_MIN = 40; // and at least 40 total face value — kills the unfair low tail, keeps variety
+const DECK_FACE_MIN = 40; // and at least 40 total face value, kills the unfair low tail, keeps variety
 const START_HAND = 7;
 const GILD_BASE = 6;   // base price to gild a fresh letter (doubles per existing gild)
+const LETTER_PRICE_SCALE = 0.7;   // v0.5a: letters 30% cheaper so the letter side competes with gilds
 const GILD_PRICE_SCALE = 0.5;   // v491e: gilding costs half what it used to
-const HANDS_PER_LEVEL = 4;     // "turns" — words you may set
+const HANDS_PER_LEVEL = 4;     // "turns", words you may set
 const DISCARDS_PER_LEVEL = 4;
 const PRICE_MULTIPLIER = 1.22; // per-round shop inflation (GGW used ~1.46)
 const SHOP_PRICE_SCALE = 0.8;  // v3a: 20% cheaper across the board (stacks on the base 35% off)
@@ -1988,8 +2040,8 @@ function mysteryPerRound(){ return !!(G.perks && G.perks.smokingGun); }
 const ASC_TARGET_STEP = 0.05;   // v4910a: ten rungs at 5% lands A10 at +50%, the old A5 ceiling
 const MAX_ASC = 10;
 const ASCENSIONS = [
-  { n:1,  name:"Challenger",     badge:"round 9 challenge",
-    desc:"A challenge appears on round 9 as well, and it cannot be skipped." },
+  { n:1,  name:"Challenger",     badge:"challenges 2 to 5",
+    desc:"A challenge is offered on every round from 2 to 5, and the round 5 challenge cannot be skipped." },
   { n:2,  name:"Tight Purse",    badge:"costs +20%",
     desc:"Shop prices rise 20 percent." },
   { n:3,  name:"Short Staffed",  badge:"1 fewer discard",
@@ -2007,7 +2059,7 @@ const ASCENSIONS = [
   { n:9,  name:"Burnt Out",      badge:"heart cap -1",
     desc:"Your heart cap drops by one as well, so the loss cannot be healed back." },
   { n:10, name:"Double Proof",   badge:"two bosses",
-    desc:"Round 10 runs twice against two different bosses, with no shop between." }
+    desc:"The final round runs twice against two different bosses, with no shop between." }
 ];
 function ascLevel(){ return Math.max(0, Math.min(MAX_ASC, +G.ascension||0)); }
 function ascHas(n){ return ascLevel()>=n; }
@@ -2049,7 +2101,120 @@ function recordAscWin(charId, asc){
   const p=loadProgress();
   if(!(typeof p[charId]==="number") || p[charId]<asc){ p[charId]=asc; saveProgress(p); }
 }
-const WORD_CASH_CAP = 20;   // v491g: most a single word can pay into the bank
+/* ============================================================
+   Daily press (v0.5a)
+   One daily run per local calendar day. Everyone gets the same seed for a date:
+   candidates are hashed from the date string and the first one the pinned
+   predictor calls winnable is used, so no server is needed to agree on it.
+   The run saves and resumes like any other; finishing it in any way (win, game
+   over, End run) uses up the day. Free play opens once today's daily is done.
+   The lock lives in localStorage, so a private window or cleared site data gets
+   around it. Server-side enforcement is future work.
+   ?dev=1 in the URL lifts every lock, for playtesting.
+   ============================================================ */
+const DAILY_KEY = "letterati_daily_v1";
+const TUTORIAL_KEY = "letterati_tutorial_done";
+function devMode(){ try{ return /[?&]dev=1(&|$)/.test(location.search||""); }catch(e){ return false; } }
+function localDateKey(d){
+  d=d||new Date();
+  return d.getFullYear()+"-"+String(d.getMonth()+1).padStart(2,"0")+"-"+String(d.getDate()).padStart(2,"0");
+}
+function prettyDate(key){
+  try{ const [y,m,dd]=key.split("-").map(Number); return new Date(y,m-1,dd).toLocaleDateString(undefined,{weekday:"short",month:"short",day:"numeric"}); }
+  catch(e){ return key; }
+}
+function loadDaily(){ try{ return JSON.parse(localStorage.getItem(DAILY_KEY))||{}; }catch(e){ return {}; } }
+function saveDaily(d){ try{ localStorage.setItem(DAILY_KEY, JSON.stringify(d)); }catch(e){} }
+// "none" = not started today, "started" = today's run is under way, "done" = today is used up
+function dailyStatus(){
+  const d=loadDaily();
+  if(d.date!==localDateKey()) return "none";
+  // started, but no saved daily run for today left to resume: the day is spent
+  if(d.status==="started"){ const s=savedRunMeta(); if(!(s && s.mode==="daily" && s.dailyDate===d.date)) return "done"; }
+  return d.status||"none";
+}
+function freePlayUnlocked(){ return devMode() || dailyStatus()==="done"; }
+const _dailySeedCache={};
+function dailySeedFor(dateKey){
+  if(_dailySeedCache[dateKey]) return _dailySeedCache[dateKey];
+  const ABC="ABCDEFGHJKLMNPQRSTUVWXYZ23456789";
+  let first=null, out=null;
+  for(let i=0;i<40 && !out;i++){
+    const r=mulberry32(xfnv1a("daily:"+dateKey+":"+i));
+    let s=""; for(let k=0;k<5;k++) s+=ABC[Math.floor(r()*ABC.length)];
+    if(!first) first=s;
+    try{ if(predictSeed(s).winnable) out=s; }catch(e){ out=s; }
+  }
+  return (_dailySeedCache[dateKey]=out||first);
+}
+function markDailyStarted(){
+  if(G.mode!=="daily") return;
+  const d=loadDaily();
+  if(d.date===G.dailyDate && d.status==="done") return;
+  saveDaily({date:G.dailyDate, seed:G.seed, status:"started", character:G.character, ascension:+G.ascension||0, startedAt:new Date().toISOString()});
+}
+function markDailyDone(){
+  if(G.mode!=="daily" || !G.stats) return;
+  const d=loadDaily();
+  if(d.date && d.date!==G.dailyDate && d.date>G.dailyDate) return;   // a newer day already started; leave it alone
+  saveDaily({date:G.dailyDate, seed:G.seed, status:"done", character:G.character, ascension:+G.ascension||0,
+    result:G.stats.ending||G.stats.result, runScore:G.runScore||0, finalRound:G.level, wonRun:!!G.wonRun});
+}
+function tutorialDone(){ try{ return localStorage.getItem(TUTORIAL_KEY)==="1"; }catch(e){ return true; } }
+function markTutorialDone(){ try{ localStorage.setItem(TUTORIAL_KEY,"1"); }catch(e){} }
+/* First-play tutorial hook. Adam is building the tutorial run separately; drop it
+   in here. It must call onDone() when finished. The tutorial never uses up the
+   daily: a first-time player goes straight on to today's press afterwards. */
+function tutorialRun(onDone){
+  markTutorialDone();
+  if(typeof onDone==="function") onDone();
+}
+function savedRunMeta(){ try{ const s=JSON.parse(localStorage.getItem(SAVE_KEY)); return (s&&s.v===SAVE_VERSION)?s:null; }catch(e){ return null; } }
+function fmtUntilMidnight(){
+  const now=new Date(), mid=new Date(now.getFullYear(),now.getMonth(),now.getDate()+1);
+  const mins=Math.max(1,Math.round((mid-now)/60000)), h=Math.floor(mins/60), m=mins%60;
+  return h ? (h+"h "+m+"m") : (m+"m");
+}
+function renderDailyCard(){
+  const card=$("dailyCard"), play=$("playBtn"), note=$("dailyNote"), free=$("freePlayBtn"), seedF=$("seedField"), cont=$("continueBtn");
+  if(!card||!play) return;
+  const today=localDateKey(), st=dailyStatus(), d=loadDaily(), sv=savedRunMeta();
+  const savedDailyToday = !!(sv && sv.mode==="daily" && sv.dailyDate===today);
+  let html=`<div class="dc-head">Today's press · ${escHtml(prettyDate(today))}</div>`;
+  if(st==="done"){
+    const who=(CHARACTERS[d.character]||CHARACTERS.writer).name.replace(/^The /,"");
+    const res = d.wonRun ? "Cleared all "+WIN_LEVEL+" rounds" : ("Reached round "+(d.finalRound||1));
+    html+=`${res} · <b>${(d.runScore||0).toLocaleString()}</b> pts<br>${escHtml(who)} · A${+d.ascension||0}<br>Next press in <b>${fmtUntilMidnight()}</b>. Free play is open.`;
+  } else if(st==="started"){
+    html+= "Your run is on the press. Pick it up where you left off.";
+  } else {
+    html+=`${WIN_LEVEL} rounds, one try. Everyone plays the same seed today.`;
+  }
+  card.innerHTML=html;
+  // main button
+  const canStart = devMode() || st==="none";
+  play.classList.toggle("hidden", !canStart || savedDailyToday);
+  play.textContent = "Play today's press";
+  // continue button label names what it resumes
+  if(cont){ cont.textContent = !sv ? "Continue run" : (sv.mode==="daily" ? (sv.dailyDate===today?"Continue today's press":"Finish your "+prettyDate(sv.dailyDate||today)+" press") : "Continue free play"); }
+  // warn when starting today's daily would end a saved run
+  const willEnd = canStart && sv && !savedDailyToday;
+  note.classList.toggle("hidden", !willEnd);
+  if(willEnd) note.textContent = "Starting today's press ends your saved "+(sv.mode==="daily"?"daily":"free play")+" run.";
+  const fp=freePlayUnlocked();
+  free.classList.toggle("hidden", !fp);
+  seedF.classList.toggle("hidden", !fp);
+}
+function startDailyFlow(){
+  if(!devMode() && dailyStatus()!=="none"){ toast("Today's press is already in the books"); renderDailyCard(); return; }
+  const go=()=>openCharSelect(dailySeedFor(localDateKey()), "daily");
+  if(!tutorialDone() && !devMode()) tutorialRun(go); else go();
+}
+function startFreeFlow(seed){
+  if(!freePlayUnlocked()){ toast("Free play opens after today's press"); return; }
+  openCharSelect(seed||null, "free");
+}
+const WORD_CASH_CAP = 36;   // v491g: most a single word can pay into the bank (v0.5a: 20 x RUN_PAY_SCALE)
 const BINDER_RETAIN = 0.5;  // v492c: the binding keeps half the played score (full retention compounded too hard)           // economy guard rail (caps base payout only)
 const LIQUIDITY_CAP = 3.0;     // v496c: doubled. Bonus above x1 is now +200% at cap, was +100%.
 const LIQUIDITY_RATE = 0.02;   // +2% per $5 banked (was 1%)
@@ -2058,14 +2223,28 @@ function liquidityMult(){ return G.perks.interest ? Math.min(LIQUIDITY_CAP, 1 + 
 function lenMult(n){ return n<=3?1 : n===4?1.5 : (n-3); }   // 5→2,6→3,7→4,8→5,9→6… uncapped
 // Win-rate-matched scale for the L,S,T→2 bump: the bump inflates scores ~7%, but it
 // compresses variance, so matching the MEAN over-hardens casual play. ×1.04 holds the
-// casual win rate at its pre-bump level (skilled ~96%, casual ~14%) — the small remainder
+// casual win rate at its pre-bump level (skilled ~96%, casual ~14%), the small remainder
 // is a deliberate floor-raise that helps weaker seeds. Set to 1 to disable.
 const TARGET_SCALE = 1.04;
 const GOAL_SCALE = 1.656;  // v3d +15%, v41a +20%, v48g +20% more (1.15*1.20*1.20) point goal across every level
 const ENDLESS_WALL_BASE = 1.5;   // v492d: post-win escalation starts here...
 const ENDLESS_WALL_STEP = 0.25;  // ...and each endless round multiplies by 0.25 more than the last
+/* v0.5a tuning knob. Five shops build a smaller engine than nine: on its own the
+   compressed curve halved the headless sim's skilled-bot win rate against v4915b
+   (18% to 9%, 400 runs each, generalist bot, challenges off). The free opening
+   perk and the side jobs more than make that back (skilled 35%, casual 17%, vs
+   18% and 4% on v4915b), so the curve ships untapered and round 6 still asks the
+   old round 10 target. Set below 1 to ease the top of the curve: the multiplier
+   runs linearly from x1.00 at round 1 to TARGET_TAPER_END at the final round,
+   and endless starts from there. 0.80 measured skilled 48% / casual 26%. */
+const TARGET_TAPER_END = 1.0;
+function targetTaper(level){
+  const L=Math.min(Math.max(1,+level||1), WIN_LEVEL);
+  return 1-(1-TARGET_TAPER_END)*(L-1)/(WIN_LEVEL-1);
+}
 function targetFor(level){
-  let t = (20 + 8*(level-1)) * Math.pow(1.28, level-1) * TARGET_SCALE * GOAL_SCALE;
+  const m = eqLevel(Math.min(level, WIN_LEVEL));   // v0.5a: the old ten-round curve, sampled at six points
+  let t = (20 + 8*(m-1)) * Math.pow(1.28, m-1) * TARGET_SCALE * GOAL_SCALE * targetTaper(level);
   if(level > WIN_LEVEL){
     // Endless walls up super-exponentially, Balatro-style: R11 ×1.75, R12 a further
     // ×2.0, R13 ×2.25 and so on, compounding. Every engine dies eventually; the
@@ -2077,18 +2256,15 @@ function targetFor(level){
 
 /* ---- Victory ranks (v4a) -------------------------------------------------
    Spelling Bee style ladder. Clearing a round at level N earns the rank for N.
-   No rank before round 3; round 10 ("Letterati") is the win. Listed on the
+   No rank before round 2; round 6 ("Letterati") is the win. Listed on the
    level summary screen before the print shop, with the rank just earned marked. */
-const RANK_MIN_LEVEL = 3;
+const RANK_MIN_LEVEL = 2;   // v0.5a: six-round ladder
 const VICTORY_RANKS = [
-  {level:3,  name:"Nice"},
-  {level:4,  name:"Good"},
-  {level:5,  name:"Great"},
-  {level:6,  name:"Fantastic"},
-  {level:7,  name:"Tremendous"},
-  {level:8,  name:"Stellar"},
-  {level:9,  name:"Unbelievable"},
-  {level:10, name:"Letterati"}
+  {level:2,  name:"Nice"},
+  {level:3,  name:"Great"},
+  {level:4,  name:"Fantastic"},
+  {level:5,  name:"Stellar"},
+  {level:6,  name:"Letterati"}
 ];
 // Rank name earned by clearing a given round (or "" below the rank floor).
 function rankFor(level){
@@ -2112,7 +2288,7 @@ function houseLetterFor(level){
 }
 function challengeTypeFor(level){
   const rng=makeRng("challenge:"+level);
-  const pool=CHALLENGE_ORDER.filter(t=>!(CHALLENGE_EARLY_ONLY.has(t) && level>5));
+  const pool=CHALLENGE_ORDER.filter(t=>!(CHALLENGE_EARLY_ONLY.has(t) && level>4));   // v0.5a: rounds 2 and 4 are the early pair
   return pool[Math.floor(rng()*pool.length)];
 }
 // The N most-used letters in the current deck (letter cards only). Ties broken
@@ -2195,7 +2371,7 @@ function challengeEpicFor(level){
 }
 
 /* ============================================================
-   Seeded RNG — namespaced streams (deck / shop / level), GGW-style
+   Seeded RNG, namespaced streams (deck / shop / level), GGW-style
    ============================================================ */
 function xfnv1a(str){let h=2166136261>>>0;for(let i=0;i<str.length;i++){h^=str.charCodeAt(i);h=Math.imul(h,16777619);}return h>>>0;}
 function mulberry32(a){return function(){a|=0;a=a+0x6D2B79F5|0;let t=Math.imul(a^a>>>15,1|a);t=t+Math.imul(t^t>>>7,61|t)^t;return((t^t>>>14)>>>0)/4294967296;};}
@@ -2295,7 +2471,7 @@ function gildStepCost(value, existingGilds){
 }
 // Shop-equivalent cost to acquire a letter at a given gild level (base letter + each gild).
 function letterAcquireCost(L, gild){
-  const v=LETTER_VALUES[L]; let p=px(2+Math.ceil(v/2));
+  const v=LETTER_VALUES[L]; let p=px((2+Math.ceil(v/2))*LETTER_PRICE_SCALE);   // v0.5a: the letter part is 30% cheaper; gild steps are not
   for(let u=0; u<(gild||0); u++){ p += gildStepCost(v, u); }
   return p;
 }
@@ -2318,7 +2494,7 @@ function goldOf(m){
 }
 function cardMult(c){ return goldOf(c&&c.mult); }                // per-tile score multiplier (e.g. 1.5×)
 function multLabel(m){ return String(Math.round(m*100)/100); }   // 2 · 1.5 · 1.75, never "2.00"
-/* Strongest gold anywhere on a tile — a fused pair keeps its gold per side. */
+/* Strongest gold anywhere on a tile, a fused pair keeps its gold per side. */
 function tileGoldMult(c){
   if(!c) return 1;
   if(c.kind==="fused") return Math.max(1,...(c.sides||[]).map(sd=>goldOf(sd.mult)));
@@ -2445,7 +2621,7 @@ function rollStartingDeck(){
 }
 
 /* ============================================================
-   Seed predictor — a loose-but-skilled bot plays the whole run
+   Seed predictor, a loose-but-skilled bot plays the whole run
    under the SAME rules as the game, so we can reject any seed a
    competent player couldn't clear. Used by the seed generator.
    ============================================================ */
@@ -2477,7 +2653,7 @@ function predRoll(seed){
   return cards;
 }
 let _predLevel=1;
-function predPx(base,fire){ const infl=Math.pow(1.1,Math.max(0,(_predLevel||1)-1)); return Math.max(1,Math.round(base*0.65*SHOP_PRICE_SCALE*(fire?0.75:1)*infl)); }
+function predPx(base,fire){ const infl=Math.pow(1.1,Math.max(0,eqLevel(_predLevel||1)-1)); return Math.max(1,Math.round(base*0.65*SHOP_PRICE_SCALE*(fire?0.75:1)*infl)); }
 function predCV(c){ const base=c.fusedA?(c.fusedA.base+c.fusedB.base):c.base; return base*Math.pow(2,c.up||0); }
 function predScore(t,P,zv){
   // t entries are letter tiles OR resolved parts {g:"er",v:5} from fused-tile modes.
@@ -2612,7 +2788,7 @@ function predLevel(P,seed,opts){
 // Same seeded pick the live game uses (challengeTypeFor), but with an explicit seed.
 function predChallengeType(seed,level){
   const rng=mulberry32(xfnv1a(String(seed)+"::challenge:"+level));
-  const pool=CHALLENGE_ORDER.filter(t=>!(CHALLENGE_EARLY_ONLY.has(t) && level>5));
+  const pool=CHALLENGE_ORDER.filter(t=>!(CHALLENGE_EARLY_ONLY.has(t) && level>4));   // v0.5a: rounds 2 and 4 are the early pair
   return pool[Math.floor(rng()*pool.length)];
 }
 function predHouseLetter(seed,level,deck){
@@ -2659,7 +2835,7 @@ function predShop(P,style){
     if(best){ const cost=predPx((GILD_BASE/2+predCV(best))*Math.pow(2,best.up||0),fire); buy(cost,()=>best.up=(best.up||0)+1); } };
   const buyHand =()=>{ const added=Math.max(0,P.handSize-START_HAND); buy(predPx(9*Math.pow(2,added),fire),()=>P.handSize++); };
   const buyTurn =()=>buy(predPx(10+3*(P.extraTurns||0),fire),()=>P.extraTurns++);
-  const buyLetter=()=>{ const L="SRTEN"[Math.floor(((P.level*2654435761)>>>0)%5)]; buy(predPx(2+Math.ceil(LETTER_VALUES[L]/2),fire),()=>P.deck.push({letter:L,base:LETTER_VALUES[L],mult:1,up:0})); };
+  const buyLetter=()=>{ const L="SRTEN"[Math.floor(((P.level*2654435761)>>>0)%5)]; buy(predPx((2+Math.ceil(LETTER_VALUES[L]/2))*LETTER_PRICE_SCALE,fire),()=>P.deck.push({letter:L,base:LETTER_VALUES[L],mult:1,up:0})); };
   if(style==="shortking"){
     // archetype: buy Short King, then gild the top tiles hard so short words carry weight
     if(!P.shortKing) buy(predPx(8,fire),()=>P.shortKing=true);
@@ -2738,9 +2914,12 @@ function predictSeed(seed,opts){
     }
     stats.rounds.push({round:P.level, score:result.score, words:result.words||[]});
     if(result.res==="fail") return {winnable:false,round:P.level,stats};
-    let b=4; const o=result.score-target; b+=Math.min(5,Math.floor(o/Math.max(8,target*0.4))); b+=Math.max(0,result.hl); b=Math.max(2,Math.min(COIN_CAP,b));
+    // v0.5a RE-PIN: mirrors computeReward's RUN_PAY_SCALE purse. Deliberate, see GDD.
+    const _S=RUN_PAY_SCALE, _cap=Math.round(COIN_CAP*_S);
+    const o=result.score-target;
+    let b=Math.round((4+Math.min(5,Math.floor(o/Math.max(8,target*0.4))))*_S); b+=Math.round(Math.max(0,result.hl)*_S); b=Math.max(2,Math.min(_cap,b));
     const heldDisc = opts.smart ? Math.max(0,(result.discardsLeft!=null?result.discardsLeft:DISCARDS_PER_LEVEL)) : DISCARDS_PER_LEVEL;
-    let payout=Math.round(b*(1+0.10*heldDisc))+(result.cash||0)+2;   // v47d economy: 10%/held discard + tiered word cash + $2 clear stipend
+    let payout=Math.round(b*(1+0.10*heldDisc))+(result.cash||0)+Math.round(2*_S);   // v47d economy: 10%/held discard + tiered word cash + $2 clear stipend
     if(took){
       // pick the reward a skilled player would: invest in the deck on a comfy clear,
       // otherwise grab the bigger coin boost (double the purse vs a flat +10).
@@ -2751,10 +2930,8 @@ function predictSeed(seed,opts){
                          : ["cash20","cash15","double","cash10","upgrade","epic"];
       reward = pref.find(k=>trio.includes(k)) || trio[0];
       if(reward==="double") payout=Math.round(payout*1.5);
-      else if(reward==="cash10"||reward==="cash") payout+=10;
-      else if(reward==="cash15") payout+=15;
-      else if(reward==="cash20") payout+=20;
-      else if(reward==="upgrade"){ const w=predWildLetter(seed,P.level); P.deck.push({letter:w,base:LETTER_VALUES[w],mult:1,up:1}); }   // free gilded letter
+      else if(/^cash/.test(reward)) payout+=challengeCashFor(P.level,reward);
+      else if(reward==="upgrade"){ let best=null; P.deck.forEach(c=>{ if((c.up||0)<3 && (!best||predCV(c)>predCV(best))) best=c; }); if(best) best.up=(best.up||0)+1; }   // v0.5a: the free gild goes on the bot's best tile
       else if(reward==="epic"){ const w=predWildLetter(seed,P.level); P.deck.push({letter:w,base:LETTER_VALUES[w],mult:1,up:0}); }   // epic modeled conservatively as a strong added letter
       stats.taken.push({level:P.level,type:chType,reward});
     }
@@ -3689,7 +3866,7 @@ function scoreOf(res){
   let pairHit=false;
   if(G.perks.twoOfAKind){ const seen={}; for(const r of res){ if(r.letter){ if(seen[r.letter]){ pairHit=true; break; } seen[r.letter]=1; } } }
   if(pairHit) total*=1.5;
-  // Short King: tiered boost for short words — 2L ×4, 3L ×3, 4L ×2.5, 5L ×2
+  // Short King: tiered boost for short words, 2L ×4, 3L ×3, 4L ×2.5, 5L ×2
   let shortHit=false, shortMult=1;
   if(G.perks.shortKing && effLen>=2 && effLen<=5){
     shortHit=true;
@@ -3841,7 +4018,7 @@ function scoreOf(res){
 function updateLive(){
   const res=resolvedCanvas();
   const lw=$("liveWord"), ls=$("liveScore");
-  if(res.length===0){ lw.textContent="—"; lw.className="live-word bad"; ls.textContent=""; updateChallengeBlockHint(); updateButtons(); return; }
+  if(res.length===0){ lw.textContent="·"; lw.className="live-word bad"; ls.textContent=""; updateChallengeBlockHint(); updateButtons(); return; }
   const w=currentWord();
   const sc=scoreOf(res);
   const valid=wordValid();
@@ -4103,7 +4280,7 @@ function onTileUp(e){
   const Z=rowZones();
   { const dz=$("discardBtn"); if(dz) dz.classList.remove("dz-hot","dz-open"); }
   if(d.el) d.el.classList.remove("drag-source");
-  if(!d.moved) return;                       // a tap — let the click handler run
+  if(!d.moved) return;                       // a tap, let the click handler run
   justDragged=true; setTimeout(()=>justDragged=false,80);
   if(d.overDiscard){
     clearFlip(Z.hand); clearFlip(Z.canvas);
@@ -4398,7 +4575,7 @@ function openVowelChooser(card,idx,forClone){
   ov.style.setProperty("--cy",cy+"px");
   const vowels=["A","E","I","O","U"];
   const banned=bannedLetterSet();
-  // positions: A E above the canvas, I centred, O U below — a fanned arc
+  // positions: A E above the canvas, I centred, O U below, a fanned arc
   const layout=[
     {x:-150,y:-118,rot:-16},{x:-72,y:-150,rot:-8},
     {x:0,y:0,rot:0},
@@ -4578,7 +4755,7 @@ function drawIntoHand(){
     while(!handVowelSource() && guard++<40){
       if(G.drawPile.length===0){ if(!reshuffleDiscardIntoDraw()) break; didReshuffle=true; }
       if(G.drawPile.length===0) break;
-      if(guard===1) toast("No vowels — bonus draw!");   // announce BEFORE the extra tiles land
+      if(guard===1) toast("No vowels. Bonus draw!");   // announce BEFORE the extra tiles land
       G.hand.push(G.drawPile.shift()); dealt++;
     }
   }
@@ -4765,6 +4942,63 @@ function bossCardHtml(cls, kicker){
     <div class="ib-name">${def.art} ${escHtml(def.name)}</div>
     <div class="ib-desc">${escHtml(def.desc)}</div>`;
 }
+/* ============================================================
+   Opening perk draft (v0.5a)
+   Three seeded perks, pick one free. The spec asked for one common, one
+   uncommon and one rare, but the perk pool has no uncommon Perks today, so the
+   shelf is one common, one rare, and a third drawn from either tier.
+   Desk-specific perks are left out so every player on a daily seed sees the
+   same three whichever character they chose. Only plain Perk offers that apply
+   instantly are eligible (no target pickers). Not modelled by the predictor,
+   which only makes validated seeds read slightly harder than they play.
+   ============================================================ */
+const DRAFT_RARITIES=["common","uncommon","rare"];
+const DRAFT_EXCLUDE=new Set(["department"]);   // opens a letter picker on apply, which would collide with the intro screen
+function draftOffers(){
+  const rng=makeRng("draft:0");
+  const entries=perkPool(rng).filter(e=>!e.char);
+  const built=[];
+  entries.forEach(e=>{ try{ const o=e.make(); if(o && o.kind==="Perk" && !o.needsTarget && o.d && !DRAFT_EXCLUDE.has(o.d.type) && DRAFT_RARITIES.includes(o.rarity)) built.push({o,weight:e.weight}); }catch(err){} });
+  const pickFrom=(list)=>{ if(!list.length) return null; let tot=0; list.forEach(x=>tot+=x.weight); let r=rng()*tot; for(const x of list){ r-=x.weight; if(r<=0) return x; } return list[0]; };
+  const out=[], used=new Set();
+  ["common","rare","any"].forEach(rar=>{
+    let list=built.filter(x=>(rar==="any"||x.o.rarity===rar) && !used.has(x.o.name));
+    if(!list.length) list=built.filter(x=>!used.has(x.o.name));   // a thin tier borrows from the others
+    const x=pickFrom(list); if(x){ used.add(x.o.name); out.push(x.o); }
+  });
+  return out;
+}
+function openDraft(){
+  const offers=draftOffers();
+  if(!offers.length){ showRunIntro(); return; }
+  G.draft={offers, pick:null};
+  renderDraft();
+  $("draftScreen").classList.remove("hidden");
+  haptic(12);
+}
+function renderDraft(){
+  const grid=$("draftGrid"); grid.innerHTML="";
+  (G.draft.offers||[]).forEach((o,i)=>{
+    const b=document.createElement("button");
+    b.className="chal-reward"+(o.rarity==="rare"?" is-epic":"")+(G.draft.pick===i?" picked":"");
+    b.innerHTML=`<span class="cr-badge">${escHtml((o.rarity||"").toUpperCase())}</span><span class="cr-name">${o.art&&o.art.length<6?o.art+" ":""}${escHtml(o.name)}</span><span class="cr-desc">${escHtml(o.desc)}</span>`;
+    b.addEventListener("click",()=>{ G.draft.pick=i; haptic(8); renderDraft(); });
+    grid.appendChild(b);
+  });
+  const t=$("draftTakeBtn");
+  t.disabled = G.draft.pick==null;
+  t.textContent = G.draft.pick==null ? "Pick one first" : ("Take "+G.draft.offers[G.draft.pick].name);
+}
+function takeDraft(){
+  if(!G.draft || G.draft.pick==null) return;
+  const o=G.draft.offers[G.draft.pick];
+  applyOffer(o);
+  if(G.stats) G.stats.draft={offered:G.draft.offers.map(x=>x.name), picked:o.name, type:o.d&&o.d.type};
+  G.draft=null;
+  $("draftScreen").classList.add("hidden");
+  haptic(18);
+  showRunIntro();
+}
 function showRunIntro(){
   const list=$("introDeck"); list.innerHTML="";
   G.deck.slice().sort(deckSortKey()).forEach(c=>list.appendChild(deckTileEl(c)));
@@ -4786,6 +5020,83 @@ function showBossIntro(){
   $("bossGoBtn").textContent="Go to press";
   $("bossScreen").classList.remove("hidden");
   haptic([20,80,20,80,40]);
+}
+/* ============================================================
+   Side jobs (v0.5a)
+   One seeded, optional task per round. Hit it and it pays coins at the clear;
+   miss it and nothing happens. Each one leans on a play the telemetry says is
+   under-used: 7+ letter words are 8% of plays, 3-letter words 4%, and 78% of
+   cleared rounds ended with two or more discards unspent. Pay grows with the
+   round at the same rate shop prices do. No side job on the final round, since
+   there is no shop after it (endless rounds get one again).
+   ============================================================ */
+const SIDE_JOBS = {
+  longHaul:   {name:"Long Haul",       art:"📜", pay:8, desc:"Set a word of 7 or more letters."},
+  threes:     {name:"Three's Company", art:"🎩", pay:6, desc:"Set two 3-letter words."},
+  cleanSweep: {name:"Clean Sweep",     art:"🧹", pay:6, desc:"Use every discard before you clear the round."},
+  lipogram:   {name:"Lipogram",        art:"🚫", pay:7, desc:"Clear the round without setting a single E."},
+  rareInk:    {name:"Rare Ink",        art:"🖋️", pay:2, per:true, maxHits:3, desc:"Paid for each word with a J, Q, X, Z, K or V, up to three words."},
+  suffix:     {name:"Suffix Sale",     art:"🏷️", pay:5, desc:"Set a word ending in -ING or -ED."},
+  headline:   {name:"Headline",        art:"📰", pay:8, desc:"Beat the round's target with your first word."},
+  leanType:   {name:"Lean Type",       art:"🦴", pay:5, desc:"Set a word of 4 or more letters with one vowel or fewer."}
+};
+const SIDE_JOB_ORDER=["longHaul","threes","cleanSweep","lipogram","rareInk","suffix","headline","leanType"];
+function sideJobPay(base){ return Math.max(1, Math.round(base*Math.pow(1.1, Math.max(0,eqLevel(G.level)-1)))); }
+function rollSideJob(){
+  G.sideJob=null;
+  if(G.level>=WIN_LEVEL && !G.infinite) return;
+  const rng=makeRng("sidejob:"+G.level);
+  const pool=SIDE_JOB_ORDER.filter(k=>{
+    if(k===G.lastSideJobKey) return false;
+    if(k==="cleanSweep" && (G.discardsLeft||0)<=0) return false;             // Union Rules, or no discards at all
+    if(k==="lipogram" && bannedLetterSet() && bannedLetterSet().has("E")) return false;   // would be free
+    if(k==="threes" && challengeActive() && G.challenge.type==="longform") return false;  // would be impossible
+    return true;
+  });
+  if(!pool.length) return;
+  const key=pool[Math.floor(rng()*pool.length)];
+  const def=SIDE_JOBS[key];
+  G.sideJob={key, pay:sideJobPay(def.pay), hits:0, done:false, failed:false, threes:0, announced:false};
+  G.lastSideJobKey=key;
+}
+function sideJobOnWord(res, total, firstWord){
+  const J=G.sideJob; if(!J) return;
+  const w=res.map(r=>(r.letter||"")).join(""), len=res.length;
+  const vowels=res.filter(r=>r.letter && VOWELS.has(r.letter)).length;
+  switch(J.key){
+    case "longHaul": if(len>=7) J.done=true; break;
+    case "threes":   if(len===3){ J.threes++; if(J.threes>=2) J.done=true; } break;
+    case "rareInk":  if(/[JQXZKV]/.test(w) && J.hits<SIDE_JOBS.rareInk.maxHits){ J.hits++; J.done=true; } break;
+    case "suffix":   if(len>=4 && /(ING|ED)$/.test(w)) J.done=true; break;
+    case "headline": if(firstWord && (G.score+total)>=G.target) J.done=true; break;
+    case "leanType": if(len>=4 && vowels<=1) J.done=true; break;
+    case "lipogram": if(w.includes("E")) J.failed=true; break;
+  }
+  if(J.key==="headline" && !firstWord && !J.done) J.failed=true;
+  if(J.done && !J.announced && !SIDE_JOBS[J.key].per){ J.announced=true; toast("Side job done: "+SIDE_JOBS[J.key].name+". $"+J.pay+" at the clear."); }
+  if(J.key==="rareInk" && J.done) toast("Rare Ink: +$"+J.pay+" at the clear ("+J.hits+"/"+SIDE_JOBS.rareInk.maxHits+")");
+  renderSideJob();
+}
+function sideJobPayout(){
+  const J=G.sideJob; if(!J) return 0;
+  if(J.key==="lipogram") return J.failed?0:J.pay;
+  if(J.key==="cleanSweep") return (G.discardsLeft||0)<=0 ? J.pay : 0;
+  if(J.key==="rareInk") return J.hits*J.pay;
+  return J.done ? J.pay : 0;
+}
+function renderSideJob(){
+  const el=$("sideJob"); if(!el) return;
+  const J=G.sideJob;
+  if(!J || !SIDE_JOBS[J.key]){ el.className="hidden"; el.innerHTML=""; return; }
+  const def=SIDE_JOBS[J.key];
+  let state="";
+  if(J.key==="threes" && !J.done) state=` (${J.threes}/2)`;
+  if(J.key==="rareInk") state=` (${J.hits}/${def.maxHits})`;
+  if(J.key==="cleanSweep" && !J.failed) state=` (${G.discardsLeft||0} left)`;
+  const pay = def.per ? ("$"+J.pay+" each") : ("$"+J.pay);
+  const done = (J.key==="cleanSweep") ? (G.discardsLeft||0)<=0 : (J.key==="lipogram" ? false : J.done);
+  el.className = done ? "done" : (J.failed ? "failed" : "");
+  el.innerHTML=`<span class="sj-tag">${done?"SIDE JOB DONE":"SIDE JOB"}</span><span class="sj-name">${def.art} ${escHtml(def.name)}${state}</span><span class="sj-pay">${pay}</span><span class="sj-desc">${escHtml(def.desc)}</span>`;
 }
 function startLevel(){
   G.overtime=false; G.lastPlay=null; G.secondEdHalf=false;
@@ -4886,6 +5197,8 @@ function startLevel(){
     if(wm.length) G.drawPile=[...wm,...rest]; }
   G.foilUsed=[];   // v42b: Foil Stamp doubles refresh each round
   G.hand=[]; G.canvas=[]; G.played=[];
+  rollSideJob(); renderSideJob();   // v0.5a: after challenge rules set discards, so Clean Sweep can see them
+  tickFlush(); G._roundStartMs=G.runMs||0;   // v0.5a telemetry: per-round duration
   clearUndo();
   showGame();
   renderCanvas();
@@ -5023,10 +5336,12 @@ function submitWord(){
   G.runScore=(G.runScore||0)+sc.total;
   G.levelStats.words++;
   statWord(w.toUpperCase(), sc.total, res.length);
+  sideJobOnWord(res, sc.total, G.levelStats.words===1);   // v0.5a
   if(!sc.mysteryHit && G.perks.onTheBeat && G.mystery && G.mystery.word) G.beatStreak=0;
   if(sc.mysteryHit){
     if(!charHas("unlimitedMystery")) G.mysterySolvedLevel=G.level;   // Detective is never locked out for the round
     toast("Mystery word! "+String(G.mystery.word).toUpperCase()+" scores ×"+sc.mysteryMult);
+    if(G.stats && G.stats.mystery){ const ev=[...G.stats.mystery].reverse().find(e=>e.answer===G.mystery.word && !e.solved); if(ev){ ev.solved=true; ev.mult=sc.mysteryMult; ev.word=w.toUpperCase(); } }
     G.mysterySolves=(G.mysterySolves||0)+1;
     // On the Beat climbs on consecutive solves; the miss branch below resets it.
     if(G.perks.onTheBeat) G.beatStreak=Math.min(BEAT_BONUS.length-1,(G.beatStreak||0)+1);
@@ -5035,7 +5350,7 @@ function submitWord(){
       toast("Rap Sheet: Press ×"+Number(G.scoreMult).toFixed(3));
     }
     if(G.perks.caseClosed){ G.discardsLeft++; toast("Case Closed: discard returned"); }
-    if(G.perks.blotter && G.mysterySolves%3===0){ G.coins=Math.min(COIN_CAP,(G.coins||0)+5); toast("The Blotter: $5"); }
+    if(G.perks.blotter && G.mysterySolves%3===0){ G.coins=Math.min(999,(G.coins||0)+5); toast("The Blotter: $5"); }   // v0.5a fix: was Math.min(COIN_CAP,...), which clamped a rich bank DOWN to 12
     G.mystery=null; G.mysteryLevel=null; haptic([14,40,14]);
   }
   showDefinition(w);
@@ -5043,8 +5358,7 @@ function submitWord(){
   if(sc.total>(G.runBestScore||0)){ G.runBestScore=sc.total; G.runBestWord=w.toUpperCase(); }
   G.handsLeft--;
   // high-score cash bonus, paid straight into the bank. Score-keyed and tiered
-  // by round so early words can actually earn: $1 per 50 pts in rounds 1 to 5,
-  // per 100 in rounds 6 to 10, per 150 beyond that.
+  // by round so early words can actually earn (see wordCashDivisor).
   let cash=Math.floor(sc.total/wordCashDivisor(G.level));
   if(G.perks.footnote && res.length>=2 && res.length<=3) cash+=1;                          // Footnote
   cash+=res.reduce((n,r)=>n+((r.card&&r.card.inkwell)?(G.perks.indiaInk?3:1):0),0);       // Ink Well tiles (India Ink pays triple)
@@ -5053,11 +5367,11 @@ function submitWord(){
     res.forEach(r=>{ if(r.letter && !G.abcSeen[r.letter]){ G.abcSeen[r.letter]=true; cash+=1; } });
   }
   if(challengeDoublePay()) cash=Math.round(cash*1.5);   // v48g: payout challenge reward is +50%
-  cash=Math.min(WORD_CASH_CAP, cash);                   // v491g: one word pays at most $20
+  cash=Math.min(WORD_CASH_CAP, cash);                   // v491g: one word pays at most WORD_CASH_CAP
   if(cash>0){ G.coins=Math.min(999,G.coins+cash); }
   if(G.perks.indiaInk && cash>0) G.inkPtsPending=(G.inkPtsPending||0)+cash;   // every dollar is a point on the next word
   renderHud();
-  // juice — scaled by BOTH word length and score, ramping harder for big plays
+  // juice, scaled by BOTH word length and score, ramping harder for big plays
   const lenBoost = Math.max(0, res.length-4) * 0.11;        // +0.11 per letter past 4
   const power=Math.max(0,Math.min(1.5, sc.total/130 + lenBoost));
   const tiles=[...$("canvas").querySelectorAll(".tile")];
@@ -5202,8 +5516,8 @@ function renderDiscardBin(){
   btn.style.minWidth = n ? (120+n*32)+"px" : "";
   updateButtons();
 }
-/* A tile only leaves the standing forme at the cost of a cut. Everything else —
-   loose letters in hand, letters added since the last set — moves for free. */
+/* A tile only leaves the standing forme at the cost of a cut. Everything else (
+   loose letters in hand, letters added since the last set) moves for free. */
 function canPullFromCanvas(card,quiet){
   if(!formeLocked(card)) return true;
   if((G.editsLeft||0)>0) return true;
@@ -5289,6 +5603,7 @@ function discardBinNow(){
   if(!bin.length || G.discardsLeft<=0) return;
   clearUndo();   // a discard is a hard boundary like setting a word: no undo across it
   G.discardsLeft--;
+  renderSideJob();   // v0.5a: Clean Sweep counts down
   if(G.perks.pulpMill) G.pulpPending=3*bin.length;                                          // next word: +3 per discarded tile
   if(G.perks.recycledStock){ G.scoreMult=Math.round(((G.scoreMult||1)+0.01)*1000)/1000; toast("Press ×"+Number(G.scoreMult).toFixed(3)); }
   if(G.perks.wetProof) G.wetProofPending=true;                                              // next word gets the Wet Proof bump
@@ -5337,10 +5652,14 @@ function levelCleared(){
   clearSmudges();
   if(G.perks.goldenTicket) goldenTicketGild();
   const rw=computeReward();
+  { const sj=sideJobPayout();   // v0.5a side job
+    if(G.sideJob){ rw.sideJob={key:G.sideJob.key, name:SIDE_JOBS[G.sideJob.key].name, paid:sj}; rw.total+=sj; } }
+  tickFlush();
   if(G.stats){ if(!G.stats.rounds) G.stats.rounds=[];
     G.stats.rounds.push({round:G.level, target:G.target, score:G.score, margin:G.score-G.target, cleared:true,
-      heartsLeft:G.hearts, discardsLeft:G.discardsLeft, discardsSpent:(DISCARDS_PER_LEVEL+(G.extraDiscards||0))-G.discardsLeft,
-      wordsLeft:G.handsLeft, payout:rw.total});
+      heartsLeft:G.hearts, discardsLeft:G.discardsLeft, discardsSpent:discardsForLevel()-G.discardsLeft,
+      wordsLeft:G.handsLeft, payout:rw.total, ms:Math.max(0,(G.runMs||0)-(G._roundStartMs||0)),
+      sideJob:(rw.sideJob?{key:rw.sideJob.key,paid:rw.sideJob.paid}:null)});
     { const ch=G.stats.challenges&&G.stats.challenges.find(c=>c.round===G.level&&c.taken&&c.cleared==null);
       if(ch){ ch.cleared=true; ch.heartsAfter=G.hearts; } }
     const _bl = (G.proofStage ? G.stats.bossLog2 : G.stats.bossLog);
@@ -5348,13 +5667,11 @@ function levelCleared(){
       _bl.cleared=true; _bl.heartsAfter=G.hearts; _bl.words=(G.levelStats&&G.levelStats.words)||0; } }
   // v3a: fold the chosen challenge reward into this cleared round
   if(challengeActive()){
-    if(G.challenge.reward==="cash"||G.challenge.reward==="cash10"){ rw.bonus=10; rw.total+=10; }
-    else if(G.challenge.reward==="cash15"){ rw.bonus=15; rw.total+=15; }
-    else if(G.challenge.reward==="cash20"){ rw.bonus=20; rw.total+=20; }
+    if(/^cash/.test(G.challenge.reward||"")){ const amt=challengeCashFor(G.level,G.challenge.reward); rw.bonus=amt; rw.total+=amt; }
     else if(G.challenge.reward==="upgrade"){
-      const L=challengeUpgradeLetterFor(G.level);
-      const gc=makeLetterCard(L); gc.upLevel=1; G.deck.push(gc);
-      rw.upgradeLetter=L;
+      // v0.5a: the player picks the tile. Banked here, redeemed as a free shelf item.
+      G.pendingFreeGild=(G.pendingFreeGild||0)+1;
+      rw.freeGild=true;
     }
     else if(G.challenge.reward==="epic" && G.challenge.epic){
       applyOffer({d:G.challenge.epic.d});
@@ -5369,6 +5686,7 @@ function levelCleared(){
   G.lastReward=rw;
   if(rw.epicReward) toast("Challenge reward: "+rw.epicReward);
   G.challenge=null;   // challenge consumed; clear the banner for the next round
+  G.sideJob=null; renderSideJob();
   renderChallengeBanner();
   const justCleared=G.level;
   G.level++;
@@ -5392,12 +5710,20 @@ function levelCleared(){
   }
   setTimeout(()=>{ showLevelSummary(info); }, 600);   // summary first → shop on tap
 }
-function wordCashDivisor(level){ return level<=5?50 : level<=10?100 : 150; }
+function wordCashDivisor(level){
+  // v0.5a: tiers read the old-curve round, and each word pays RUN_PAY_SCALE more,
+  // because a six-round run sets roughly 40% fewer words than a ten-round one.
+  const m=eqLevel(level);
+  return (m<=5?50 : m<=10?100 : 150)/RUN_PAY_SCALE;
+}
 function computeReward(){
   const over=G.score-G.target;
-  const coreRaw=4+Math.min(5,Math.floor(over/Math.max(8,G.target*0.4)));   // base purse + beat-target bonus
-  const core=Math.max(2,Math.min(COIN_CAP,coreRaw));
-  const base=Math.max(2,Math.min(COIN_CAP,coreRaw+G.handsLeft));           // unused words ride on top, same cap
+  // v0.5a: every piece of the purse scales by RUN_PAY_SCALE (x1.8) so five shops
+  // pay what nine used to. The cap scales with it.
+  const S=RUN_PAY_SCALE, cap=Math.round(COIN_CAP*S);
+  const coreRaw=Math.round((4+Math.min(5,Math.floor(over/Math.max(8,G.target*0.4))))*S);   // base purse + beat-target bonus
+  const core=Math.max(2,Math.min(cap,coreRaw));
+  const base=Math.max(2,Math.min(cap,coreRaw+Math.round(G.handsLeft*S)));  // unused words ride on top, same cap
   const turnsBonus=base-core;                                              // what the leftover words actually added
   // v46g economy: leftover discards multiply the round purse by +10% apiece
   // (hold 3 discards -> +30%). Interest stays on the bank alone.
@@ -5406,7 +5732,7 @@ function computeReward(){
   const discardCount=Math.max(0,G.discardsLeft||0);
   const discardBonus=0.10*discardCount;
   const preBonus=base+marginalia;
-  const CLEAR_BONUS=2;                                                     // v47d: flat stipend on every cleared round
+  const CLEAR_BONUS=Math.round(2*S);                                       // v47d: flat stipend on every cleared round (v0.5a: scaled)
   let total=Math.round(preBonus*(1+discardBonus))+interest+CLEAR_BONUS;
   const discardAmt=total-interest-CLEAR_BONUS-preBonus;                    // the actual coins the discard bonus added
   if(ascHas(8)) total=Math.max(1, Math.round(total*0.75));   // A8 Kill Fee
@@ -5442,13 +5768,15 @@ function showLevelSummary(info){
   renderRankLadder(info.round);
   $("sumScore").textContent=info.score+" / "+info.target+" pts";
   $("sumWords").textContent=info.words;
-  $("sumBest").innerHTML = info.bestWord ? `<b>${info.bestWord}</b> · ${info.bestScore}` : "—";
+  $("sumBest").innerHTML = info.bestWord ? `<b>${info.bestWord}</b> · ${info.bestScore}` : "none";
   const bits=["base $"+rw.core,"clear +$"+(rw.clearBonus||0)];
   if(rw.turnsBonus) bits.push(rw.wordsLeft+" word"+(rw.wordsLeft>1?"s":"")+" left: +$"+rw.turnsBonus);
   if(rw.discardCount) bits.push(rw.discardCount+" discard"+(rw.discardCount>1?"s":"")+" left: +"+Math.round(rw.discardBonus*100)+"% on $"+rw.preBonus+" = +$"+rw.discardAmt);
 
   if(rw.marginalia) bits.push("overflow +"+rw.marginalia);
-  if(rw.bonus)      bits.push("challenge +"+rw.bonus);
+  if(rw.sideJob)    bits.push(rw.sideJob.paid ? ("side job, "+rw.sideJob.name+": +$"+rw.sideJob.paid) : ("side job, "+rw.sideJob.name+": missed"));
+  if(rw.freeGild)   bits.push("free gild waiting in the shop");
+  if(rw.bonus)      bits.push("challenge +$"+rw.bonus);
   if(rw.doubled)    bits.push("×1.5 challenge");
   $("sumBreakdown").textContent=bits.join("  ·  ");
   const coinEl=$("sumCoins"); coinEl.textContent=info.fromCoins;
@@ -5556,7 +5884,7 @@ function levelFailed(){
     G.handsLeft=1;
     if(deadlineFree)      toast("Deadline extended. Overtime is free this round.");
     else if(midnightFree) toast("The midnight press runs free. One more word, no heart.");
-    else toast("Overtime — a heart for one more word. "+G.hearts+" health left");
+    else toast("Overtime. One more word costs a heart. "+G.hearts+(G.hearts===1?" heart":" hearts")+" left");
     renderHud();
     dealUpToHand(true);
     save();
@@ -5568,7 +5896,7 @@ function levelFailed(){
    ============================================================ */
 function priceMult(){ return 1; }   // shop inflation removed
 function px(base){
-  const infl=Math.pow(1.1, Math.max(0,(G.level||1)-1));   // +10% per round, compounding
+  const infl=Math.pow(1.1, Math.max(0,eqLevel(G.level||1)-1));   // +10% per OLD round, compounding (v0.5a: ~+18.7% per live round, so round 6 prices match old round 10)
   return Math.max(1,Math.round(base*0.65*SHOP_PRICE_SCALE*(G.perks.fireSale?0.75:1)*(G.perks.vanityPress?1.25:1)*(ascHas(2)?1.2:1)*infl));
 }   // 35% off base, then 20% off (v3a); Fire sale = 25% more off
 
@@ -5611,13 +5939,16 @@ function buildShopPool(){
   /* v491f: a fixed even split. The old shelf left slots 5 and 6 to chance, so an
      unlucky roll could hand out five letters and a single perk. Now the letter
      side and the perk side each get a guaranteed half:
-       LETTER SIDE  common letter · rare letter · utility (gild / eraser / mend)
+       LETTER SIDE  common letter · rare letter · utility (gild / mend)
        PERK SIDE    three draws from the perk pool
      Super Store adds one to each side, keeping the shelf even at 8. */
   const N=shopSlots(), perSide=N/2;
   // letter side
-  add(()=> rng()<0.40 ? goldenLetterOffer(rng) : letterOffer(weightedLetter(rng,commonPool)));   // v48c seat, widened in v491f now that goldens left the perk pool
-  add(()=> rng()<0.34 ? pregildedLetterOffer(rng) : letterOffer(weightedLetter(rng,rarePool)));   // v42a: rare pre-gilded letter (v4915a: 0.22 -> 0.34, upgraded letters are the sale stock)
+  /* v0.5a: letters arrive ready to score more often. Telemetry: 154 gild buys
+     against 25 plain letter buys in 30 runs. Seat 1 is golden 35%, pre-foiled
+     25%, plain 40% (was golden 40%, plain 60%). Seat 2 is pre-gilded 50% (was 34%). */
+  add(()=>{ const r=rng(); return r<0.35 ? goldenLetterOffer(rng) : r<0.60 ? foiledLetterOffer(rng) : letterOffer(weightedLetter(rng,commonPool)); });
+  add(()=> rng()<0.50 ? pregildedLetterOffer(rng) : letterOffer(weightedLetter(rng,rarePool)));
   for(let i=0;i<perSide-3;i++){
     add(()=>{ const r=rng();   // v491d: a shelf can carry a second workhorse gild
       return r<0.62 ? letterOffer(weightedLetter(rng,Object.assign({},commonPool,rarePool))) : gildOffer(rng); });   // v4915a: 0.75 -> 0.62, more gilds to put on sale
@@ -5630,18 +5961,14 @@ function buildShopPool(){
   const perkWide=()=>pickWeighted(rng,perkPool(rng));
   for(let i=0;i<perSide;i++) add(()=>pickWeighted(rng,perkPool(rng)), perkWide);
   const shelfOut=offers.slice(0,N).map(o=>({...o,sold:false}));
-  /* v4915a: the eraser is guaranteed stock every other shop from round 2 on
-     (the shops before rounds 2, 4, 6, 8, 10), pinned to the top of the shelf so
-     deck thinning is a plan you can make rather than a thing you hope for.
-     Prepended AFTER the seeded roll, exactly like Foundry Fire below, so the
-     seeded slots are byte-identical and the predictor stays blind to it. */
-  if(((G.level||1)%2===0) && !shelfOut.some(o=>o.d&&o.d.type==="eraser")){
-    shelfOut.unshift({...eraserOffer(), sold:false, pinned:true,
-      desc:"Remove one letter from your deck for good. Always in stock this shop."});
-  }
-  if(G.perks.foundryFire && !shelfOut.some(o=>o.d&&o.d.type==="eraser")){
-    shelfOut.push({...eraserOffer(), sold:false});   // Foundry Fire: the eraser is always in stock (appended, seeded slots untouched)
-  }
+  /* v0.5a: the spotlight gild takes the seat the guaranteed eraser used to hold.
+     The regular gild slot offers a workhorse (your most-played letters, which is
+     almost always E). Telemetry had E, R, A and ER as 53% of all gilds, because
+     that is what the shelf kept offering. The spotlight offers a high-value
+     letter you own but have barely played, so a second plan is always on the
+     shelf. Appended AFTER the seeded roll, so seeded slots are untouched. */
+  { const sp=spotlightGildOffer(rng, shelfOut);
+    if(sp) shelfOut.push({...sp, sold:false}); }
   rollSales(shelfOut,rng);
   G.shopSeen=[...new Set([...(G.shopSeen||[]), ...shelfOut.map(o=>o.name)])];   // remember across rerolls
   return shelfOut;
@@ -5755,7 +6082,6 @@ function perkPool(rng){
   if(!G.perks.mirror)            e.push({make:()=>mirrorOffer(),      weight:0.8});
   if(!G.perks.verbose)           e.push({make:()=>verboseOffer(),     weight:1.2});
   if(!G.perks.verbizer)          e.push({make:()=>verbizerOffer(),    weight:0.8});
-  if(!G.perks.abridged)          e.push({make:()=>abridgedOffer(),    weight:0.6});
   if(!G.perks.movableType)       e.push({make:()=>movableTypeOffer(), weight:0.9});
   if(!G.perks.footnote)          e.push({make:()=>footnoteOffer(),    weight:1.2});
   if(!G.perks.anthology)         e.push({make:()=>anthologyOffer(),   weight:0.6});
@@ -5778,7 +6104,6 @@ function perkPool(rng){
   if(!G.perks.department)        e.push({make:()=>departmentOffer(),       weight:0.7});
   if(!G.perks.wetProof)          e.push({make:()=>wetProofOffer(),         weight:0.8});
   if(!G.perks.compositor)        e.push({make:()=>compositorOffer(),       weight:0.4});
-  if(!G.perks.foundryFire)       e.push({make:()=>foundryFireOffer(),      weight:0.4});
   if(!G.perks.fusedFocus)        e.push({make:()=>fusedFocusOffer(),       weight:0.45});
   if(!G.perks.indiaInk)          e.push({make:()=>indiaInkOffer(),         weight:0.4});
   if(!G.perks.pulpMill)          e.push({make:()=>pulpMillOffer(),    weight:1.2});
@@ -5798,7 +6123,8 @@ function perkPool(rng){
   return forChar(e);
 }
 function utilPool(rng){
-  const e=[{make:()=>gildOffer(rng),weight:3},{make:()=>eraserOffer(),weight:3}];
+  // v0.5a: the Eraser is cut (108 passes vs 9 buys in 30 runs). Gild takes its weight.
+  const e=[{make:()=>gildOffer(rng),weight:6}];
   if(G.hearts<heartMax()) e.push({make:()=>heartOffer(),weight:2});
   return e;
 }
@@ -5895,8 +6221,19 @@ function letterOffer(L){
   const v=LETTER_VALUES[L];
   const rarity=v<=2?"common":v<=4?"uncommon":"rare";
   return {kind:"Letter",rarity,name:"Add "+L,desc:(L==="Q" ? "A "+v+"-point Q joins your deck, with a U to keep it company." : "A "+v+"-point "+L+" joins your deck.")+heldNote(L),
-    price:px(2+Math.ceil(v/2)), art:`<span class="mini-tile">${L}<span class="mv">${v}</span></span>`,
+    price:px((2+Math.ceil(v/2))*LETTER_PRICE_SCALE), art:`<span class="mini-tile">${L}<span class="mv">${v}</span></span>`,
     d:{type:"letter",L}};
+}
+/* v0.5a: a common letter that arrives with a Foil Stamp (value doubles the first
+   time it is played each round). */
+function foiledLetterOffer(rng){
+  const pool={E:3,A:3,I:2,O:2,N:2,R:3,T:3,L:2,S:3,D:2,G:1};
+  const L=weightedLetter(rng,pool), v=LETTER_VALUES[L];
+  return {kind:"Letter",rarity:"uncommon",name:"Foiled "+L,
+    desc:"A new "+v+"-point "+L+" with a Foil Stamp: it scores double the first time you play it each round."+heldNote(L),
+    price:px((4+Math.ceil(v/2))*LETTER_PRICE_SCALE),
+    art:`<span class="mini-tile" style="background:linear-gradient(180deg,#EEF2F6,#D7DEE8);border-color:#9DAABB">${L}<span class="mv">${v}</span></span>`,
+    d:{type:"letter",L,foil:true}};
 }
 function trioFusionOffer(rng){
   const tri=TRIO_POOL[Math.floor((rng?rng():Math.random())*TRIO_POOL.length)];
@@ -5971,7 +6308,7 @@ function goldenLetterOffer(rng){
   const L=weightedLetter(rng,pool), v=LETTER_VALUES[L];
   return {kind:"Letter",rarity:"rare",name:"Golden "+L,
     desc:"A new "+v+"-point "+L+", already golden. Its 1.25× multiplies your whole word score."+heldNote(L),
-    price:px(6+Math.ceil(v/2)),
+    price:px((6+Math.ceil(v/2))*LETTER_PRICE_SCALE),
     art:`<span class="mini-tile" style="background:linear-gradient(180deg,#F6E7B7,#EAD292);border-color:#C9A94E">${L}<span class="mv">${v}</span></span>`,
     d:{type:"goldenLetter",L}};
 }
@@ -5998,7 +6335,7 @@ function goldenTicketOffer(){
 }
 function heavyPressOffer(rng){
   // score-threshold sibling of Press: grows on any word that clears 100 points,
-  // regardless of length — rewards big multiplier plays and short-word builds.
+  // regardless of length, rewards big multiplier plays and short-word builds.
   const g=0.03;
   return {kind:"Perk",rarity:"epic",name:"Heavy Press",
     desc:"Every word that scores 100 or more raises your score multiplier by 3% (stacks).",
@@ -6030,13 +6367,29 @@ function gildTargets(){
 }
 function gildOffer(rng){
   // Pick among the top few workhorses so a shelf can show more than one, and so
-  // a reroll surfaces a different letter. Falls back to the eraser when nothing
-  // in the deck can still take a gild.
+  // a reroll surfaces a different letter. Falls back to Mend or a plain letter
+  // when nothing in the deck can still take a gild (v0.5a: the eraser is gone).
   const t=gildTargets();
-  if(!t.length) return eraserOffer();
+  if(!t.length) return (G.hearts<heartMax()) ? heartOffer() : letterOffer(weightedLetter(rng||Math.random,{E:3,A:2,I:2,O:2,R:2,S:2,T:2,N:2,L:1}));
   const pool=t.slice(0,3);
   const pick=pool[Math.floor((rng?rng():Math.random())*pool.length)] || pool[0];
   return gildOfferFor(pick);
+}
+/* v0.5a spotlight gild: a letter worth 4+ points that you own and have played
+   less than your workhorses. Never the same label as a gild already on the shelf. */
+function spotlightGildOffer(rng, shelf){
+  const t=gildTargets();
+  if(!t.length) return null;
+  const onShelf=new Set((shelf||[]).filter(o=>o.d&&o.d.type==="gildLetter").map(o=>o.d.label));
+  const work=new Set(t.slice(0,3).map(x=>x.label));
+  const pool=t.filter(x=>x.card.kind==="letter" && (x.card.base|0)>=4 && !work.has(x.label) && !onShelf.has(x.label))
+              .sort((a,b)=>(a.use-b.use) || ((b.card.base|0)-(a.card.base|0)) || (a.label<b.label?-1:1));
+  if(!pool.length) return null;
+  const pick=pool[Math.floor(rng()*Math.min(2,pool.length))] || pool[0];
+  const o=gildOfferFor(pick);
+  o.spotlight=true;
+  o.desc="Spotlight. "+o.desc;
+  return o;
 }
 function gildOfferFor(t){
   const c=t.card, u=c.upLevel||0;
@@ -6060,7 +6413,7 @@ function heartOffer(){
 function applyOffer(o){
   const d=o.d||{};
   switch(d.type){
-    case "letter":       { const card=makeLetterCard(d.L); if(d.gild) card.upLevel=d.gild|0; applyGoldStandard(card); G.deck.push(card);
+    case "letter":       { const card=makeLetterCard(d.L); if(d.gild) card.upLevel=d.gild|0; if(d.foil) card.foil=true; applyGoldStandard(card); G.deck.push(card);
                            if(d.L==="Q"){ const u=makeLetterCard("U"); applyGoldStandard(u); G.deck.push(u); } } break;   // a Q never travels alone
     case "clone":        G.deck.push(makeCloneCard()); break;
     case "dealer":       G.deck.push(makeDealerCard()); break;
@@ -6091,7 +6444,8 @@ function applyOffer(o){
       haptic(24);
       repriceGildOffers();
       break; }
-    case "eraser":       openDeck("remove"); break;
+    case "eraser":       openDeck("remove"); break;   // v0.5a: no longer sold; kept so an old save's shelf still resolves
+    case "freeGild":     openDeck("freegild"); break;
     case "heart":        G.hearts=Math.min(heartMax(),G.hearts+1); break;
     case "wildVowel":    G.deck.push(makeWildVowelCard()); break;
     case "wildCons":     G.deck.push(makeWildConsCard()); break;
@@ -6117,7 +6471,7 @@ function applyOffer(o){
     case "wordBinder":   G.perks.wordBinder={word:null, banked:0}; openBinder(); break;
     case "secondEdition": G.perks.secondEdition=true; break;
     case "gemini":       G.perks.gemini=true; openDeck("gemini"); break;
-    /* Every applyOffer case gets its own branch — the stamp-bug checklist. */
+    /* Every applyOffer case gets its own branch, the stamp-bug checklist. */
     case "goldStandard": openDeck("goldStandard"); break;
     case "gildedAge":    G.perks.gildedAge=(+G.perks.gildedAge||0)+1; break;   // v4915a: stackable, +0.25× to every golden tile
     case "goldenTicket": G.perks.goldenTicket=true; break;                     // v4915a: a free gild after every round
@@ -6207,7 +6561,7 @@ function wildConsOffer(){
     price:px(10.4), art:`<span class="mini-tile wc-mini">${wildConsDesignHTML()}</span>`, d:{type:"wildCons"}};
 }
 function copyCatOffer(){
-  return {kind:"Card",rarity:"common",name:"Copy cat",desc:"Plays as an exact copy of the tile on its left — letter, value and any gilding.",
+  return {kind:"Card",rarity:"common",name:"Copy cat",desc:"Plays as an exact copy of the tile on its left: letter, value and any gilding.",
     price:px(6), art:`<span class="mini-tile" style="background:linear-gradient(180deg,#FBF4E6,#EFE4CC);border-color:#C9B68C">⧉</span>`, d:{type:"copyCat"}};
 }
 function proofSheetOffer(){
@@ -6485,18 +6839,25 @@ function freeRerollOffer(){
 function setShopHeader(){
   const rw=G.lastReward;
   $("shopRound").textContent= rw
-    ? "earned +"+rw.total+"  ·  base $"+rw.core+(rw.turnsBonus?" · words left +$"+rw.turnsBonus:"")+(rw.discardCount?" · "+rw.discardCount+" discards: +"+Math.round(rw.discardBonus*100)+"% = +$"+rw.discardAmt:"")+(rw.interest?" · interest +$"+rw.interest:"")
+    ? "earned +"+rw.total+"  ·  base $"+rw.core+(rw.turnsBonus?" · words left +$"+rw.turnsBonus:"")+(rw.discardCount?" · "+rw.discardCount+" discards: +"+Math.round(rw.discardBonus*100)+"% = +$"+rw.discardAmt:"")+(rw.interest?" · interest +$"+rw.interest:"")+((rw.sideJob&&rw.sideJob.paid)?" · side job +$"+rw.sideJob.paid:"")+(rw.bonus?" · challenge +$"+rw.bonus:"")
     : "after round "+(G.level-1);
+}
+/* v0.5a: shelf items that are not part of the seeded roll. Appended after it on
+   every open and reroll, so seeded picks never move. Today that is the free gild
+   a player banked by taking the "Your pick of gild" challenge reward. */
+function appendShopExtras(){
+  const n=+G.pendingFreeGild||0;
+  if(n>0 && gildTargets().length){
+    G.shopOffers.unshift({kind:"Upgrade",rarity:"rare",name:"Your pick of gild",
+      desc:"Challenge reward. Tap any tile to gild it, free."+(n>1?" You have "+n+" banked.":""),
+      price:0, pinned:true, sold:false, needsTarget:"freegild", art:"✨", d:{type:"freeGild"}});
+  }
 }
 function openShop(){
   G.freeRerollUsed=false;         // reset BEFORE building so the shop opens un-rerolled and the free reroll varies the seed
   G.shopSeen=[];                  // fresh shop: forget the previous shop's stock
   G.shopOffers=buildShopPool();   // reroll count persists for the whole run
-  if(G.perks.abridged){
-    // Appended AFTER the seeded pool roll so it never disturbs seeded offer picks.
-    G.shopOffers.push({kind:"Upgrade",rarity:"epic",name:"Abridged",desc:"Cut one tile from your deck.",
-      price:1, art:"✂️", needsTarget:"remove", d:{type:"eraser"}});
-  }
+  appendShopExtras();
   statShopOpen(G.shopOffers);
   G.shopUndo=[];                  // fresh undo history per shop visit
   setShopHeader();
@@ -6510,7 +6871,7 @@ function shopSnapshot(){
   return {
     coins:G.coins, handSize:G.handSize, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns,
     scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, heavyPress:G.heavyPress||0, hearts:G.hearts, rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed,
-    fuseOfferIdx:G.fuseOfferIdx,
+    fuseOfferIdx:G.fuseOfferIdx, pendingFreeGild:+G.pendingFreeGild||0,
     perks:JSON.parse(JSON.stringify(G.perks)),
     deck:G.deck.map(c=>({...c, ...(c.sides?{sides:c.sides.map(sd=>({...sd}))}:{})})),
     offers:G.shopOffers.map(o=>({...o, d:{...o.d}}))
@@ -6523,6 +6884,7 @@ function shopUndo(){
   G.coins=s.coins; G.handSize=s.handSize; G.extraDiscards=s.extraDiscards; G.extraTurns=s.extraTurns;
   G.scoreMult=s.scoreMult; G.pressGrowth=s.pressGrowth||0; G.heavyPress=s.heavyPress||0; G.hearts=s.hearts; G.rerollCount=s.rerollCount; G.freeRerollUsed=s.freeRerollUsed;
   G.fuseOfferIdx=(s.fuseOfferIdx!=null?s.fuseOfferIdx:null); G.fusePending=null; G.perks=s.perks; G.deck=s.deck; G.shopOffers=s.offers;
+  if(s.pendingFreeGild!=null) G.pendingFreeGild=s.pendingFreeGild;   // v0.5a: undoing a free gild gives it back
   haptic(12); toast("Undone");
   renderShop(); save();
 }
@@ -6593,7 +6955,7 @@ function buyOffer(i){
   applyOffer(o);
   haptic(18);
   renderShop();
-  if(!o.needsTarget && !o.quiet) toast(o.name+" — done");
+  if(!o.needsTarget && !o.quiet) toast(o.name+": done");
   save();
 }
 function rerollShop(){
@@ -6605,10 +6967,7 @@ function rerollShop(){
   else G.rerollCount++;
   statShopReroll();
   G.shopOffers=buildShopPool();
-  if(G.perks.abridged){
-    G.shopOffers.push({kind:"Upgrade",rarity:"epic",name:"Abridged",desc:"Cut one tile from your deck.",
-      price:1, art:"✂️", needsTarget:"remove", d:{type:"eraser"}});
-  }
+  appendShopExtras();
   haptic(12);
   renderShop();
   save();
@@ -6645,11 +7004,12 @@ function renderChallenge(lvl){
   const p=G.challengePending; const def=CHALLENGE_TYPES[p.type];
   const forced=challengeMandatory(lvl);
   $("chalSkipBtn").classList.toggle("hidden", forced);
+  { const k=$("chalKind"); if(k) k.textContent = forced ? "Required challenge" : "Optional challenge"; }
   $("chalRound").textContent = forced ? ("Round "+lvl+" \u00b7 required") : ("Round "+lvl);
   $("chalName").textContent=def.name;
   $("chalBadge").textContent=def.badge;
   $("chalDesc").textContent=challengeDescText(p.type, p.banned, true);
-  const base=targetFor(lvl);
+  const base=Math.round(targetFor(lvl)*runTargetMult());   // v0.5a: show the real target, character and ascension included
   const tgt = p.type==="steep" ? Math.round(base*CHALLENGE_TARGET_MULT) : base;
   $("chalTarget").innerHTML = p.type==="steep"
     ? `Target <b>${tgt}</b> <span class="chal-was">(was ${base})</span>`
@@ -6658,6 +7018,7 @@ function renderChallenge(lvl){
   (p.trio||["double","epic","cash10"]).forEach(key=>{
     let r=CHALLENGE_REWARDS[key];
     if(key==="epic" && p.epic){ r={badge:"EPIC", name:p.epic.name, desc:p.epic.desc, art:p.epic.art}; }
+    if(/^cash/.test(key)){ const amt=challengeCashFor(lvl,key); r={badge:"+$"+amt, name:amt+" coin bonus", desc:amt+" coins drop straight into the bank."}; }
     const b=document.createElement("button");
     b.className="chal-reward"+(key==="epic"?" is-epic":"")+(p.reward===key?" picked":"");
     b.innerHTML=`<span class="cr-badge">${r.badge}</span><span class="cr-name">${r.art?r.art+" ":""}${r.name}</span><span class="cr-desc">${r.desc}</span>`;
@@ -6680,7 +7041,7 @@ function takeChallenge(){
   startLevel();
 }
 function skipChallenge(){
-  if(challengeMandatory(G.level)) return;   // A1 Challenger: round 9 cannot be skipped
+  if(challengeMandatory(G.level)) return;   // A1 Challenger: the round 5 challenge cannot be skipped
   G.challenge=null; G.challengePending=null;
   $("challengeScreen").classList.add("hidden");
   startLevel();
@@ -6709,6 +7070,7 @@ function openDeck(mode){
   else if(mode==="gemini"){ hint.textContent="Tap a letter to twin. The copy shares every upgrade with the original, both ways."; hint.className="select-hint gild"; }
   else if(mode==="goldStandard"){ hint.textContent="Tap a letter. Every copy of it, present and future, arrives gilded once and golden."; hint.className="select-hint gild"; }
   else if(mode==="triofuse"){ hint.textContent="Tap the fused pair to build on."; hint.className="select-hint gild"; }
+  else if(mode==="freegild"){ hint.textContent="Tap any tile to gild it, free. Its points double."; hint.className="select-hint gild"; }
   else hint.classList.add("hidden");
   if(mode){ hint.classList.remove("hidden"); }
   renderDeck();
@@ -6729,6 +7091,7 @@ function deckTileEl(c){
   ["boldface","dropcap","serif","ditto","inkwell"].forEach(k=>{
     if(G.selectMode===k && upgradable && !tileHas(c,k)){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,k)); }
   });
+  if(G.selectMode==="freegild" && upgradable && (c.upLevel||0)<GILD_CAP){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doFreeGild(c.id)); }
   if(G.selectMode==="department" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doDepartmentPick(c.id)); }
   if(G.selectMode==="fuse" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); if(G.fusePending===c.id) wrap.classList.add("fuse-pending"); wrap.addEventListener("click",()=>tapFuse(c.id)); }
   if(G.selectMode==="triofuse"){
@@ -6763,7 +7126,7 @@ function renderDeck(){
     const lockedOut = ban ? G.deck.filter(c=>c.kind==="letter" && ban.has(c.letter)) : [];
     const groups=[
       {key:"hand", label:"In hand", cards:inHand, count:null, muted:false, empty:"All tiles are in your piles."},
-      {key:"draw", label:"Draw pile", cards:G.drawPile.slice(), count:G.drawPile.length+" / "+G.deck.length, muted:false, empty:"Empty — plays will reshuffle here."},
+      {key:"draw", label:"Draw pile", cards:G.drawPile.slice(), count:G.drawPile.length+" / "+G.deck.length, muted:false, empty:"Empty. Your discard pile reshuffles in when this runs out."},
       {key:"disc", label:"Discard", cards:(G.played||[]).slice(), count:(G.played||[]).length||null, muted:true, empty:"Nothing played yet this round."}
     ];
     if((G.discardBin||[]).length){
@@ -6846,7 +7209,7 @@ function deckSummaryHtml(){
 function renderDeckPerks(){
   const dp=$("deckPerks"); if(!dp) return;
   const cards=ownedPerkCards();
-  if(!cards.length){ dp.innerHTML='<div class="dp-title">Perks owned</div><span class="dp-none">None yet — buy some in the print shop.</span>'; return; }
+  if(!cards.length){ dp.innerHTML='<div class="dp-title">Perks owned</div><span class="dp-none">None yet. The print shop sells them.</span>'; return; }
   dp.innerHTML='<div class="dp-title">Perks owned</div><div class="dp-grid">'+cards.map(p=>
     `<div class="perk-card${p.name==="Word Binder"?" tappable":""}" data-perk="${escHtml(p.name)}"><span class="pc-art">${p.art}</span><span class="pc-body"><span class="pc-name">${escHtml(p.name)}</span><span class="pc-desc">${escHtml(p.desc)}</span></span></div>`
   ).join("")+'</div>';
@@ -6857,7 +7220,7 @@ function renderDeckWords(){
   const dw=$("deckWords"); if(!dw) return;
   const plays=G.wordPlays||{};
   const words=Object.keys(plays).filter(w=>plays[w]>0);
-  if(!words.length){ dw.innerHTML='<div class="dw-title">Words used this run</div><span class="dw-none">No words set yet — go forge some.</span>'; return; }
+  if(!words.length){ dw.innerHTML='<div class="dw-title">Words used this run</div><span class="dw-none">No words set yet. Go forge some.</span>'; return; }
   words.sort((a,b)=> (plays[b]-plays[a]) || a.localeCompare(b));
   const cols = words.length<=8 ? 2 : 3;
   const cap=w=>w.charAt(0).toUpperCase()+w.slice(1);
@@ -7131,6 +7494,22 @@ function doRemove(id){
   toast("Removed");
   closeDeck(); save();
 }
+function doFreeGild(id){
+  const c=G.deck.find(x=>x.id===id); if(!c || (c.upLevel||0)>=GILD_CAP) return;
+  c.upLevel=(c.upLevel||0)+1;
+  if(c.kind==="fused"){ c.sides.forEach(sd=>sd.upLevel=(sd.upLevel||0)+1); }
+  syncGemini(c);
+  G.pendingFreeGild=Math.max(0,(+G.pendingFreeGild||0)-1);
+  G._freeGildDone=true;
+  const val = c.kind==="fused" ? fusedValue(c) : (c.kind==="trio" ? trioValue(c) : cardValue(c));
+  toast(tileShortName(c)+" gilded, now "+val+" pts");
+  haptic(24);
+  G.selectMode=null;
+  closeDeck();
+  // another banked gild? put the next one back on the shelf
+  if((+G.pendingFreeGild||0)>0 && !$("shopScreen").classList.contains("hidden")){ appendShopExtras(); renderShop(); }
+  repriceGildOffers(); save();
+}
 function doDepartmentPick(id){
   const c=G.deck.find(x=>x.id===id); if(!c||c.kind!=="letter") return;
   G.perks.department=c.letter;
@@ -7167,7 +7546,7 @@ function deckLetterFaces(){
 function bonusCostFor(kind, L){ const stacks=(G.perks[kind][L]||0); return px(7*Math.pow(2,stacks)); }
 function openBonusChooser(kind){
   G.bonusKind=kind;
-  $("bonusTitle").textContent = kind==="firstUp" ? "First-up — pick a letter" : "Finale — pick a letter";
+  $("bonusTitle").textContent = kind==="firstUp" ? "First-up: pick a letter" : "Finale: pick a letter";
   $("bonusSub").textContent   = kind==="firstUp"
     ? "Words that START with it score +50% per stack."
     : "Words that END with it score +50% per stack.";
@@ -7212,13 +7591,14 @@ function statInit(seed){
   G.stats={ game:"letterati", version:VERSION, seed,
     runId:(typeof crypto!=="undefined"&&crypto.randomUUID)?crypto.randomUUID():("run-"+Date.now().toString(36)+"-"+Math.random().toString(36).slice(2,10)),
     startedAt:new Date().toISOString(), words:[], shops:[], rounds:[], challenges:[], bossLog:null, result:null,
+    mode:G.mode||"free", dailyDate:G.dailyDate||null, dev:!!G.dev, mystery:[], draft:null,
     finalRound:1, finalDeck:null, runMs:0, runScore:0, bestWord:"", bestScore:0 };
   G._curShop=null;
 }
 function statWord(word, score, len){
   if(!G.stats) return;
   G.stats.runScore=G.runScore||0;   // mirror the canonical run score (set in submitWord)
-  G.stats.words.push({ round:G.level, word, score, len, jazz:false,
+  G.stats.words.push({ round:G.level, word, score, len,   // v0.5a: jazz field dropped (always false since v491h)
     overtime: G.handsLeft<=0 || G.hearts<heartMax() });
 }
 function statShopOpen(offers){
@@ -7236,8 +7616,16 @@ function statShopClose(){ if(G._curShop){ G._curShop.coinsOut=G.coins;
 function snapshotDeck(){ return G.deck.map(c=> c.kind==="letter"
   ? {letter:c.letter, value:cardValue(c), gild:c.upLevel||0, mult:c.mult||1}
   : {kind:c.kind}); }
-function statFinish(result){
+function statFinish(result, exitHow){
   if(!G.stats) statInit(G.seed||"unknown");   // never silently drop a run (e.g. continued from a pre-fix save)
+  if(G.stats.result) return;   // v0.5a: finalize once (a win followed by End run in endless used to double-log)
+  tickFlush();
+  // v0.5a: how the run ended, beyond win/lose/end, plus the state at exit
+  G.stats.exitContext = exitHow || (result==="end" ? "end_menu" : result==="lose" ? "hearts_out" : "win");
+  G.stats.exit = {round:G.level, hearts:G.hearts, coins:G.coins, endless:!!G.infinite};
+  G.stats.quickExit = (G.runMs||0)<60000 && G.level<=1;   // likely a seed re-roll
+  G.stats.mode = G.mode||"free"; G.stats.dailyDate = G.dailyDate||null; G.stats.dev = !!G.dev;
+  G.stats.finishedVersion = VERSION;   // a run continued across an update keeps its starting version in .version
   G.stats.result=result; G.stats.finalRound=G.level; G.stats.endedAt=new Date().toISOString();
   { const ch=(G.stats.challenges||[]).find(c=>c.taken&&c.cleared==null);
     if(ch){ ch.cleared=false; ch.heartsAfter=G.hearts; } }
@@ -7261,6 +7649,27 @@ function statFinish(result){
   try{ const arr=JSON.parse(localStorage.getItem("letterati_runs")||"[]"); arr.push(G.stats);
        while(arr.length>500) arr.shift(); localStorage.setItem("letterati_runs", JSON.stringify(arr)); }catch(e){}
   enqueueTelemetry(G.stats);   // anonymous online upload (best-effort)
+  markDailyDone();             // v0.5a: finishing the daily in any way uses up the day
+}
+/* v0.5a telemetry: a saved, unfinished run that is about to be replaced by a new
+   one is recorded as abandoned instead of vanishing. */
+function flushAbandonedSave(){
+  try{
+    const d=JSON.parse(localStorage.getItem(SAVE_KEY));
+    if(!d || !d.stats || d.stats.result) return;
+    const s=d.stats;
+    s.result="abandoned"; s.ending="abandoned"; s.exitContext="replaced_by_new_run";
+    s.exit={round:d.level, hearts:d.hearts, coins:d.coins, endless:!!d.infinite};
+    s.endedAt=new Date().toISOString(); s.finalRound=d.level; s.runMs=d.runMs||s.runMs||0;
+    s.mode=d.mode||s.mode||"free"; s.dailyDate=d.dailyDate||s.dailyDate||null;
+    s.character=d.character||"writer"; s.ascension=+d.ascension||0;
+    s.quickExit=(s.runMs||0)<60000 && (d.level||1)<=1;
+    try{ const arr=JSON.parse(localStorage.getItem("letterati_runs")||"[]"); arr.push(s); while(arr.length>500) arr.shift(); localStorage.setItem("letterati_runs", JSON.stringify(arr)); }catch(e){}
+    enqueueTelemetry(s);
+    if(s.mode==="daily" && s.dailyDate){   // an abandoned daily still used up its day
+      const dd=loadDaily(); if(dd.date===s.dailyDate) saveDaily(Object.assign(dd,{status:"done", result:"abandoned", finalRound:d.level, runScore:d.runScore||0}));
+    }
+  }catch(e){}
 }
 
 /* ── Telemetry: anonymous online run upload (Supabase), mirrors Golf Gone Wrong ──
@@ -7317,7 +7726,7 @@ function enqueueTelemetry(run){
     const q=_telemetryReadQueue();
     if(!q.some(r=>r && r.run_id===row.run_id)) q.push(row);   // de-dupe by run_id
     _telemetryWriteQueue(q);
-  }catch(e){ /* best-effort, never load-bearing */ }
+  }catch(e){ /* best-effort only; a failed upload never affects play */ }
   flushTelemetry();
 }
 async function _postTelemetryRow(row){
@@ -7369,7 +7778,7 @@ function exportAllRuns(){
 }
 
 /* ---------- Definition lookup (cached) ----------
-   Primary: freedictionaryapi.com — the FULL English Wiktionary (8.5M+ entries,
+   Primary: freedictionaryapi.com, the FULL English Wiktionary (8.5M+ entries,
    no key, CORS), which covers the obscure tail of our word list. Falls back to
    the older dictionaryapi.dev (a Wiktionary subset) if the primary is down or
    rate-limited. Both return the same shape to the caller: {pos, def} or null.
@@ -7682,7 +8091,7 @@ function mysteryHtml(){
   }
   if(G._noMysteryMsg && !G.mystery){
     return `<span class="dw mys">No mystery word</span>`
-         + `<span class="dd">No mystery word available with these letters. We're sorry for your trouble. Here is a free discard.</span>`;
+         + `<span class="dd">No mystery word fits these letters. Have a discard on the house.</span>`;
   }
   const m=G.mystery; if(!m) return "";
   const pos=m.pos?`<span class="dpos">${escHtml(m.pos)}</span>`:"";
@@ -7758,6 +8167,9 @@ function setMystery(w, d){
   const tier=mysteryRarity(w);
   G.mystery={word:w, pos:d.pos||"", def:d.def, tier:tier.key, tierName:tier.name};
   G.mysteryLevel=G.level;
+  // v0.5a telemetry: one row per clue shown; flipped to solved when it lands
+  if(G.stats){ if(!G.stats.mystery) G.stats.mystery=[];
+    G.stats.mystery.push({round:G.level, answer:w, tier:tier.key, solved:false, mult:null, character:G.character||"writer"}); }
   G._noMysteryMsg=false; G._mysteryLoading=false;
   renderMystery(); save();
 }
@@ -7897,7 +8309,7 @@ function ownedPerksList(){
   if(G.perks.bigWords)   out.push("Big Words · 6+ letter words ×2");
   if(G.perks.twinsies)   out.push("Twinsies · ×2 side-by-side doubles");
   if(G.perks.twoOfAKind) out.push("Two of a Kind · ×1.5 on a repeated letter");
-  if(G.perks.shortKing)  out.push("Short King · ×4/×3/×2.5/×2 for 2–5 letters");
+  if(G.perks.shortKing)  out.push("Short King · ×4/×3/×2.5/×2 for 2 to 5 letters");
   if(G.perks.kerning)    out.push("Kerning · +25% no repeated letter");
   if(G.perks.fiveTimer)  out.push("Five Timer · ×1.5 five-letter words");
   if(G.perks.marginalia) out.push("Marginalia · 1 coin per 15 over target, max 15");
@@ -8083,7 +8495,7 @@ function endRun(){
   // early still accounts for the run instead of dropping straight to the title.
   tickFlush(); runTicking=false;
   resetSeedRating();
-  statFinish("end"); clearSave();
+  statFinish("end", G.infinite ? "endless_stop" : "end_menu"); clearSave();
   G.paused=false; $("pauseScreen").classList.add("hidden");
   showRunSummary("end");
 }
@@ -8094,13 +8506,17 @@ function goToTitle(){
   hideGame();
   $("titleScreen").classList.remove("hidden"); refreshContinue();
 }
-function winQuit(){ statFinish("win"); clearSave(); goToTitle(); }
+function winQuit(){ statFinish("win","win_quit"); clearSave(); goToTitle(); }
 function openOptions(){ const runs=allRuns(); const n=runs.length;
   $("optExportBtn").disabled=!n;
   $("optExportBtn").textContent = n ? ("Export all run data ("+n+(n===1?" run)":" runs)")) : "No runs recorded yet";
   $("optionsScreen").classList.remove("hidden"); }
 function closeOptions(){ $("optionsScreen").classList.add("hidden"); }
 function closeDeck(){
+  if(G.selectMode==="freegild" && !G._freeGildDone){
+    const o=(G.shopOffers||[]).find(x=>x.d&&x.d.type==="freeGild"&&x.sold); if(o) o.sold=false;
+  }
+  G._freeGildDone=false;
   $("deckScreen").classList.add("hidden");
   $("selectHint").classList.add("hidden");
   G.selectMode=null; G.fuseOfferIdx=null; G.fusePending=null; fusePendingPair=null; G.trioPairPending=null; trioFusePendingPair=null;
@@ -8126,7 +8542,7 @@ function showRunSummary(kind){
   // The rank is earned by the last round actually cleared, never the one in progress.
   const bestRank=rankFor(Math.max(1,G.level-1)) || "";
   const roundLine = (G.wonRun && G.level>WIN_LEVEL)
-    ? `Cleared all ${WIN_LEVEL} — then pushed to <b>round ${G.level}</b> in endless.`
+    ? `Cleared all ${WIN_LEVEL}, then pushed on to <b>round ${G.level}</b> in endless.`
     : mastered ? `You reached <b>round ${G.level}</b>.`
     : kind==="end" ? `You stopped the press at <b>round ${G.level}</b> of ${WIN_LEVEL}.`
     : `You made it to <b>round ${G.level}</b> of ${WIN_LEVEL}.`;
@@ -8139,13 +8555,15 @@ function showRunSummary(kind){
     ${G.runBestWord?`<div class="stat-line">Best word: <b>${G.runBestWord}</b> · ${G.runBestScore}</div>`:""}
     <div class="stat-line">Coins left: <b>${G.coins}</b> ◉</div>
     <div class="stat-line" style="margin-top:8px;color:var(--ink-soft);font-size:.8rem">${escHtml(charDef().name)} · A${ascLevel()} · Seed <b>${G.seed}</b></div>`;
+  { const ns=$("overSeedBtn"); if(ns) ns.classList.toggle("hidden", G.mode==="daily" && !devMode());
+    const nn=$("overNewBtn"); if(nn) nn.textContent = freePlayUnlocked() ? "New free play run" : "Back to title"; }
   $("overScreen").classList.remove("hidden");
 }
 function gameOver(won){
   tickFlush(); runTicking=false;   // freeze run time
   resetSeedRating();
   const mastered = won || G.wonRun;
-  statFinish(mastered ? "win" : "lose");
+  statFinish(mastered ? "win" : "lose", mastered ? (G.infinite ? "endless_out" : "win_finish") : "hearts_out");
   clearSave();
   showRunSummary(mastered ? "win" : "lose");
 }
@@ -8170,6 +8588,8 @@ function save(){
     const data={
       v:SAVE_VERSION, phase, seed:G.seed, level:G.level, hearts:G.hearts, coins:G.coins, handSize:G.handSize,
       character:G.character||"writer", ascension:+G.ascension||0, proofStage:+G.proofStage||0,
+      mode:G.mode||"free", dailyDate:G.dailyDate||null, dev:!!G.dev, pendingFreeGild:+G.pendingFreeGild||0,
+      sideJob:G.sideJob||null, lastSideJobKey:G.lastSideJobKey||null, roundStartMs:G._roundStartMs||0,
       infinite:G.infinite, wonRun:G.wonRun,
       perks:G.perks, scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, reprintUsed:G.reprintUsed, foilUsed:G.foilUsed, challenge:G.challenge, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, runMs:G.runMs, stats:G.stats,
       wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, wordPlays:G.wordPlays, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
@@ -8189,8 +8609,18 @@ function continueRun(){
   G.character = CHARACTERS[d.character] ? d.character : "writer";
   G.ascension = Math.max(0, Math.min(MAX_ASC, +d.ascension||0));
   G.proofStage = +d.proofStage||0;
+  // v0.5a: saves from before the daily build carry no mode; they resume as free play
+  G.mode = d.mode==="daily" ? "daily" : "free"; G.dailyDate=d.dailyDate||null; G.dev=!!d.dev;
+  G.pendingFreeGild=+d.pendingFreeGild||0; G.sideJob=d.sideJob||null; G.lastSideJobKey=d.lastSideJobKey||null; G._roundStartMs=+d.roundStartMs||0;
   G.seed=d.seed; G.level=d.level; G.hearts=d.hearts; G.coins=d.coins; G.handSize=d.handSize;
   G.infinite=!!d.infinite; G.wonRun=!!d.wonRun;
+  /* v0.5a migration, no SAVE_VERSION break: a save with no mode field comes from
+     the ten-round build. Map its round onto the six-round run (old 7 -> new 4,
+     old 10 -> new 6) so an in-flight run can still reach the boss. Runs already
+     past the win keep their endless round number. */
+  if(d.mode==null && !G.wonRun && !G.infinite && G.level>1){
+    G.level=Math.max(1,Math.min(WIN_LEVEL,Math.round(1+(G.level-1)*(WIN_LEVEL-1)/(LEGACY_WIN_LEVEL-1))));
+  }
   G.perks=Object.assign({firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false,superStore:false,wordBinder:false, secondEdition:false, gemini:false, gildedAge:0, goldStandard:false, goldenTicket:false, deadlineExt:false, galleyProof:false, midnightPress:false, vowelPuller:false, slugLine:false, eyeLevel:false, typeHigh:false, blindFaith:false, inkBall:false, vowelMovement:false, consonantCluster:false, justified:false, emQuad:false, descender:false, department:false, wetProof:false, compositor:false, foundryFire:false, fusedFocus:false, indiaInk:false}, d.perks||{}); G.perks.firstUp=G.perks.firstUp||{}; G.perks.lastUp=G.perks.lastUp||{};
   /* v4915a migration, no SAVE_VERSION break needed: the old rare perk stored a
      LETTER string under gildedAge; the new common perk stores a STACK COUNT.
@@ -8249,7 +8679,7 @@ function continueRun(){
     hideGame(); $("shopScreen").classList.remove("hidden");
     renderShop();
   } else {
-    showGame(); renderChallengeBanner(); renderCanvas(); renderHand(); renderDiscardBin(); renderHud(); updateLive();
+    showGame(); renderChallengeBanner(); renderSideJob(); renderCanvas(); renderHand(); renderDiscardBin(); renderHud(); updateLive();
     // v497a: the clue strip was never re-rendered after a reload, so the mystery
     // word stayed invisible until a discard forced a new hand.
     if(G.mystery && G.mystery.word){ renderMystery(); prefetchMystery(); }
@@ -8264,7 +8694,7 @@ function renderLeaderboard(){
                 .sort((a,b)=>(b.runScore||0)-(a.runScore||0))
                 .slice(0,5);
   if(!top.length){
-    box.innerHTML='<h3>Your best runs</h3><div class="lb-empty">No scored runs yet — clear a word to make the board.</div>';
+    box.innerHTML='<h3>Your best runs</h3><div class="lb-empty">No scored runs yet. Set a word to make the board.</div>';
     return;
   }
   let rows="";
@@ -8272,13 +8702,14 @@ function renderLeaderboard(){
     rows+='<div class="lb-row'+(i===0?" lb-top":"")+'">'
       +'<span class="lb-rank">'+(i+1)+'</span>'
       +'<span class="lb-score">'+(r.runScore||0).toLocaleString()+'</span>'
-      +'<span class="lb-meta">'+'Round '+(r.finalRound||1)+' · '+((CHARACTERS[r.character]||CHARACTERS.writer).name.replace(/^The /,""))+' A'+(+r.ascension||0)+'</span>'
+      +'<span class="lb-meta">'+(r.mode==="daily"?'Daily · ':'')+'Round '+(r.finalRound||1)+' · '+((CHARACTERS[r.character]||CHARACTERS.writer).name.replace(/^The /,""))+' A'+(+r.ascension||0)+'</span>'
       +'</div>';
   });
   box.innerHTML='<h3>Your best runs</h3>'+rows;
 }
 function refreshContinue(){
   renderLeaderboard();
+  { const t=$("titleScreen"); if(!t || !t.classList.contains("hidden")) renderDailyCard(); }   // v0.5a: only while the title is up
   const b=$("continueBtn"); if(!b) return;
   b.classList.toggle("hidden", !hasSave());
 }
@@ -8289,9 +8720,11 @@ function refreshContinue(){
    Ascension N is playable only once N-1 has been CLEARED with that
    same character, so each desk climbs its own ladder.
    ============================================================ */
-let _selChar="writer", _selAsc=0, _pendingSeed=null;
-function openCharSelect(seed){
+let _selChar="writer", _selAsc=0, _pendingSeed=null, _pendingMode="free";
+function openCharSelect(seed, mode){
   _pendingSeed = seed;
+  _pendingMode = mode==="daily" ? "daily" : "free";
+  { const e=$("csEyebrow"); if(e) e.textContent = _pendingMode==="daily" ? ("Today's press · who is at the desk") : "Free play · who is at the desk"; }
   if(!CHARACTERS[_selChar]) _selChar="writer";
   _selAsc = Math.min(_selAsc, unlockedAsc(_selChar));
   renderCharSelect();
@@ -8301,6 +8734,7 @@ function openCharSelect(seed){
 }
 function closeCharSelect(){
   $("charScreen").classList.add("hidden");
+  $("draftScreen").classList.add("hidden");
   $("titleScreen").classList.remove("hidden");
   refreshContinue();
 }
@@ -8348,22 +8782,29 @@ function renderCharSelect(){
   }
 }
 function beginSelectedRun(){
-  const seed = _pendingSeed || generateValidatedSeed();
+  const mode=_pendingMode;
+  if(mode==="daily" && !devMode() && dailyStatus()!=="none"){ closeCharSelect(); toast("Today's press is already in the books"); return; }
+  const seed = (mode==="daily") ? dailySeedFor(localDateKey()) : (_pendingSeed || generateValidatedSeed());
   _pendingSeed=null;
   $("charScreen").classList.add("hidden");
-  newRun(seed, _selChar, _selAsc);
+  newRun(seed, _selChar, _selAsc, mode);
 }
 
 /* ============================================================
    New run / boot
    ============================================================ */
-function newRun(seed, charId, asc){
+function newRun(seed, charId, asc, mode){
+  flushAbandonedSave();   // v0.5a telemetry: a saved run being replaced still gets recorded
   clearSave();
   cardSeq=0;
   G.seed=seed;
   G.character = CHARACTERS[charId] ? charId : "writer";
   G.ascension = Math.max(0, Math.min(MAX_ASC, +asc||0));
   G.proofStage = 0;
+  G.mode = (mode==="daily") ? "daily" : "free";
+  G.dailyDate = G.mode==="daily" ? localDateKey() : null;
+  G.dev = devMode();
+  G.pendingFreeGild=0; G.sideJob=null; G.lastSideJobKey=null; G._roundStartMs=0; G.draft=null;
   G.level=1; G.hearts=startHearts(); G.coins=0; G.handSize=START_HAND;
   G.perks={firstUp:{},lastUp:{},discardMoneyBoost:false,interest:false,twinsies:false,vowelPower:0,fireSale:false,bigWords:false,freeRerolls:false,proofSheet:false,twoOfAKind:false,shortKing:false,kerning:false,fiveTimer:false,marginalia:false,mirror:false,reprint:false,repeater:false,powerTrio:false,verbose:false,verbizer:false,fightingWords:false,superStore:false,wordBinder:false, secondEdition:false, gemini:false, gildedAge:0, goldStandard:false, goldenTicket:false, deadlineExt:false, galleyProof:false, midnightPress:false};
   G.reprintUsed=false;
@@ -8385,7 +8826,7 @@ function newRun(seed, charId, asc){
   { const ds=$("defStrip"); if(ds){ ds.classList.add("hidden"); ds.innerHTML=""; } }
   $("titleScreen").classList.add("hidden");
   $("overScreen").classList.add("hidden");
-  showRunIntro();   // v491e: the deck and the final proof, before the first round
+  openDraft();      // v0.5a: free opening perk, then the deck and the final proof
 }
 function randomSeed(){ return Math.random().toString(36).slice(2,7).toUpperCase(); }
 
@@ -8443,7 +8884,7 @@ function resetSeedRating(){
 }
 wireSeedRating(""); wireSeedRating("W");
 $("verTag").textContent="Prototype v"+VERSION+" · "+WORDS.size.toLocaleString()+" words";
-$("playBtn").addEventListener("click",()=>openCharSelect(null));
+$("playBtn").addEventListener("click",startDailyFlow);
 $("continueBtn").addEventListener("click",continueRun);
 // v498d: rehydrate the definition cache before anything asks for a clue, so a
 // returning player's first mystery word is instant instead of a fresh round trip.
@@ -8461,7 +8902,7 @@ $("fusedPickCancel").addEventListener("click",closeFusedSelector);
 $("fusedRemoveBtn").addEventListener("click",()=>{ const c=fusedSelCard; closeFusedSelector(); if(c) removeFromCanvas(c.id); });
 $("seedBtn").addEventListener("click",()=>{
   const s=($("seedInput").value||"").trim().toUpperCase();
-  openCharSelect(s||null);
+  startFreeFlow(s||null);
 });
 $("charStartBtn").addEventListener("click",beginSelectedRun);
 /* v497a: tapping the definition of the word you just set dismisses it early and
@@ -8498,8 +8939,8 @@ $("chalTakeBtn").addEventListener("click",takeChallenge);
 $("chalSkipBtn").addEventListener("click",skipChallenge);
 $("sumNextBtn").addEventListener("click",()=>{ openShop(); closeSummary(); });
 document.addEventListener("pointerdown",()=>audio(),{passive:true});
-$("overNewBtn").addEventListener("click",()=>newRun(generateValidatedSeed(), G.character, G.ascension));
-$("overSeedBtn").addEventListener("click",()=>newRun(G.seed, G.character, G.ascension));
+$("overNewBtn").addEventListener("click",()=>{ if(!freePlayUnlocked()){ goToTitle(); return; } newRun(generateValidatedSeed(), G.character, G.ascension, "free"); });
+$("overSeedBtn").addEventListener("click",()=>{ if(G.mode==="daily" && !devMode()) return; newRun(G.seed, G.character, G.ascension, G.mode==="daily"?"daily":"free"); });
 $("winEndlessBtn").addEventListener("click",winContinueEndless);
 $("winFinishBtn").addEventListener("click",winFinish);
 $("winQuitBtn").addEventListener("click",winQuit);
@@ -8532,8 +8973,11 @@ $("binderCancel").addEventListener("click",()=>{ $("binderOverlay").classList.ad
 $("secondEdBtn").addEventListener("click",useSecondEdition);
 $("introGoBtn").addEventListener("click",()=>{
   $("runIntroScreen").classList.add("hidden"); haptic(15);
+  markDailyStarted();   // v0.5a: the day is spent from the first round on, not at character select
   startLevel();
 });
+$("draftTakeBtn").addEventListener("click",takeDraft);
+$("freePlayBtn").addEventListener("click",()=>startFreeFlow(null));
 $("bossGoBtn").addEventListener("click",()=>{
   $("bossScreen").classList.add("hidden"); haptic(15);
   if(G.boss) G.boss.introSeen=true; save();
