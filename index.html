@@ -1664,7 +1664,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "0.5b";
+const VERSION = "0.5c";
 const WIN_LEVEL = 6;    // v0.5a: clear this round to WIN (rank "Letterati"); afterwards, optional endless mode. Was 10.
 /* v0.5a: the run is six rounds, not ten, so a daily fits in one sitting.
    eqLevel() maps a live round onto the old ten-round curve, so targets, shop
@@ -1835,7 +1835,7 @@ const CHALLENGE_EPIC_POOL = [
      kept re-offering the same dozen cards. Every rare-and-above perk that grants
      with no follow-up chooser now sits here. Descriptions are lifted verbatim
      from the shop offers so the two can never read differently. */
-  {name:"Short King",       art:"👑", desc:"Short words score big: 2 letters ×4, 3 letters ×3, 4 letters ×2.5, 5 letters ×2.", d:{type:"shortKing"}},
+  {name:"Short King",       art:"👑", desc:"Short words score big: 2 letters ×3, 3 letters ×2.5, 4 letters ×1.75.", d:{type:"shortKing"}},
   {name:"Repeater",         art:"🔁", desc:"Replaying a word you've already played this run scores higher (up to ×5).", d:{type:"repeater"}},
   {name:"Power Trio",       art:"🎯", desc:"Three of the same letter in a word gives a ×2 word bonus. Stacks with Twinsies and Two of a kind.", d:{type:"powerTrio"}},
   {name:"Movable Type",     art:"🔠", desc:"Playing the same set of letters as a different word scores ×2.", d:{type:"movableType"}},
@@ -1895,6 +1895,8 @@ const DECK_HI_MIN = 4;    // every starting deck has at least 4 letters worth >1
 const DECK_FACE_MIN = 40; // and at least 40 total face value, kills the unfair low tail, keeps variety
 const START_HAND = 7;
 const GILD_BASE = 6;   // base price to gild a fresh letter (doubles per existing gild)
+const GILD_CAP = 3;   // a letter can be gilded at most 3 times (v0.5c: moved up here)
+const GILD_CAP_HIGH = 2, GILD_HIGH_VALUE = 5;   // v0.5c: see gildCapFor (defined early so the predictor can read it at any time)
 const LETTER_PRICE_SCALE = 0.7;   // v0.5a: letters 30% cheaper so the letter side competes with gilds
 const GILD_PRICE_SCALE = 0.5;   // v491e: gilding costs half what it used to
 const HANDS_PER_LEVEL = 4;     // "turns", words you may set
@@ -2225,7 +2227,22 @@ function startFreeFlow(seed){
   if(!freePlayUnlocked()){ toast("Free play opens after today's press"); return; }
   openCharSelect(seed||null, "free");
 }
-const WORD_CASH_CAP = 36;   // v491g: most a single word can pay into the bank (v0.5a: 20 x RUN_PAY_SCALE)
+/* v0.5c: Short King lost its 5-letter tier. Five letters is the most common word
+   length (41% of plays in the 30-run telemetry), so ×2 on it made the perk a
+   near-universal doubler rather than a reason to play short. Was 4/3/2.5/2. */
+const SHORT_KING_MULT = {2:3, 3:2.5, 4:1.75};
+/* v0.5c: word cash is keyed to the round target, not raw score. Scoring past the
+   target used to pay $1 per ~28 to ~56 points with a $36 cap per word, so late-run
+   scores in the thousands printed money, which bought gilds, which raised scores.
+   Now a word pays $1 for every WORD_CASH_TARGET_STEP of the round's target it
+   scores, up to WORD_CASH_CAP. Measured on the first three v0.5 runs, word cash
+   out-earned the round purse late in a run (roughly 240 vs 170 coins on the A5 win). */
+const WORD_CASH_TARGET_STEP = 0.5;
+function wordCashFor(score, target){
+  const step=Math.max(1, (+target||1)*WORD_CASH_TARGET_STEP);
+  return Math.floor(Math.max(0,score)/step);
+}
+const WORD_CASH_CAP = 4;    // v491g: most a single word can pay into the bank (v0.5c: 36 -> 4, now target-relative)
 const BINDER_RETAIN = 0.5;  // v492c: the binding keeps half the played score (full retention compounded too hard)           // economy guard rail (caps base payout only)
 const LIQUIDITY_CAP = 3.0;     // v496c: doubled. Bonus above x1 is now +200% at cap, was +100%.
 const LIQUIDITY_RATE = 0.02;   // +2% per $5 banked (was 1%)
@@ -2665,6 +2682,7 @@ function predRoll(seed){
 }
 let _predLevel=1;
 function predPx(base,fire){ const infl=Math.pow(1.1,Math.max(0,eqLevel(_predLevel||1)-1)); return Math.max(1,Math.round(base*0.65*SHOP_PRICE_SCALE*(fire?0.75:1)*infl)); }
+function predGildCap(c){ const b=c.fusedA?Math.max(c.fusedA.base,c.fusedB.base):c.base; return (b>=GILD_HIGH_VALUE)?GILD_CAP_HIGH:GILD_CAP; }   // v0.5c RE-PIN: mirrors gildCapFor
 function predCV(c){ const base=c.fusedA?(c.fusedA.base+c.fusedB.base):c.base; return base*Math.pow(2,c.up||0); }
 function predScore(t,P,zv){
   // t entries are letter tiles OR resolved parts {g:"er",v:5} from fused-tile modes.
@@ -2682,7 +2700,7 @@ function predScore(t,P,zv){
   let m=lenMult(len);
   let tot=s*m; if(len>=P.handSize)tot*=1.5;
   if(P.bigWords && len>=6) tot*=2;   // v491a rework: 6+ letter words score ×2 (mirrors live scoreOf)
-  if(P.shortKing && len>=2 && len<=5){ tot*={2:4,3:3,4:2.5,5:2}[len]; }   // live Short King tiers
+  if(P.shortKing && len>=2 && len<=4){ tot*=SHORT_KING_MULT[len]; }   // live Short King tiers (v0.5c)
   tot*=gm;   // v48a: golden letters compound on the whole word
   tot*=P.scoreMult||1; return Math.round(tot);
 }
@@ -2773,7 +2791,7 @@ function predLevel(P,seed,opts){
     }
     const {score:s,tiles}=predBest(hand,P,bo());
     if(!tiles){ hl--; if(hand.length){pile.push(hand.shift());draw();} continue; }
-    score+=s; words.push(s); cash+=Math.min(WORD_CASH_CAP, Math.floor(s/wordCashDivisor(P.level)));   // v491g: mirrors the live per-word cap
+    score+=s; words.push(s); cash+=Math.min(WORD_CASH_CAP, wordCashFor(s,target));   // v0.5c RE-PIN: mirrors the live target-relative word cash
     const wl=tiles.reduce((n,t)=>n+(t.fusedA?2:1),0);
     if(wl>=6 && (P.pressGrowth||0)>0){ P.scoreMult=Math.round(((P.scoreMult||1)+P.pressGrowth)*1000)/1000; }
     if(usedLens) usedLens.add(wl);
@@ -2842,7 +2860,7 @@ function predShop(P,style){
   _predLevel=P.level; style=style||"standard";
   const fire=false, reserve=1; let buys=0; const maxBuys=99;   // skilled spender for the "played well" bar
   const buy=(p,f)=>{ if(buys>=maxBuys||P.coins-p<reserve) return false; P.coins-=p; f(); buys++; return true; };
-  const gildBest=()=>{ let best=null; P.deck.forEach(c=>{ if((c.up||0)<3 && (!best||predCV(c)>predCV(best))) best=c; });
+  const gildBest=()=>{ let best=null; P.deck.forEach(c=>{ if((c.up||0)<predGildCap(c) && (!best||predCV(c)>predCV(best))) best=c; });
     if(best){ const cost=predPx((GILD_BASE/2+predCV(best))*Math.pow(2,best.up||0),fire); buy(cost,()=>best.up=(best.up||0)+1); } };
   const buyHand =()=>{ const added=Math.max(0,P.handSize-START_HAND); buy(predPx(9*Math.pow(2,added),fire),()=>P.handSize++); };
   const buyTurn =()=>buy(predPx(10+3*(P.extraTurns||0),fire),()=>P.extraTurns++);
@@ -2942,7 +2960,7 @@ function predictSeed(seed,opts){
       reward = pref.find(k=>trio.includes(k)) || trio[0];
       if(reward==="double") payout=Math.round(payout*1.5);
       else if(/^cash/.test(reward)) payout+=challengeCashFor(P.level,reward);
-      else if(reward==="upgrade"){ let best=null; P.deck.forEach(c=>{ if((c.up||0)<3 && (!best||predCV(c)>predCV(best))) best=c; }); if(best) best.up=(best.up||0)+1; }   // v0.5a: the free gild goes on the bot's best tile
+      else if(reward==="upgrade"){ let best=null; P.deck.forEach(c=>{ if((c.up||0)<predGildCap(c) && (!best||predCV(c)>predCV(best))) best=c; }); if(best) best.up=(best.up||0)+1; }   // v0.5a: the free gild goes on the bot's best tile
       else if(reward==="epic"){ const w=predWildLetter(seed,P.level); P.deck.push({letter:w,base:LETTER_VALUES[w],mult:1,up:0}); }   // epic modeled conservatively as a strong added letter
       stats.taken.push({level:P.level,type:chType,reward});
     }
@@ -3877,11 +3895,11 @@ function scoreOf(res){
   let pairHit=false;
   if(G.perks.twoOfAKind){ const seen={}; for(const r of res){ if(r.letter){ if(seen[r.letter]){ pairHit=true; break; } seen[r.letter]=1; } } }
   if(pairHit) total*=1.5;
-  // Short King: tiered boost for short words, 2L ×4, 3L ×3, 4L ×2.5, 5L ×2
+  // Short King: tiered boost for short words (see SHORT_KING_MULT)
   let shortHit=false, shortMult=1;
-  if(G.perks.shortKing && effLen>=2 && effLen<=5){
+  if(G.perks.shortKing && SHORT_KING_MULT[effLen]){
     shortHit=true;
-    shortMult={2:4, 3:3, 4:2.5, 5:2}[effLen];
+    shortMult=SHORT_KING_MULT[effLen];
     total*=shortMult;
   }
   // Kerning (v42a): words with no repeated letter → +25%
@@ -4054,7 +4072,7 @@ function updateLive(){
   if(sc.lastHit) parts.push(`×${sc.luMult%1?sc.luMult.toFixed(1):sc.luMult} finale`);
   if(sc.twinHit) parts.push(`×2 twins`);
   if(sc.pairHit) parts.push(`×1.5 pair`);
-  if(sc.shortHit) parts.push(`×${(sc.shortMult%1?sc.shortMult.toFixed(1):sc.shortMult)} short`);
+  if(sc.shortHit) parts.push(`×${multLabel(sc.shortMult)} short`);
   if(sc.kernHit) parts.push(`×1.25 kerning`);
   if(sc.fiveHit) parts.push(`×1.5 five`);
   if(sc.bigHit) parts.push(`×2 big words`);
@@ -5374,8 +5392,8 @@ function submitWord(){
   if(sc.total>(G.runBestScore||0)){ G.runBestScore=sc.total; G.runBestWord=w.toUpperCase(); }
   G.handsLeft--;
   // high-score cash bonus, paid straight into the bank. Score-keyed and tiered
-  // by round so early words can actually earn (see wordCashDivisor).
-  let cash=Math.floor(sc.total/wordCashDivisor(G.level));
+  // v0.5c: keyed to this round's target (see wordCashFor).
+  let cash=wordCashFor(sc.total, G.target);
   if(G.perks.footnote && res.length>=2 && res.length<=3) cash+=1;                          // Footnote
   cash+=res.reduce((n,r)=>n+((r.card&&r.card.inkwell)?(G.perks.indiaInk?3:1):0),0);       // Ink Well tiles (India Ink pays triple)
   if(G.perks.abcs){                                                                         // ABCs: first sighting of each letter
@@ -5433,7 +5451,7 @@ function submitWord(){
       const gilded=[];
       G.canvas.forEach(c=>{
         c.setStreak = prevForme.has(String(c.id)) ? ((c.setStreak||0)+1) : 1;
-        if(c.setStreak>=3){ c.setStreak=0; c.upLevel=(c.upLevel||0)+1; gilded.push(c.kind==="letter"?c.letter:"a slug"); }
+        if(c.setStreak>=3){ c.setStreak=0; if(canGild(c)){ c.upLevel=(c.upLevel||0)+1; gilded.push(c.kind==="letter"?c.letter:"a slug"); } }   // v0.5c: Hot Metal respects the gild cap (it had no cap at all)
       });
       if(gilded.length) toast("Hot Metal: "+gilded.join(", ")+" gilded on the press");
     }
@@ -5653,7 +5671,7 @@ function clearSmudges(){
    the run seed and the round, so a shared daily seed gilds the same tile for
    everyone holding the ticket. */
 function goldenTicketGild(){
-  const room=c=>(c.upLevel||0)<GILD_CAP;
+  const room=c=>canGild(c);
   let pool=G.deck.filter(c=>c.kind==="letter" && room(c));
   if(!pool.length) pool=G.deck.filter(c=>(c.kind==="fused"||c.kind==="trio") && room(c));
   if(!pool.length){ toast("Golden Ticket: every tile is already fully gilded"); return; }
@@ -6367,7 +6385,7 @@ function gildTargets(){
   const byLabel={};
   G.deck.forEach(c=>{
     if(c.kind!=="letter" && c.kind!=="fused" && c.kind!=="trio") return;   // v492e: trios gild too
-    if((c.upLevel||0)>=GILD_CAP) return;
+    if(!canGild(c)) return;
     const label = c.kind==="fused" ? fusedLabel(c) : (c.kind==="trio" ? trioLabel(c) : c.letter);
     const use = c.kind==="fused"
       ? Math.max(...c.sides.map(sd=>(G.letterPlays||{})[sd.letter]||0))
@@ -6410,7 +6428,7 @@ function spotlightGildOffer(rng, shelf){
 function gildOfferFor(t){
   const c=t.card, u=c.upLevel||0;
   const now = c.kind==="fused" ? fusedValue(c) : cardValue(c);
-  const note = u>0 ? " Already gilded ×"+u+", "+(GILD_CAP-u)+" left." : "";
+  const note = u>0 ? " Already gilded ×"+u+", "+(gildCapFor(c)-u)+" left." : (gildCapFor(c)<GILD_CAP ? " High-value letters take 2 gilds at most." : "");
   const worked = t.use>0 ? " Your "+t.label+" has set "+t.use+(t.use===1?" letter":" letters")+" this run." : "";
   return {kind:"Upgrade",rarity:"rare",name:"Gild "+t.label,
     desc:now+" to "+(now*2)+" points."+worked+note,
@@ -6449,7 +6467,7 @@ function applyOffer(o){
     case "gildLetter":   {
       // Re-resolve at purchase time: an earlier buy this shelf may have gilded
       // the very tile this offer was priced against.
-      let c=G.deck.find(x=>x.id===d.cardId && (x.upLevel||0)<GILD_CAP);
+      let c=G.deck.find(x=>x.id===d.cardId && canGild(x));
       if(!c){ const t=gildTargets().find(t=>t.label===d.label); c=t&&t.card; }
       if(!c){ toast(d.label+" cannot take another gild"); break; }
       c.upLevel=(c.upLevel||0)+1;
@@ -6589,7 +6607,7 @@ function twoOfAKindOffer(){
     price:px(9), art:"🃏", d:{type:"twoOfAKind"}};
 }
 function shortKingOffer(){
-  return {kind:"Perk",rarity:"rare",name:"Short King",desc:"Short words score big: 2 letters ×4, 3 letters ×3, 4 letters ×2.5, 5 letters ×2.",
+  return {kind:"Perk",rarity:"rare",name:"Short King",desc:"Short words score big: 2 letters ×3, 3 letters ×2.5, 4 letters ×1.75.",
     price:px(8), art:"👑", d:{type:"shortKing"}};
 }
 /* ============ Legendary shelf (v492a) ============ */
@@ -7107,7 +7125,7 @@ function deckTileEl(c){
   ["boldface","dropcap","serif","ditto","inkwell"].forEach(k=>{
     if(G.selectMode===k && upgradable && !tileHas(c,k)){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,k)); }
   });
-  if(G.selectMode==="freegild" && upgradable && (c.upLevel||0)<GILD_CAP){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doFreeGild(c.id)); }
+  if(G.selectMode==="freegild" && upgradable && canGild(c)){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doFreeGild(c.id)); }
   if(G.selectMode==="department" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doDepartmentPick(c.id)); }
   if(G.selectMode==="fuse" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); if(G.fusePending===c.id) wrap.classList.add("fuse-pending"); wrap.addEventListener("click",()=>tapFuse(c.id)); }
   if(G.selectMode==="triofuse"){
@@ -7349,7 +7367,7 @@ function syncGemini(c){
 function applyGoldStandard(card){
   const L=G.perks.goldStandard;
   if(!L || !card || card.kind!=="letter" || card.letter!==L) return;
-  card.upLevel=Math.min(GILD_CAP,(card.upLevel||0)+1);
+  card.upLevel=Math.max(card.upLevel||0, Math.min(gildCapFor(card),(card.upLevel||0)+1));   // never strips a legacy gild
   if((card.mult||1)<1.25) card.mult=1.25;
 }
 function doTileUpgrade(id,kind){
@@ -7511,7 +7529,7 @@ function doRemove(id){
   closeDeck(); save();
 }
 function doFreeGild(id){
-  const c=G.deck.find(x=>x.id===id); if(!c || (c.upLevel||0)>=GILD_CAP) return;
+  const c=G.deck.find(x=>x.id===id); if(!c || !canGild(c)) return;
   c.upLevel=(c.upLevel||0)+1;
   if(c.kind==="fused"){ c.sides.forEach(sd=>sd.upLevel=(sd.upLevel||0)+1); }
   syncGemini(c);
@@ -7533,7 +7551,20 @@ function doDepartmentPick(id){
   toast("Department of Letters: "+c.letter);
   closeDeck(); save();
 }
-const GILD_CAP = 3;   // a letter can be gilded at most 3 times
+/* v0.5c: letters worth 5 or more (K, J, X, Q, Z, and anything boosted up there)
+   stop at 2 gilds, so an X tops out at 32 instead of 64. Doubling a 10-point
+   letter three times put 80-point Zs in the first v0.5 runs, and every word
+   multiplier then stacked on top. A fused pair or trio caps at 2 if any of its
+   letters is high-value. Tiles already past the cap keep what they have. */
+function gildCapFor(c){
+  if(!c) return GILD_CAP;
+  const hv=v=>(+v||0)>=GILD_HIGH_VALUE;
+  if(c.kind==="letter") return hv(c.base) ? GILD_CAP_HIGH : GILD_CAP;
+  if(c.kind==="fused" && Array.isArray(c.sides)) return c.sides.some(sd=>hv(sd.base)) ? GILD_CAP_HIGH : GILD_CAP;
+  if(c.kind==="trio" && Array.isArray(c.letters)) return c.letters.some(L=>hv(LETTER_VALUES[L])) ? GILD_CAP_HIGH : GILD_CAP;
+  return GILD_CAP;
+}
+function canGild(c){ return (c.upLevel||0) < gildCapFor(c); }
 function gildCostFor(c){
   const u=c.upLevel||0;
   // A fused tile gilds both sides at once (v45a); its base value is the pair's.
@@ -8332,7 +8363,7 @@ function ownedPerksList(){
   if(G.perks.bigWords)   out.push("Big Words · 6+ letter words ×2");
   if(G.perks.twinsies)   out.push("Twinsies · ×2 side-by-side doubles");
   if(G.perks.twoOfAKind) out.push("Two of a Kind · ×1.5 on a repeated letter");
-  if(G.perks.shortKing)  out.push("Short King · ×4/×3/×2.5/×2 for 2 to 5 letters");
+  if(G.perks.shortKing)  out.push("Short King · ×3/×2.5/×1.75 for 2 to 4 letters");
   if(G.perks.kerning)    out.push("Kerning · +25% no repeated letter");
   if(G.perks.fiveTimer)  out.push("Five Timer · ×1.5 five-letter words");
   if(G.perks.marginalia) out.push("Marginalia · 1 coin per 15 over target, max 15");
@@ -8421,7 +8452,7 @@ function ownedPerkCards(){
   if(P.bigWords)   push("📏","Big Words","Words of 6 or more letters score ×2.");
   if(P.twinsies)   push("👯","Twinsies","×2 when two of the same letter sit side by side.");
   if(P.twoOfAKind) push("🃏","Two of a Kind","×1.5 on any word with a repeated letter.");
-  if(P.shortKing)  push("👑","Short King","Short words score big: ×4, ×3, ×2.5, ×2 for 2, 3, 4, 5 letters.");
+  if(P.shortKing)  push("👑","Short King","Short words score big: ×3, ×2.5, ×1.75 for 2, 3, 4 letters.");
   if(P.kerning)    push("📐","Kerning","+25% on words with no repeated letter.");
   if(P.fiveTimer)  push("5️⃣","Five Timer","×1.5 on exactly five-letter words.");
   if(P.marginalia) push("🪙","Marginalia","1 coin for every 15 points past the target, up to 15 coins.");
