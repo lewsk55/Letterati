@@ -1664,7 +1664,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "0.5c";
+const VERSION = "0.5d";
 const WIN_LEVEL = 6;    // v0.5a: clear this round to WIN (rank "Letterati"); afterwards, optional endless mode. Was 10.
 /* v0.5a: the run is six rounds, not ten, so a daily fits in one sitting.
    eqLevel() maps a live round onto the old ten-round curve, so targets, shop
@@ -1945,7 +1945,7 @@ function standingForme(){ return charHas("standingForme"); }
 /* The round's word and discard budgets, in one place. startLevel sets from these
    and the HUD draws from these, so the dots can never disagree with the counter. */
 function wordsForLevel(){
-  return Math.max(1, HANDS_PER_LEVEL+(G.extraTurns||0)+(charDef().handsDelta||0)-(ascHas(7)?1:0));
+  return Math.max(1, HANDS_PER_LEVEL+(G.extraTurns||0)+(charDef().handsDelta||0)-(ascHas(6)?1:0));
 }
 function discardsForLevel(){
   return Math.max(0, DISCARDS_PER_LEVEL+(G.extraDiscards||0)+(charDef().discardsDelta||0)-(ascHas(3)?1:0));
@@ -2051,7 +2051,7 @@ function mysteryPerRound(){ return !!(G.perks && G.perks.smokingGun); }
    Ascension is a free-play ladder: the daily always runs at A0.
    ============================================================ */
 const ASC_TARGET_STEP = 0.05;   // v4910a: ten rungs at 5% lands A10 at +50%, the old A5 ceiling
-const MAX_ASC = 10;
+const MAX_ASC = 9;   // v0.5d: Foul Case (old A4) removed, every rung above it moved down one
 const ASCENSIONS = [
   { n:1,  name:"Challenger",     badge:"challenges 2 to 5",
     desc:"A challenge is offered on every round from 2 to 5, and the round 5 challenge cannot be skipped." },
@@ -2059,19 +2059,17 @@ const ASCENSIONS = [
     desc:"Shop prices rise 20 percent." },
   { n:3,  name:"Short Staffed",  badge:"1 fewer discard",
     desc:"One fewer discard every round." },
-  { n:4,  name:"Foul Case",      badge:"a letter banned",
-    desc:"One letter from your deck is banned each level, revealed at the start." },
-  { n:5,  name:"Overtime Rates", badge:"start 1 heart down",
+  { n:4,  name:"Overtime Rates", badge:"start 1 heart down",
     desc:"You start one heart down. Your cap is unchanged, so Mend can still restore it." },
-  { n:6,  name:"Hard Bargain",   badge:"re-rolls from $3",
+  { n:5,  name:"Hard Bargain",   badge:"re-rolls from $3",
     desc:"The re-roll ladder starts at 3 coins instead of 1." },
-  { n:7,  name:"Rush Order",     badge:"1 fewer word",
+  { n:6,  name:"Rush Order",     badge:"1 fewer word",
     desc:"One fewer word every round." },
-  { n:8,  name:"Kill Fee",       badge:"payouts -25%",
+  { n:7,  name:"Kill Fee",       badge:"payouts -25%",
     desc:"Round-clear payouts drop 25 percent." },
-  { n:9,  name:"Burnt Out",      badge:"heart cap -1",
+  { n:8,  name:"Burnt Out",      badge:"heart cap -1",
     desc:"Your heart cap drops by one as well, so the loss cannot be healed back." },
-  { n:10, name:"Double Proof",   badge:"two bosses",
+  { n:9,  name:"Double Proof",   badge:"two bosses",
     desc:"The final round runs twice against two different bosses, with no shop between." }
 ];
 function ascLevel(){ return Math.max(0, Math.min(MAX_ASC, +G.ascension||0)); }
@@ -2083,8 +2081,8 @@ function runTargetMult(){ return (charDef().targetMult||1) * ascTargetMult(); }
    A5 takes a STARTING heart and leaves the cap alone, so Mend heals it back.
    A9 lowers the cap too, which is what makes the loss permanent. */
 function charHearts(){ const h=charDef().hearts; return (typeof h==="number" && h>0) ? h : MAX_HEARTS; }
-function heartMax(){ return Math.max(1, charHearts() - (ascHas(9)?1:0)); }
-function startHearts(){ return Math.max(1, heartMax() - (ascHas(5)?1:0)); }
+function heartMax(){ return Math.max(1, charHearts() - (ascHas(8)?1:0)); }
+function startHearts(){ return Math.max(1, heartMax() - (ascHas(4)?1:0)); }
 
 /* ---- per-character ascension progress ---------------------------------- */
 /* v4910a: the ladder went from five rungs to ten, so a stored "best cleared: 3"
@@ -2102,6 +2100,19 @@ function migrateProgress(){
     const out={};
     for(const k in old){ if(typeof old[k]==="number") out[k]=Math.min(MAX_ASC, old[k]*2); }
     localStorage.setItem(PROGRESS_KEY, JSON.stringify(out));
+  }catch(e){}
+}
+/* v0.5d: Foul Case (old A4) left the ladder and every rung above it moved down one,
+   so a stored clear of old A5 to A10 becomes A4 to A9: the player keeps the same
+   curses they actually beat. A cleared old A4 maps to A3. Runs once, flagged. */
+const ASC_LADDER_KEY="letterati_asc_ladder";
+function migrateAscLadder(){
+  try{
+    if(localStorage.getItem(ASC_LADDER_KEY)==="2") return;
+    const p=JSON.parse(localStorage.getItem(PROGRESS_KEY)||"{}")||{};
+    for(const k in p){ if(typeof p[k]==="number" && p[k]>=4) p[k]=Math.min(MAX_ASC, p[k]-1); }
+    localStorage.setItem(PROGRESS_KEY, JSON.stringify(p));
+    localStorage.setItem(ASC_LADDER_KEY,"2");
   }catch(e){}
 }
 function loadProgress(){ try{ return JSON.parse(localStorage.getItem(PROGRESS_KEY))||{}; }catch(e){ return {}; } }
@@ -2254,7 +2265,7 @@ function lenMult(n){ return n<=3?1 : n===4?1.5 : (n-3); }   // 5→2,6→3,7→4
 // casual win rate at its pre-bump level (skilled ~96%, casual ~14%), the small remainder
 // is a deliberate floor-raise that helps weaker seeds. Set to 1 to disable.
 const TARGET_SCALE = 1.04;
-const GOAL_SCALE = 1.656;  // v3d +15%, v41a +20%, v48g +20% more (1.15*1.20*1.20) point goal across every level
+const GOAL_SCALE = 1.656*1.25;  // v3d +15%, v41a +20%, v48g +20% more (1.15*1.20*1.20) point goal across every level; v0.5d +25% more (Adam: "a touch too easy")
 const ENDLESS_WALL_BASE = 1.5;   // v492d: post-win escalation starts here...
 const ENDLESS_WALL_STEP = 0.25;  // ...and each endless round multiplies by 0.25 more than the last
 /* v0.5a tuning knob. Five shops build a smaller engine than nine: on its own the
@@ -2345,13 +2356,13 @@ function bannedLetterSet(){
   const add=arr=>{ if(arr && arr.length){ out=out||new Set(); arr.forEach(L=>out.add(L)); } };
   if(challengeActive() && G.challenge.type==="locked") add(G.challenge.banned||[]);
   if(bossActive() && G.boss.type==="editor") add(G.boss.ban||[]);
-  if(ascHas(4) && G.foulLetter) add([G.foulLetter]);
+  // v0.5d: Foul Case retired, no ascension bans a letter any more
   return out;
 }
 /* Foul Case draws from the letters actually in your deck, on its own seeded
    stream so it never disturbs the shop or draw order. */
 function rollFoulLetter(){
-  if(!ascHas(4)){ G.foulLetter=null; return; }
+  G.foulLetter=null; return;   // v0.5d: Foul Case retired (it was A4)
   const pool=[...new Set((G.deck||[]).filter(c=>c.kind==="letter"&&c.letter).map(c=>c.letter))];
   if(!pool.length){ G.foulLetter=null; return; }
   const rng=makeRng("foul:"+G.seed+":"+G.level);
@@ -4945,7 +4956,7 @@ function renderChallengeBanner(){
     if(B.type==="critic" && B.suspended) state=`<span class="cb-dot">·</span><span class="cb-locked">silenced: ${B.suspended}</span>`;
     el.innerHTML=`<span class="cb-tag boss">FINAL PROOF</span><span class="cb-name">${def.art} ${def.name}</span>${state}<span class="cb-desc">${escHtml(def.desc)}</span>`;
     el.classList.remove("hidden");
-  } else if(ascHas(4) && G.foulLetter){
+  } else if(false){   // v0.5d: Foul Case retired
     el.innerHTML=`<span class="cb-tag">FOUL CASE</span><span class="cb-name">A4</span>`
       +`<span class="cb-dot">\u00b7</span><span class="cb-locked">\uD83D\uDD12 ${escHtml(G.foulLetter)}</span>`
       +`<span class="cb-desc">${escHtml(G.foulLetter)} is out of the case this level.</span>`;
@@ -4954,7 +4965,7 @@ function renderChallengeBanner(){
   } else { el.classList.add("hidden"); el.innerHTML=""; }
   // A challenge or boss banner is already showing, so append the foul letter to it
   // rather than replacing it: both bans are live and both have to be readable.
-  if(ascHas(4) && G.foulLetter && !el.classList.contains("hidden")){
+  if(false){   // v0.5d: Foul Case retired
     const desc=el.querySelector(".cb-desc");
     const chip=`<span class="cb-dot">\u00b7</span><span class="cb-locked">\uD83D\uDD12 ${escHtml(G.foulLetter)}</span>`;
     if(desc) desc.insertAdjacentHTML("beforebegin", chip); else el.insertAdjacentHTML("beforeend", chip);
@@ -5033,7 +5044,7 @@ function showRunIntro(){
   G.deck.slice().sort(deckSortKey()).forEach(c=>list.appendChild(deckTileEl(c)));
   $("introCount").textContent=G.deck.length+" cards";
   $("introSummary").innerHTML=deckSummaryHtml();
-  $("introBoss").innerHTML=bossCardHtml("intro-boss","Round "+WIN_LEVEL+" · "+(ascHas(10)?"the first of two proofs":"the final proof"));
+  $("introBoss").innerHTML=bossCardHtml("intro-boss","Round "+WIN_LEVEL+" · "+(ascHas(9)?"the first of two proofs":"the final proof"));
   $("runIntroScreen").classList.remove("hidden");
   haptic(12);
 }
@@ -5194,7 +5205,7 @@ function startLevel(){
   // so it named the previous round's letter (or nothing on round 1) while the hand
   // struck the new one. Redraw it now that the letter is known, and say it out loud.
   renderChallengeBanner();
-  if(ascHas(4) && G.foulLetter) toast("Foul Case: "+G.foulLetter+" is out of the case this round.");
+
   G.formeWord=null; G.formeIds=[];        // the forme is broken up between rounds
   G.editsLeft=editsPerWord();
   G.discardBin=[]; G.discardArmed=false; renderDiscardBin();    // nothing carries over in the bin
@@ -5726,7 +5737,7 @@ function levelCleared(){
   G.level++;
   /* A5 Double Proof: the first proof does not end the run. Stay on round 10, roll
      a different boss, and go straight back to the press with no shop between. */
-  if(justCleared===WIN_LEVEL && !G.infinite && !G.wonRun && ascHas(10) && !(G.proofStage||0)){
+  if(justCleared===WIN_LEVEL && !G.infinite && !G.wonRun && ascHas(9) && !(G.proofStage||0)){
     G.proofStage=1;
     G.level=WIN_LEVEL;
     G.boss=null;                      // startLevel rolls the second proof
@@ -5769,7 +5780,7 @@ function computeReward(){
   const CLEAR_BONUS=Math.round(2*S);                                       // v47d: flat stipend on every cleared round (v0.5a: scaled)
   let total=Math.round(preBonus*(1+discardBonus))+interest+CLEAR_BONUS;
   const discardAmt=total-interest-CLEAR_BONUS-preBonus;                    // the actual coins the discard bonus added
-  if(ascHas(8)) total=Math.max(1, Math.round(total*0.75));   // A8 Kill Fee
+  if(ascHas(7)) total=Math.max(1, Math.round(total*0.75));   // A7 Kill Fee (v0.5d: was A8)
   let doubled=challengeDoublePay();
   if(doubled) total=Math.round(total*1.5);   // v48g: payout challenge reward is +50% on the round purse
   return {base,core,turnsBonus,wordsLeft:G.handsLeft,preBonus,discardCount,discardBonus,discardAmt,clearBonus:CLEAR_BONUS,interest,marginalia,total,doubled};
@@ -6951,7 +6962,7 @@ function renderShop(){
     grid.appendChild(card);
   });
 }
-function rerollCost(){ if(G.perks.freeRerolls && !G.freeRerollUsed) return 0; return G.rerollCount + (ascHas(6)?3:1); }   // A6 Hard Bargain starts the ladder at 3   // first reroll each shop is free with the perk; otherwise 1,2,3… (count persists all run)
+function rerollCost(){ if(G.perks.freeRerolls && !G.freeRerollUsed) return 0; return G.rerollCount + (ascHas(5)?3:1); }   // A5 Hard Bargain (v0.5d: was A6) starts the ladder at 3   // first reroll each shop is free with the perk; otherwise 1,2,3… (count persists all run)
 function buyOffer(i){
   const o=G.shopOffers[i];
   if(o.sold) return;
@@ -7698,7 +7709,7 @@ function statFinish(result, exitHow){
   G.stats.perks={ firstUp:G.perks.firstUp, lastUp:G.perks.lastUp, vowelPower:G.perks.vowelPower,
     bigWords:G.perks.bigWords, fireSale:G.perks.fireSale, interest:G.perks.interest, fightingWords:!!G.perks.fightingWords, superStore:!!G.perks.superStore, wordBinder:(G.perks.wordBinder?{word:G.perks.wordBinder.word,banked:G.perks.wordBinder.banked}:false), gemini:!!G.perks.gemini, gildedAge:(+G.perks.gildedAge||0), goldStandard:G.perks.goldStandard||false, goldenTicket:!!G.perks.goldenTicket, deadlineExt:!!G.perks.deadlineExt, galleyProof:!!G.perks.galleyProof, midnightPress:!!G.perks.midnightPress, secondEdition:!!G.perks.secondEdition,
     scoreMult:G.scoreMult, handSize:G.handSize, extraTurns:G.extraTurns };
-  if(G.stats){ G.stats.character=G.character||"writer"; G.stats.ascension=+G.ascension||0; }
+  if(G.stats){ G.stats.character=G.character||"writer"; G.stats.ascension=+G.ascension||0; G.stats.ascLadder=2; }   // v0.5d: ladder 2 = Foul Case removed, rungs renumbered
   try{ localStorage.setItem("letterati_laststats", JSON.stringify(G.stats)); }catch(e){}
   try{ const arr=JSON.parse(localStorage.getItem("letterati_runs")||"[]"); arr.push(G.stats);
        while(arr.length>500) arr.shift(); localStorage.setItem("letterati_runs", JSON.stringify(arr)); }catch(e){}
@@ -8641,7 +8652,7 @@ function save(){
     const ids=a=>a.map(c=>c.id);
     const data={
       v:SAVE_VERSION, phase, seed:G.seed, level:G.level, hearts:G.hearts, coins:G.coins, handSize:G.handSize,
-      character:G.character||"writer", ascension:+G.ascension||0, proofStage:+G.proofStage||0,
+      character:G.character||"writer", ascension:+G.ascension||0, ascLadder:2, proofStage:+G.proofStage||0,
       mode:G.mode||"free", dailyDate:G.dailyDate||null, dev:!!G.dev, pendingFreeGild:+G.pendingFreeGild||0,
       sideJob:G.sideJob||null, lastSideJobKey:G.lastSideJobKey||null, roundStartMs:G._roundStartMs||0,
       infinite:G.infinite, wonRun:G.wonRun,
@@ -8661,7 +8672,7 @@ function continueRun(){
   clearUndo();
   cardSeq=d.cardSeq||0;
   G.character = CHARACTERS[d.character] ? d.character : "writer";
-  G.ascension = Math.max(0, Math.min(MAX_ASC, +d.ascension||0));
+  G.ascension = Math.max(0, Math.min(MAX_ASC, (+d.ascension||0) - ((d.ascLadder!==2 && (+d.ascension||0)>=4)?1:0)));   // v0.5d: old-ladder save
   G.proofStage = +d.proofStage||0;
   // v0.5a: saves from before the daily build carry no mode; they resume as free play
   G.mode = d.mode==="daily" ? "daily" : "free"; G.dailyDate=d.dailyDate||null; G.dev=!!d.dev;
@@ -8943,6 +8954,7 @@ $("continueBtn").addEventListener("click",continueRun);
 // v498d: rehydrate the definition cache before anything asks for a clue, so a
 // returning player's first mystery word is instant instead of a fresh round trip.
 migrateProgress();   // must run before any progress is read
+migrateAscLadder();  // v0.5d
 loadDefStore();
 try{ window.addEventListener("pagehide", flushDefStore);
      document.addEventListener("visibilitychange", ()=>{ if(document.hidden) flushDefStore(); }); }catch(e){}
