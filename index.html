@@ -744,6 +744,9 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 .bonus-deck-head{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;font-weight:900;color:var(--ink-soft);margin:2px 0 0}
 .bonus-deck-head small{font-weight:700;letter-spacing:.04em;text-transform:none;margin-left:4px}
 .bonus-deck{max-height:30vh;overflow-y:auto;margin:8px 0 16px}
+/* v0.5e: tiles at the 3-upgrade limit */
+.deck-tile{position:relative}
+.deck-tile .dt-max{position:absolute;left:50%;bottom:-7px;transform:translateX(-50%);font-family:var(--ui);font-size:.5rem;font-weight:900;letter-spacing:.1em;color:#fff;background:var(--ink-soft);border-radius:999px;padding:1px 5px;pointer-events:none}
 .deck-perks{margin:14px 2px 2px;display:block}
 .deck-perks .dp-title,.deck-words .dw-title{font-size:.6rem;letter-spacing:.16em;text-transform:uppercase;color:var(--ink-soft);font-weight:800;margin:0 0 6px}
 .deck-perks .dp-none{font-size:.78rem;font-style:italic;color:var(--ink-soft)}
@@ -934,6 +937,10 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 .floater{position:fixed;z-index:250;pointer-events:none;font-family:var(--serif);font-weight:700;animation:floatUp 1s ease-out forwards}
 @keyframes floatUp{0%{opacity:0;transform:translate(-50%,0) scale(.8)}20%{opacity:1}100%{opacity:0;transform:translate(-50%,-46px) scale(1.1)}}
 .floater.slow{animation:floatUpSlow 2.1s ease-out forwards}
+.floater.fx{animation:none;transform:translate(-50%,-50%);white-space:nowrap;line-height:1;
+  text-shadow:0 2px 0 var(--paper),0 0 6px var(--paper),0 1px 2px rgba(0,0,0,.35)}
+.floater.fx.flat{opacity:1}
+.floater.fx.letter{z-index:27;font-size:1.05rem}
 @keyframes floatUpSlow{0%{opacity:0;transform:translate(-50%,0) scale(.8)}10%{opacity:1}70%{opacity:1;transform:translate(-50%,-34px) scale(1.12)}100%{opacity:0;transform:translate(-50%,-60px) scale(1.12)}}
 .coin-fly{position:fixed;z-index:250;pointer-events:none;font-size:18px;animation:coinFly .7s ease-out forwards}
 @keyframes coinFly{0%{opacity:1;transform:translate(-50%,-50%) scale(.6)}100%{opacity:0;transform:translate(calc(-50% + var(--cx)),calc(-50% + var(--cy))) scale(1.1)}}
@@ -1664,7 +1671,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "0.5d";
+const VERSION = "0.5e";
 const WIN_LEVEL = 6;    // v0.5a: clear this round to WIN (rank "Letterati"); afterwards, optional endless mode. Was 10.
 /* v0.5a: the run is six rounds, not ten, so a daily fits in one sitting.
    eqLevel() maps a live round onto the old ten-round curve, so targets, shop
@@ -2051,7 +2058,7 @@ function mysteryPerRound(){ return !!(G.perks && G.perks.smokingGun); }
    Ascension is a free-play ladder: the daily always runs at A0.
    ============================================================ */
 const ASC_TARGET_STEP = 0.05;   // v4910a: ten rungs at 5% lands A10 at +50%, the old A5 ceiling
-const MAX_ASC = 9;   // v0.5d: Foul Case (old A4) removed, every rung above it moved down one
+const MAX_ASC = 10;  // v0.5e: A10 is back as a targets-only rung (v0.5d removed Foul Case and shifted the rest down)
 const ASCENSIONS = [
   { n:1,  name:"Challenger",     badge:"challenges 2 to 5",
     desc:"A challenge is offered on every round from 2 to 5, and the round 5 challenge cannot be skipped." },
@@ -2070,7 +2077,9 @@ const ASCENSIONS = [
   { n:8,  name:"Burnt Out",      badge:"heart cap -1",
     desc:"Your heart cap drops by one as well, so the loss cannot be healed back." },
   { n:9,  name:"Double Proof",   badge:"two bosses",
-    desc:"The final round runs twice against two different bosses, with no shop between." }
+    desc:"The final round runs twice against two different bosses, with no shop between." },
+  { n:10, name:"Final Edition",  badge:"targets only",
+    desc:"No new rule. Targets climb another 5 percent on top of everything below." }   // v0.5e: placeholder rung, curse to come
 ];
 function ascLevel(){ return Math.max(0, Math.min(MAX_ASC, +G.ascension||0)); }
 function ascHas(n){ return ascLevel()>=n; }
@@ -2265,7 +2274,7 @@ function lenMult(n){ return n<=3?1 : n===4?1.5 : (n-3); }   // 5→2,6→3,7→4
 // casual win rate at its pre-bump level (skilled ~96%, casual ~14%), the small remainder
 // is a deliberate floor-raise that helps weaker seeds. Set to 1 to disable.
 const TARGET_SCALE = 1.04;
-const GOAL_SCALE = 1.656*1.25;  // v3d +15%, v41a +20%, v48g +20% more (1.15*1.20*1.20) point goal across every level; v0.5d +25% more (Adam: "a touch too easy")
+const GOAL_SCALE = 1.656*1.10;  // v3d +15%, v41a +20%, v48g +20% more (1.15*1.20*1.20) point goal across every level; v0.5e +10% more (v0.5d tried +25%, too steep)
 const ENDLESS_WALL_BASE = 1.5;   // v492d: post-win escalation starts here...
 const ENDLESS_WALL_STEP = 0.25;  // ...and each endless round multiplies by 0.25 more than the last
 /* v0.5a tuning knob. Five shops build a smaller engine than nine: on its own the
@@ -3088,12 +3097,52 @@ function spawnCellJuice(cell,opts){
   }
   cell.appendChild(j); setTimeout(()=>j.remove(),720);
 }
-function floatText(x,y,text,color,opts){
-  opts=opts||{};
-  const f=document.createElement("div"); f.className="floater"+(opts.slow?" slow":""); f.textContent=text;
-  f.style.left=x+"px"; f.style.top=y+"px"; f.style.color=color||"var(--brass-deep)"; f.style.fontSize=opts.size||"1.4rem";
-  document.body.appendChild(f); setTimeout(()=>f.remove(), opts.slow?2200:1000);
+/* ---------- v0.5e: juicy score popups ----------
+   Six layers on one short-lived label: spawn at the source, rise, tilt, pop in,
+   fade over the tail, colored by what earned it. Tune by eye here.
+   Add ?fx=0 to the URL to switch the layers off and compare against flat text. */
+const SCORE_FX = {
+  durationMs: 760, risePx: 44, driftPx: 12, rotDeg: [5, 11],
+  scaleFrom: 0.4, scalePeak: 1.18, popAt: 0.12, fadeFrom: 0.62,
+  slowMs: 1900,                       // cash and press popups linger so they can be read
+  enabled: !/[?&]fx=0\b/.test(location.search),
+};
+function spawnScoreFx(x, y, text, color, opts){
+  opts = opts || {};
+  const el = document.createElement("div");
+  el.className = "floater fx" + (opts.cls ? " "+opts.cls : "");
+  el.textContent = text;
+  el.style.left = x+"px"; el.style.top = y+"px";
+  el.style.color = color || "var(--brass-deep)";
+  el.style.fontSize = opts.size || "1.4rem";
+  document.body.appendChild(el);
+  const dur = opts.slow ? SCORE_FX.slowMs : (opts.durationMs || SCORE_FX.durationMs);
+  const kill = () => el.remove();
+  if(!SCORE_FX.enabled || typeof el.animate !== "function"){
+    el.classList.add("flat"); setTimeout(kill, dur); return el;
+  }
+  const reduce = reducedMotion();
+  const sign = Math.random() < 0.5 ? -1 : 1;
+  const [rMin, rMax] = SCORE_FX.rotDeg;
+  const rot = reduce ? 0 : sign * (rMin + Math.random()*(rMax-rMin));
+  const dx  = reduce ? 0 : (Math.random()*2-1) * SCORE_FX.driftPx;
+  const dy  = reduce ? 0 : -(opts.risePx || SCORE_FX.risePx);
+  const s0  = reduce ? 1 : SCORE_FX.scaleFrom, s1 = reduce ? 1 : SCORE_FX.scalePeak;
+  const f = k => `translate(-50%,-50%) translate(${(dx*k).toFixed(1)}px, ${(dy*k).toFixed(1)}px) rotate(${(rot*Math.min(1,k*3)).toFixed(2)}deg)`;
+  const fade = opts.slow ? 0.78 : SCORE_FX.fadeFrom;
+  el.animate([
+    { offset: 0,                transform: `${f(0)} scale(${s0})`,   opacity: 1 },
+    { offset: SCORE_FX.popAt,   transform: `${f(0.25)} scale(${s1})`, opacity: 1 },
+    { offset: SCORE_FX.popAt*2, transform: `${f(0.4)} scale(1)`,     opacity: 1 },
+    { offset: fade,             transform: `${f(0.8)} scale(1)`,     opacity: 1 },
+    { offset: 1,                transform: `${f(1)} scale(1)`,       opacity: 0 },
+  ], { duration: dur, easing: "cubic-bezier(.2,.8,.3,1)", fill: "forwards" })
+    .finished.then(kill, kill);
+  setTimeout(kill, dur + 400);        // belt and braces if the animation is cancelled
+  return el;
 }
+// same signature every caller already uses; now routed through the layered popup
+function floatText(x,y,text,color,opts){ return spawnScoreFx(x,y,text,color,opts); }
 /* ---------- discard → draw reshuffle flourish ---------- */
 function playReshuffleAnim(){
   toast("Reshuffling the discard pile");
@@ -3222,6 +3271,8 @@ function reducedMotion(){
   try{ return !!(window.matchMedia && window.matchMedia("(prefers-reduced-motion: reduce)").matches); }
   catch(e){ return false; }
 }
+// popup color carries the size of the hit: plain, strong, huge
+function letterFxColor(v){ return v>=20 ? "var(--oxblood)" : v>=8 ? "#B98A2E" : "var(--ink)"; }
 function tallyStepMs(n){ return n>=8 ? 62 : n>=6 ? 74 : 88; }
 function tallyWord(tiles, sc, power, done){
   const el=$("wordTally");
@@ -3245,6 +3296,9 @@ function tallyWord(tiles, sc, power, done){
         t.classList.remove("tally"); void t.offsetWidth;
         t.classList.add("tally"); t.classList.add("glow");
         spawnCellJuice(t,{n:3+Math.round(power*5),color:"var(--brass)"});
+        const tr=t.getBoundingClientRect(), v=Math.round(vals[i]);
+        if(v>0) spawnScoreFx(tr.left+tr.width/2, tr.top-2, "+"+v, letterFxColor(v),
+          {cls:"letter", risePx:30, durationMs:640, size:(0.95+Math.min(0.6, v/40)).toFixed(2)+"rem"});
       }
       // a faint rise in pitch across the word, about a fifth from first to last
       const k = n>1 ? i/(n-1) : 1;
@@ -4783,16 +4837,24 @@ function doDealerSwap(id){
   haptic([12,28,12]);
   save();
 }
+/* v0.5e fix: tiles sitting on the canvas count toward the hand. Before, a player
+   could park letters on the canvas, discard, and draw a full hand on top of them.
+   The Editor's standing forme is exempt: those letters stay on the press by design. */
+function heldTileCount(){
+  return G.hand.length + (G.canvas||[]).filter(c=>!formeLocked(c)).length;
+}
 function drawIntoHand(){
   let dealt=0, didReshuffle=false;
-  while(G.hand.length<G.handSize){
+  while(heldTileCount()<G.handSize){
     if(G.drawPile.length===0){ if(!reshuffleDiscardIntoDraw()) break; didReshuffle=true; }
     G.hand.push(G.drawPile.shift()); dealt++;
   }
   // mercy rule: never strand the player with a vowel-less hand
-  if(!handVowelSource()){
+  // v0.5e: vowels already parked on the canvas count, or the canvas trick returns through this door
+  const canvasVowel=()=>(G.canvas||[]).some(c=>(c.kind==="letter" && VOWELS.has(c.letter)) || c.kind==="wildvowel");
+  if(!handVowelSource() && !canvasVowel()){
     let guard=0;
-    while(!handVowelSource() && guard++<40){
+    while(!handVowelSource() && !canvasVowel() && guard++<40){
       if(G.drawPile.length===0){ if(!reshuffleDiscardIntoDraw()) break; didReshuffle=true; }
       if(G.drawPile.length===0) break;
       if(guard===1) toast("No vowels. Bonus draw!");   // announce BEFORE the extra tiles land
@@ -6439,7 +6501,8 @@ function spotlightGildOffer(rng, shelf){
 function gildOfferFor(t){
   const c=t.card, u=c.upLevel||0;
   const now = c.kind==="fused" ? fusedValue(c) : cardValue(c);
-  const note = u>0 ? " Already gilded ×"+u+", "+(gildCapFor(c)-u)+" left." : (gildCapFor(c)<GILD_CAP ? " High-value letters take 2 gilds at most." : "");
+  const slots = Math.min(gildCapFor(c)-u, MAX_TILE_UPGRADES-upgradeCount(c));
+  const note = (u>0 ? " Already gilded ×"+u+"." : "")+" "+slots+" upgrade"+(slots===1?"":"s")+" left on this tile.";
   const worked = t.use>0 ? " Your "+t.label+" has set "+t.use+(t.use===1?" letter":" letters")+" this run." : "";
   return {kind:"Upgrade",rarity:"rare",name:"Gild "+t.label,
     desc:now+" to "+(now*2)+" points."+worked+note,
@@ -6993,6 +7056,9 @@ function buyOffer(i){
     return;
   }
   if(G.coins<o.price) return;
+  if(o.needsTarget && STAMP_MODES.has(o.needsTarget) && !G.deck.some(c=>stampTargetOk(c,o.needsTarget))){
+    toast("No tile can take that. Each tile holds "+MAX_TILE_UPGRADES+" upgrades at most."); haptic(20); return;   // v0.5e: never charge for a dead stamp
+  }
   pushShopUndo();
   G.coins-=o.price;
   o.sold=true;
@@ -7124,19 +7190,20 @@ function deckTileEl(c){
   const wrap=document.createElement("div");
   wrap.className="deck-tile";
   wrap.appendChild(buildStaticTile(c));
+  if(upgradeCount(c)>=MAX_TILE_UPGRADES){ const m=document.createElement("span"); m.className="dt-max"; m.textContent="MAX"; wrap.appendChild(m); wrap.classList.add("maxed"); }   // v0.5e
   const upgradable = c.kind==="letter" || c.kind==="fused" || c.kind==="trio";   // v492e: trios take every stamp
   if(G.selectMode==="remove"){ wrap.classList.add("selectable","danger"); wrap.addEventListener("click",()=>doRemove(c.id)); }
-  if(G.selectMode==="growth"    && upgradable && typeof c.growth!=="number"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"growth")); }
+  if(G.selectMode==="growth"    && stampTargetOk(c,"growth")){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"growth")); }
   if(G.selectMode==="dealer" && !G.hand.includes(c) && !G.canvas.includes(c)){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doDealerSwap(c.id)); }
   if(G.selectMode==="gemini" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doGemini(c.id)); }
   if(G.selectMode==="goldStandard" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doGoldStandard(c.id)); }
-  if(G.selectMode==="encore"    && c.kind!=="lucky7" && c.kind!=="dealer" && !tileHas(c,"encore")){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"encore")); }
-  if(G.selectMode==="foil"      && upgradable && !tileHas(c,"foil")){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"foil")); }
-  if(G.selectMode==="watermark" && upgradable && !tileHas(c,"watermark")){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"watermark")); }
+  if(G.selectMode==="encore"    && stampTargetOk(c,"encore")){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"encore")); }
+  if(G.selectMode==="foil"      && stampTargetOk(c,"foil")){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"foil")); }
+  if(G.selectMode==="watermark" && stampTargetOk(c,"watermark")){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"watermark")); }
   ["boldface","dropcap","serif","ditto","inkwell"].forEach(k=>{
-    if(G.selectMode===k && upgradable && !tileHas(c,k)){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,k)); }
+    if(G.selectMode===k && stampTargetOk(c,k)){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,k)); }
   });
-  if(G.selectMode==="freegild" && upgradable && canGild(c)){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doFreeGild(c.id)); }
+  if(G.selectMode==="freegild" && stampTargetOk(c,"freegild")){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doFreeGild(c.id)); }
   if(G.selectMode==="department" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doDepartmentPick(c.id)); }
   if(G.selectMode==="fuse" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); if(G.fusePending===c.id) wrap.classList.add("fuse-pending"); wrap.addEventListener("click",()=>tapFuse(c.id)); }
   if(G.selectMode==="triofuse"){
@@ -7378,11 +7445,12 @@ function syncGemini(c){
 function applyGoldStandard(card){
   const L=G.perks.goldStandard;
   if(!L || !card || card.kind!=="letter" || card.letter!==L) return;
-  card.upLevel=Math.max(card.upLevel||0, Math.min(gildCapFor(card),(card.upLevel||0)+1));   // never strips a legacy gild
+  if(canGild(card)) card.upLevel=(card.upLevel||0)+1;   // v0.5e: respects the gild cap and the 3-upgrade limit
   if((card.mult||1)<1.25) card.mult=1.25;
 }
 function doTileUpgrade(id,kind){
   const c=G.deck.find(x=>x.id===id); if(!c) return;
+  if(!hasUpgradeRoom(c)){ toast("That tile already carries "+MAX_TILE_UPGRADES+" upgrades"); return; }   // v0.5e
   // Encore works on ANY playable tile (letters, combos, fused, wilds...);
   // every other stamp targets letters, fused pairs and trios (v492e). On a
   // multi-letter tile the stamp applies to each letter the tile contributes.
@@ -7575,7 +7643,29 @@ function gildCapFor(c){
   if(c.kind==="trio" && Array.isArray(c.letters)) return c.letters.some(L=>hv(LETTER_VALUES[L])) ? GILD_CAP_HIGH : GILD_CAP;
   return GILD_CAP;
 }
-function canGild(c){ return (c.upLevel||0) < gildCapFor(c); }
+/* v0.5e: a tile carries at most MAX_TILE_UPGRADES upgrades in total: gilds plus
+   stamps (Foil, Bold Face, Drop Cap, Serif, Ditto, Ink Well, Encore, Watermark)
+   plus Growth Mindset. Stops a run from pouring every purchase into one letter.
+   Golden status is the tile's own trait and does not count. Tiles already over
+   the limit keep what they have; they just take nothing new. */
+const MAX_TILE_UPGRADES = 3;
+const UPGRADE_STAMPS = ["foil","boldface","dropcap","serif","ditto","inkwell","encore","watermark"];
+function upgradeCount(c){
+  if(!c) return 0;
+  return (c.upLevel||0) + UPGRADE_STAMPS.filter(k=>tileHas(c,k)).length + (typeof c.growth==="number"?1:0);
+}
+function hasUpgradeRoom(c){ return upgradeCount(c) < MAX_TILE_UPGRADES; }
+function canGild(c){ return (c.upLevel||0) < gildCapFor(c) && hasUpgradeRoom(c); }
+// Which deck tiles a stamp-style shop item could land on (mirrors deckTileEl).
+function stampTargetOk(c, mode){
+  if(!hasUpgradeRoom(c)) return false;
+  const up = c.kind==="letter" || c.kind==="fused" || c.kind==="trio";
+  if(mode==="encore") return c.kind!=="lucky7" && c.kind!=="dealer" && !tileHas(c,"encore");
+  if(mode==="growth") return up && typeof c.growth!=="number";
+  if(mode==="freegild") return up && canGild(c);
+  return up && !tileHas(c,mode);
+}
+const STAMP_MODES = new Set(["encore","growth","foil","watermark","boldface","dropcap","serif","ditto","inkwell","freegild"]);
 function gildCostFor(c){
   const u=c.upLevel||0;
   // A fused tile gilds both sides at once (v45a); its base value is the pair's.
@@ -8905,6 +8995,8 @@ function wireSeedRating(sfx){
     if(seedRating.sent) return;
     seedRating.vote=v;
     up.classList.toggle("on", v==="up"); down.classList.toggle("on", v==="down");
+    // v0.5e: the vote counts the moment it is tapped; the note is an optional extra
+    if(!seedRating.voteSent){ submitSeedRating(v, ""); seedRating.voteSent=true; up.disabled=true; down.disabled=true; thanks.textContent="Thanks, vote counted."; thanks.classList.remove("hidden"); }
     note.classList.remove("hidden"); send.classList.remove("hidden");
     note.placeholder = v==="up" ? "What made this seed good? (optional)" : "What made this seed frustrating? (optional)";
   };
@@ -8912,17 +9004,18 @@ function wireSeedRating(sfx){
   down.addEventListener("click",()=>{ choose("down"); haptic(12); });
   send.addEventListener("click",()=>{
     if(!seedRating.vote || seedRating.sent) return;
-    submitSeedRating(seedRating.vote, (note.value||"").trim());
-    seedRating.sent=true;
+    const txt=(note.value||"").trim();
+    if(txt) submitSeedRating(seedRating.vote, txt, true);   // v0.5e: the note rides its own row; the vote already went
+    seedRating.sent=true; thanks.textContent="Thanks!";
     note.classList.add("hidden"); send.classList.add("hidden"); thanks.classList.remove("hidden");
     up.disabled=true; down.disabled=true; haptic(20);
   });
 }
 // Rides the existing telemetry queue: its own row, tagged as a rating, keyed by run.
-function submitSeedRating(vote, comment){
+function submitSeedRating(vote, comment, isNote){
   try{
     const row={
-      run_id: (G.stats&&G.stats.runId ? G.stats.runId : ("rate-"+Date.now().toString(36)))+"-rating",
+      run_id: (G.stats&&G.stats.runId ? G.stats.runId : ("rate-"+Date.now().toString(36)))+(isNote?"-rating-note":"-rating"),
       install_id: getInstallId(), version: VERSION, seed: G.seed||null,
       outcome: "seed_rating", final_round: G.level|0, run_score: G.runScore|0,
       best_score: G.runBestScore|0, won_run: !!G.wonRun,
@@ -8937,7 +9030,7 @@ function submitSeedRating(vote, comment){
   flushTelemetry();
 }
 function resetSeedRating(){
-  seedRating={vote:null,sent:false};
+  seedRating={vote:null,sent:false,voteSent:false};
   ["","W"].forEach(sfx=>{
     const up=$("srUp"+sfx), down=$("srDown"+sfx), note=$("srNote"+sfx), send=$("srSend"+sfx), thanks=$("srThanks"+sfx);
     if(!up) return;
