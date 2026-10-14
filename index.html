@@ -925,6 +925,49 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 /* over screen */
 .over-result{font-family:var(--serif);font-weight:700;font-size:2.2rem;margin-bottom:6px}
 .over-result.win{color:var(--moss)}
+/* ---------- v0.5f: the win screen ---------- */
+.win-overlay{background:rgba(25,20,10,.55);overflow-x:hidden}
+.win-rays{position:fixed;left:50%;top:26%;width:220vmax;height:220vmax;margin:-110vmax 0 0 -110vmax;pointer-events:none;
+  background:repeating-conic-gradient(from 0deg, rgba(216,170,78,.22) 0deg 7deg, rgba(216,170,78,0) 7deg 18deg);
+  -webkit-mask:radial-gradient(circle, #000 0, rgba(0,0,0,.55) 22%, transparent 50%);
+          mask:radial-gradient(circle, #000 0, rgba(0,0,0,.55) 22%, transparent 50%);
+  opacity:0;transition:opacity .6s ease}
+.win-overlay.go .win-rays{opacity:1;animation:winSpin 40s linear infinite}
+@keyframes winSpin{to{transform:rotate(360deg)}}
+.win-fx{position:fixed;inset:0;pointer-events:none;z-index:3;overflow:hidden}
+.win-sheet{position:relative;z-index:2;background:
+  radial-gradient(120% 55% at 50% 0%, rgba(216,170,78,.38), rgba(216,170,78,0) 70%), var(--page)}
+.win-kicker{font-family:var(--ui);font-weight:800;font-size:.68rem;letter-spacing:.24em;text-transform:uppercase;color:var(--brass-deep);opacity:0}
+#winScreen .win-title{font-size:2.7rem;line-height:1.05;margin:6px 0 10px;color:var(--brass-deep);opacity:0;
+  text-shadow:0 2px 0 var(--paper),0 0 22px rgba(216,170,78,.55)}
+.win-overlay.go .win-kicker{animation:winFade .5s ease .05s forwards}
+.win-overlay.go .win-title{animation:winStamp .55s cubic-bezier(.2,1.6,.4,1) .15s forwards}
+@keyframes winStamp{0%{opacity:0;transform:scale(2.6) rotate(-7deg)}55%{opacity:1;transform:scale(.94) rotate(1.5deg)}100%{opacity:1;transform:scale(1) rotate(0)}}
+@keyframes winFade{from{opacity:0;transform:translateY(8px)}to{opacity:1;transform:none}}
+.win-slugs{display:flex;justify-content:center;gap:5px;margin:4px auto 12px;flex-wrap:nowrap}
+.win-slug{width:min(9vw,40px);height:min(11.5vw,50px);border-radius:7px;display:flex;align-items:center;justify-content:center;
+  font-family:var(--serif);font-weight:700;font-size:min(6vw,1.6rem);color:var(--brass-deep);
+  background:linear-gradient(180deg,#FFF6DA,#F0D58E);border:1px solid #C9A04A;
+  box-shadow:0 2px 0 #A9802E,0 5px 12px rgba(120,80,10,.28);opacity:0}
+:root[data-theme="dark"] .win-slug{background:linear-gradient(180deg,#5A4A28,#3E3320);color:#F3D27A;border-color:#8A6A2A;box-shadow:0 2px 0 #2A2214,0 5px 12px rgba(0,0,0,.4)}
+.win-slug.in{animation:winDrop .42s cubic-bezier(.3,1.7,.5,1) forwards}
+@keyframes winDrop{0%{opacity:0;transform:translateY(-70px) rotate(-14deg) scale(.7)}60%{opacity:1;transform:translateY(5px) rotate(2deg) scale(1.06,.94)}100%{opacity:1;transform:none}}
+.win-rank{font-family:var(--serif);font-weight:700;font-size:1.05rem;color:var(--ink);opacity:0;margin-bottom:10px}
+.win-rank small{display:block;font-family:var(--ui);font-size:.6rem;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft);font-weight:800;margin-bottom:2px}
+.win-hero{opacity:0;margin:2px auto 12px}
+.win-hero-k{font-family:var(--ui);font-weight:800;font-size:.62rem;letter-spacing:.2em;text-transform:uppercase;color:var(--ink-soft)}
+.win-hero-v{font-family:var(--serif);font-weight:700;font-size:3.1rem;line-height:1;color:var(--oxblood);font-variant-numeric:tabular-nums}
+.win-stats{opacity:0;background:rgba(251,246,234,.55);border:1px solid var(--tile-edge);border-radius:12px;padding:10px 14px;max-width:360px;margin:0 auto;width:100%}
+:root[data-theme="dark"] .win-stats{background:rgba(43,40,54,.7)}
+.win-unlock{display:inline-block;margin:10px auto 0;padding:5px 12px;border-radius:999px;background:var(--moss);color:var(--paper);
+  font-family:var(--ui);font-weight:800;font-size:.72rem;letter-spacing:.06em}
+.win-overlay .win-show{animation:winFade .5s ease forwards}
+#winScreen .seed-rate,#winScreen .menu-btn{opacity:0}
+#winScreen.late .seed-rate,#winScreen.late .menu-btn{animation:winFade .45s ease forwards}
+@media (prefers-reduced-motion: reduce){
+  .win-overlay.go .win-rays{animation:none}
+  .win-overlay.go .win-title,.win-overlay.go .win-kicker,.win-slug.in,.win-overlay .win-show,#winScreen.late .seed-rate,#winScreen.late .menu-btn{animation:none;opacity:1}
+}
 .over-result.lose{color:var(--oxblood)}
 .stat-line{font-size:.95rem;color:var(--ink);margin:3px 0}
 .stat-line b{font-family:var(--serif)}
@@ -1355,11 +1398,17 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
   </div>
 </div>
 
-<!-- ===== Run won (all 10 rounds) ===== -->
-<div class="overlay hidden" id="winScreen">
-  <div class="sheet sheet-center">
-    <div class="over-result win">You Win the Press</div>
-    <div id="winStats"></div>
+<!-- ===== Run won (all 6 rounds) ===== -->
+<div class="overlay hidden win-overlay" id="winScreen">
+  <div class="win-rays" aria-hidden="true"></div>
+  <div class="win-fx" id="winFx" aria-hidden="true"></div>
+  <div class="sheet sheet-center win-sheet">
+    <div class="win-kicker" id="winKicker">Every round set and locked</div>
+    <div class="over-result win win-title" id="winTitle">You Win the Press</div>
+    <div class="win-slugs" id="winSlugs" aria-label="Letterati"></div>
+    <div class="win-rank" id="winRank"></div>
+    <div class="win-hero"><div class="win-hero-k">Run score</div><div class="win-hero-v" id="winScore">0</div></div>
+    <div id="winStats" class="win-stats"></div>
     <div class="seed-rate" id="seedRateWin">
       <div class="sr-q">How was this seed?</div>
       <div class="sr-btns">
@@ -1469,7 +1518,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
       <p>Before the first round you pick <b>one free perk</b> from three. It stays with you for the whole run.</p>
       <p><b>Forge words</b> from the 7 letter slugs in your case. Longer words and rarer letters score more. Set a word and its slugs go to your discard pile, and you draw back up to 7.</p>
       <p>Beat each round's <b>target</b> within your <b>words</b> (4 a round). Run out short and you go into <b>overtime</b>: each extra word costs a heart (you have three), and you keep your score and hand until the target falls or your hearts run out.</p>
-      <p>Stuck with junk? Drag those letters onto the red <b>Discard</b> button (it stretches to hold them), then tap it to swap the lot for fresh tiles. You get 4 discards a round. Tap a letter in the bin to take it back.</p>
+      <p>Stuck with junk? Drag those letters onto the red <b>Discard</b> button (it stretches to hold them), then tap it to swap them for fresh tiles. Each discard takes up to 3 letters, and you get 3 discards a round. Tap a letter in the bin to take it back.</p>
       <p>Made a placement you didn't mean? Tap <b>Undo</b> to step back one move at a time, up until you set a word or discard.</p>
       <p>Each round has a <b>side job</b> under the score bar. Do it and it pays extra coins when you clear the round. Skip it and nothing happens.</p>
       <p>Clear a round to earn coins for the <b>print shop</b>: new letters, gilding, perks and more. Beat all <b>6 rounds</b> to win the press and claim the rank of <b>Letterati</b>, then push your luck in <b>endless</b> if you dare.</p>
@@ -1510,6 +1559,30 @@ const COMMON_BLOB = (typeof window!=="undefined" && window.COMMON_BLOB) ? window
 const COMMON = new Set(COMMON_BLOB ? COMMON_BLOB.split("\n") : []);   // Mystery Word pool; empty if the file is absent
 const VERB_BLOB = (typeof window!=="undefined" && window.VERB_BLOB) ? window.VERB_BLOB : "";
 const VERBS = new Set(VERB_BLOB ? VERB_BLOB.split("\n") : []);   // verb forms (Verbose perk); empty if the file is absent
+/* v0.5f editorial pass. BLOCKED_WORDS are slurs and hard vulgarities: removed from
+   play, from the Mystery Word pool and from definition lookups. MYSTERY_SKIP words
+   stay playable (most have a clean main sense) but are never offered as the
+   Mystery Word, where the game would be choosing them for the player.
+   Exact match only, built from the words actually present in the lists. Not exhaustive. */
+const BLOCKED_WORDS = new Set((
+  "fag fags fagged fagging faggy faggier faggiest fager faggot faggots faggoted faggoting faggotry faggotries faggoty "+
+  "dyke dykes dykey shemale shemales tranny trannies "+
+  "nigger niggers niggered niggering niggery niggerish nigga niggas "+
+  "spic spics spick spicks spicker wetback wetbacks kike kikes jap japs raghead ragheads towelhead towelheads "+
+  "wop wops dago dagos dagoes kraut krauts squaw squaws redskin redskins honky honkies gook gooks gooky "+
+  "spaz spazz spazzes "+
+  "cunt cunts cunted cunting cunty cuntish twat twats wank wanks wanked wanking wanky wankier wankiest wanker wankers "+
+  "jizz jizzes fuck fucks fucked fucking fucker fuckers shit shits shitted shitting shitty shite shites shited shiting "+
+  "asshole assholes arsehole arseholes skank skanks skanked skanking skanky skankier skankiest skanker skankers paedo paedos"
+).split(" "));
+const MYSTERY_SKIP_EXACT = new Set((
+  "homo homos dike dikes dikey cock cocks dick dicks pussy pussies arse arses arsey booby boobed boobing boobish "+
+  "spastic spastics midget midgets midgety cripple cripples rape rapes raped raping cums dildos dildoes hooker hookers"
+).split(" "));
+const MYSTERY_SKIP_PREFIX = ["queer","fagot","chink","gyp","retard","gimp","bitch","piss","bastard","bugger","sodom",
+  "pederast","rapist","molest","incest","lynch","nazi","negro","whore","porn","bollock","slut"];
+function mysterySkip(w){ return MYSTERY_SKIP_EXACT.has(w) || MYSTERY_SKIP_PREFIX.some(p=>w.startsWith(p)); }
+BLOCKED_WORDS.forEach(w=>{ WORDS.delete(w); COMMON.delete(w); VERBS.delete(w); });
 function isVerbWord(){ const w=resolvedCanvas().map(r=>r.letter||"").join("").toLowerCase(); if(w.length>=2 && VERBS.has(w)) return true; return verbizedStem(w)!==null; }   // verbized words count as verbs
 if(!(typeof window!=="undefined" && window.WORD_BLOB)){ try{ window.addEventListener("DOMContentLoaded",function(){document.body.innerHTML='<div style="font-family:system-ui;max-width:560px;margin:16vh auto;padding:24px;text-align:center;color:#3a2f2a;line-height:1.5">'+'<h2>Dictionary not loaded</h2><p>The word list <code>letterati-dictionary.js</code> could not be found. Put it in the <b>same folder</b> as this page, named exactly <code>letterati-dictionary.js</code>.</p></div>';}); }catch(e){} }
 
@@ -1671,7 +1744,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "0.5e";
+const VERSION = "0.5f";
 const WIN_LEVEL = 6;    // v0.5a: clear this round to WIN (rank "Letterati"); afterwards, optional endless mode. Was 10.
 /* v0.5a: the run is six rounds, not ten, so a daily fits in one sitting.
    eqLevel() maps a live round onto the old ten-round curve, so targets, shop
@@ -1907,7 +1980,8 @@ const GILD_CAP_HIGH = 2, GILD_HIGH_VALUE = 5;   // v0.5c: see gildCapFor (define
 const LETTER_PRICE_SCALE = 0.7;   // v0.5a: letters 30% cheaper so the letter side competes with gilds
 const GILD_PRICE_SCALE = 0.5;   // v491e: gilding costs half what it used to
 const HANDS_PER_LEVEL = 4;     // "turns", words you may set
-const DISCARDS_PER_LEVEL = 4;
+const DISCARDS_PER_LEVEL = 3;   // v0.5f: was 4. Every desk loses one; deltas and A3 still apply on top
+const DISCARD_MAX_TILES = 3;    // v0.5f: one discard sends at most 3 slugs, so digging for gilded letters costs more
 const PRICE_MULTIPLIER = 1.22; // per-round shop inflation (GGW used ~1.46)
 const SHOP_PRICE_SCALE = 0.8;  // v3a: 20% cheaper across the board (stacks on the base 35% off)
 const MAX_HEARTS = 3;
@@ -2132,7 +2206,8 @@ function bestAsc(charId){ const v=loadProgress()[charId]; return (typeof v==="nu
 function unlockedAsc(charId){ return Math.min(MAX_ASC, bestAsc(charId)+1); }
 function recordAscWin(charId, asc){
   const p=loadProgress();
-  if(!(typeof p[charId]==="number") || p[charId]<asc){ p[charId]=asc; saveProgress(p); }
+  if(!(typeof p[charId]==="number") || p[charId]<asc){ p[charId]=asc; saveProgress(p); return true; }   // v0.5f: true = a new rung opened
+  return false;
 }
 /* ============================================================
    Daily press (v0.5a)
@@ -2804,7 +2879,7 @@ function predLevel(P,seed,opts){
         const need=(target-score)/Math.max(1,hl);
         if(probe.tiles && probe.score>=need*0.55) break;
         const keep=new Set(probe.tiles||[]);
-        const junk=hand.filter(t=>!keep.has(t)).sort((x,y)=>predCV(x)-predCV(y)).slice(0,4);
+        const junk=hand.filter(t=>!keep.has(t)).sort((x,y)=>predCV(x)-predCV(y)).slice(0,DISCARD_MAX_TILES);   // v0.5f mirrors the bin cap
         if(!junk.length || !pile.length) break;
         disc--; junk.forEach(t=>{hand.splice(hand.indexOf(t),1); pile.push(t);}); draw();
       }
@@ -5640,6 +5715,7 @@ function spendCutFor(card){
 function moveToBin(card, where){
   if(!card) return false;
   if(G.discardsLeft<=0){ toast("No discards left this round"); haptic(20); return false; }
+  if((G.discardBin||[]).length>=DISCARD_MAX_TILES){ toast("The bin takes "+DISCARD_MAX_TILES+" slugs at a time"); haptic(20); return false; }
   if(where==="canvas" && !canPullFromCanvas(card)) return false;
   checkpoint();
   if(where==="canvas"){
@@ -5895,25 +5971,119 @@ function closeSummary(){ $("summaryScreen").classList.add("hidden"); }
 
 /* ---------- WIN (cleared all 10 rounds) ---------- */
 function showWin(info){
-  recordAscWin(G.character||"writer", ascLevel());   // unlocks the next rung for this desk
+  const newRung = recordAscWin(G.character||"writer", ascLevel());   // unlocks the next rung for this desk
   hideGame();
   $("shopScreen").classList.add("hidden");
   $("summaryScreen").classList.add("hidden");
   const fmt = (typeof fmtDuration==="function") ? fmtDuration(G.runMs) : "";
+  $("winKicker").textContent = G.mode==="daily" ? "Today's press is printed" : "Every round set and locked";
+  $("winRank").innerHTML = `<small>Rank earned</small>${escHtml(rankFor(WIN_LEVEL)||"Letterati")}`;
+  $("winScore").textContent = "0";
+  const unlock = (newRung && ascLevel()<MAX_ASC) ? `<div class="win-unlock">Ascension ${ascLevel()+1} unlocked for ${escHtml(charDef().name)}</div>` : "";
   $("winStats").innerHTML=`
-    <div class="stat-line">Top rank earned: <b>${rankFor(WIN_LEVEL)}</b></div>
-    <div class="stat-line">All <b>${WIN_LEVEL} rounds</b> set and locked.</div>
-    <div class="stat-line">Run time: <b>${fmt}</b></div>
-    <div class="stat-line">Run score: <b>${(G.runScore||0).toLocaleString()}</b></div>
+    <div class="stat-line">All <b>${WIN_LEVEL} rounds</b> set and locked in <b>${fmt}</b></div>
     <div class="stat-line">Words set: <b>${G.wordsPlayed||0}</b></div>
     ${G.runBestWord?`<div class="stat-line">Best word: <b>${G.runBestWord}</b> · ${G.runBestScore}</div>`:""}
     <div class="stat-line">Hearts left: <b>${G.hearts}</b> ♥ &nbsp;·&nbsp; Coins: <b>${G.coins}</b> ◉</div>
-    <div class="stat-line" style="margin-top:8px;color:var(--ink-soft);font-size:.8rem">${escHtml(charDef().name)} · A${ascLevel()} · Seed <b>${G.seed}</b></div>`;
+    <div class="stat-line" style="margin-top:8px;color:var(--ink-soft);font-size:.8rem">${escHtml(charDef().name)} · A${ascLevel()} · Seed <b>${G.seed}</b></div>${unlock}`;
   resetSeedRating();
   $("winScreen").classList.remove("hidden");
+  playWinCeremony(G.runScore||0);
+}
+/* v0.5f: the win ceremony. The title stamps down, LETTERATI drops in slug by slug
+   on a rising scale, a brass chord lands with confetti, and the run score counts
+   up. Reduced motion gets the finished screen and the chord, nothing moving. */
+let _winTimers=[];
+function clearWinCeremony(){
+  _winTimers.forEach(clearTimeout); _winTimers=[];
+  const fx=$("winFx"); if(fx) fx.innerHTML="";
+  const s=$("winScreen"); if(s) s.classList.remove("go","late");
+}
+function winAt(ms, fn){ _winTimers.push(setTimeout(fn, ms)); }
+function playWinCeremony(score){
+  clearWinCeremony();
+  const scr=$("winScreen"), slugs=$("winSlugs");
+  const word="LETTERATI";
+  slugs.innerHTML=[...word].map(ch=>`<span class="win-slug">${ch}</span>`).join("");
+  const tiles=[...slugs.children];
+  const show=el=>{ if(el){ el.classList.remove("win-show"); void el.offsetWidth; el.classList.add("win-show"); } };
+  const reduce=reducedMotion();
+  void scr.offsetWidth; scr.classList.add("go");
+  if(reduce){
+    tiles.forEach(t=>t.classList.add("in"));
+    ["winRank","winStats"].forEach(id=>show($(id))); show(document.querySelector("#winScreen .win-hero"));
+    $("winScore").textContent=Number(score).toLocaleString();
+    scr.classList.add("late");
+    winChord(); return;
+  }
+  // the stamp lands
+  winAt(330, ()=>{ blip(98,0.22,0.12,"sawtooth"); blip(196,0.14,0.08,"square"); haptic(30); screenShake(14); });
+  // LETTERATI drops in, climbing a major scale
+  const scale=[262,294,330,349,392,440,494,523,587];
+  const t0=720, step=95;
+  tiles.forEach((t,i)=>winAt(t0+i*step, ()=>{ t.classList.add("in"); blip(scale[i],0.09,0.07,"triangle"); haptic(6); }));
+  const tEnd=t0+tiles.length*step+180;
+  winAt(tEnd, ()=>{
+    winChord(); haptic([20,40,20,40,60]); screenShake(22);
+    winConfetti();
+    show($("winRank"));
+  });
+  winAt(tEnd+250, ()=>{ show(document.querySelector("#winScreen .win-hero")); winCountUp($("winScore"), score, 1100); });
+  winAt(tEnd+700, ()=>show($("winStats")));
+  winAt(tEnd+1100, ()=>scr.classList.add("late"));
+  winAt(tEnd+1500, ()=>winConfetti(0.5));
+}
+function winChord(){
+  [523,659,784,1047].forEach((f,i)=>{ setTimeout(()=>blip(f,0.9,0.06,"triangle"), i*45); });
+  setTimeout(()=>blip(131,0.7,0.09,"sine"), 0);
+}
+function winCountUp(el, to, ms){
+  if(!el) return;
+  const start=performance.now();
+  const tick=now=>{
+    const k=Math.min(1,(now-start)/ms), e=1-Math.pow(1-k,3);
+    el.textContent=Math.round(to*e).toLocaleString();
+    if(k<1 && !$("winScreen").classList.contains("hidden")) requestAnimationFrame(tick);
+    else { el.textContent=Number(to).toLocaleString(); if(k>=1) blip(880,0.12,0.06,"triangle"); }
+  };
+  requestAnimationFrame(tick);
+}
+function winConfetti(amount){
+  const fx=$("winFx"); if(!fx || typeof fx.animate!=="function") return;
+  const n=Math.round(70*(amount||1));
+  const cols=["#D8AA4E","#B98A2E","#9E3B2E","#3C6E63","#FBF6EA","#7A5CA6"];
+  const glyphs="LETTERATI".split("");
+  const W=window.innerWidth, H=window.innerHeight;
+  for(let i=0;i<n;i++){
+    const d=document.createElement("div");
+    const isGlyph=Math.random()<0.18;
+    const c=cols[i%cols.length];
+    if(isGlyph){
+      d.textContent=glyphs[Math.floor(Math.random()*glyphs.length)];
+      d.style.cssText=`position:absolute;left:0;top:0;font-family:var(--serif);font-weight:700;font-size:${14+Math.random()*12}px;color:${c};text-shadow:0 1px 0 rgba(0,0,0,.25)`;
+    } else {
+      const w=5+Math.random()*6, h=8+Math.random()*8;
+      d.style.cssText=`position:absolute;left:0;top:0;width:${w}px;height:${h}px;background:${c};border-radius:1.5px;box-shadow:0 0 0 .5px rgba(0,0,0,.08)`;
+    }
+    fx.appendChild(d);
+    // burst from just above the title, then flutter down past the bottom
+    const x0=W/2+(Math.random()*2-1)*40, y0=H*0.2;
+    const ang=-Math.PI/2+(Math.random()*2-1)*1.25, v=200+Math.random()*320;
+    const x1=x0+Math.cos(ang)*v, y1=y0+Math.sin(ang)*v;
+    const x2=x1+(Math.random()*2-1)*120, y2=H+40;
+    const r0=Math.random()*360, r1=r0+(Math.random()*2-1)*720;
+    const dur=2200+Math.random()*1600;
+    d.animate([
+      {transform:`translate(${x0}px,${y0}px) rotate(${r0}deg)`, opacity:1},
+      {transform:`translate(${x1}px,${y1}px) rotate(${(r0+r1)/2}deg)`, opacity:1, offset:0.22},
+      {transform:`translate(${x2}px,${y2}px) rotate(${r1}deg)`, opacity:0.9}
+    ],{duration:dur, easing:"cubic-bezier(.15,.6,.4,1)", fill:"forwards"}).finished.then(()=>d.remove(),()=>d.remove());
+    setTimeout(()=>d.remove(), dur+400);
+  }
 }
 // "Keep printing" → flip on endless and rejoin the normal post-clear flow (shop, then round 9+)
 function winContinueEndless(){
+  clearWinCeremony();
   G.infinite=true;
   $("winScreen").classList.add("hidden");
   save();
@@ -5922,6 +6092,7 @@ function winContinueEndless(){
 }
 // "Finish & savor it" → end the run on a victory note
 function winFinish(){
+  clearWinCeremony();
   $("winScreen").classList.add("hidden");
   gameOver(true);
 }
@@ -8055,7 +8226,7 @@ function withTimeout(p, ms){
 async function lookupDefinition(word){
   const key=String(word||"").toLowerCase().replace(/[^a-z]/g,"");
   if(!key) return null;
-  if(DEF_BLOCKLIST.has(key)){ defCache[key]=null; return null; }   // PBS: always "definition unavailable"
+  if(DEF_BLOCKLIST.has(key) || BLOCKED_WORDS.has(key)){ defCache[key]=null; return null; }   // PBS: always "definition unavailable"
   if(key in defCache) return defCache[key];
   if(_defInFlight[key]) return _defInFlight[key];                  // never fetch the same word twice at once
   const primary = withTimeout(Promise.resolve().then(()=>defFromFreeDict(key)), DEF_TIMEOUT);
@@ -8149,7 +8320,7 @@ function mysteryCandidates(k, poolCards){
     if((_MMASK[i] & ~hm)!==0) continue;              // uses a letter the hand lacks
     const w=_MWORDS[i];
     if(w.length<minL || w.length>pool.length) continue;
-    if(DEF_BLOCKLIST.has(w)) continue;
+    if(DEF_BLOCKLIST.has(w) || BLOCKED_WORDS.has(w) || mysterySkip(w)) continue;
     if(ban && [...w].some(ch=>ban.has(ch.toUpperCase()))) continue;
     const need={}; let fit=true;
     for(const ch of w){ need[ch]=(need[ch]||0)+1; if(need[ch]>(counts[ch]||0)){ fit=false; break; } }
@@ -8661,7 +8832,7 @@ function goToTitle(){
   hideGame();
   $("titleScreen").classList.remove("hidden"); refreshContinue();
 }
-function winQuit(){ statFinish("win","win_quit"); clearSave(); goToTitle(); }
+function winQuit(){ clearWinCeremony(); statFinish("win","win_quit"); clearSave(); goToTitle(); }
 function openOptions(){ const runs=allRuns(); const n=runs.length;
   $("optExportBtn").disabled=!n;
   $("optExportBtn").textContent = n ? ("Export all run data ("+n+(n===1?" run)":" runs)")) : "No runs recorded yet";
