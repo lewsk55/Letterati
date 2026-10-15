@@ -737,12 +737,6 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 .clone-choice .cc-cost{display:block;font-size:.7rem;font-weight:800;color:var(--brass-deep);margin-top:2px}
 /* v0.5b: letter chooser shows how many of each letter you hold, plus the full deck */
 .clone-choice .cc-count{position:absolute;left:5px;top:3px;font-family:var(--ui);font-size:.6rem;font-weight:800;color:var(--ink-soft)}
-/* v0.5b: in the first-up / finale chooser the price and the new multiplier used to overlap */
-#bonusChoices .clone-choice{height:78px;padding-bottom:26px;box-sizing:border-box}
-#bonusChoices .clone-choice .cc-val{right:auto;left:0;width:100%;text-align:center;bottom:15px}
-#bonusChoices .clone-choice .cc-cost{position:absolute;left:0;width:100%;bottom:2px;margin:0;font-size:.62rem}
-.bonus-deck-head{font-size:.62rem;letter-spacing:.14em;text-transform:uppercase;font-weight:900;color:var(--ink-soft);margin:2px 0 0}
-.bonus-deck-head small{font-weight:700;letter-spacing:.04em;text-transform:none;margin-left:4px}
 .bonus-deck{max-height:30vh;overflow-y:auto;margin:8px 0 16px}
 /* v0.5e: tiles at the 3-upgrade limit */
 .deck-tile{position:relative}
@@ -921,6 +915,23 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 .deck-boss .ib-name{font-size:1rem}
 .select-hint{text-align:center;font-size:.86rem;font-weight:800;color:var(--oxblood);margin:6px 0 2px}
 .select-hint.gild{color:var(--brass-deep)}
+/* v0.5g: picking a tile looks like the opening deck screen. Only the tiles, the
+   hint and the summary show; tiles that can't take the upgrade fade back; a tap
+   selects, and the bar at the foot confirms. */
+#deckSheet.picking .deck-char,#deckSheet.picking .deck-boss,#deckSheet.picking .deck-perks,#deckSheet.picking .deck-words{display:none}
+#deckSheet.picking .select-hint{font-size:.95rem;margin:10px 0 0}
+.picking .deck-tile:not(.selectable):not(.fuse-pending),.pick-sheet .deck-tile:not(.selectable){opacity:.35;filter:saturate(.4)}
+.deck-tile.picked{outline:3px solid var(--brass);outline-offset:2px;border-radius:10px;transform:translateY(-3px)}
+.deck-tile.picked.danger{outline-color:var(--oxblood)}
+.pick-bar{position:sticky;bottom:0;margin:10px -18px 0;padding:12px 18px calc(12px + env(safe-area-inset-bottom,0));
+  background:linear-gradient(180deg,rgba(0,0,0,0),var(--page) 22%);display:flex;flex-direction:column;align-items:center;gap:8px}
+.pick-what{font-family:var(--serif);font-weight:700;font-size:1.02rem;text-align:center;min-height:1.3em}
+.pick-what small{display:block;font-family:var(--ui);font-weight:700;font-size:.74rem;color:var(--ink-soft);margin-top:2px}
+.pick-bar .menu-btn{max-width:320px;width:100%;margin:0}
+.pick-faces{display:flex;gap:6px;justify-content:center;flex-wrap:wrap}
+.pick-faces button{min-width:40px;height:44px;border-radius:8px;border:1px solid var(--tile-edge);background:linear-gradient(180deg,#FCF8EE,var(--tile));
+  font-family:var(--serif);font-weight:700;font-size:1.3rem;color:var(--ink);cursor:pointer}
+.pick-faces button.on{outline:3px solid var(--brass);outline-offset:1px}
 
 /* over screen */
 .over-result{font-family:var(--serif);font-weight:700;font-size:2.2rem;margin-bottom:6px}
@@ -1306,7 +1317,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 
 <!-- ===== Deck ===== -->
 <div class="overlay hidden" id="deckScreen">
-  <div class="sheet">
+  <div class="sheet" id="deckSheet">
     <div class="sheet-head">
       <div class="sheet-title">Your Deck<small id="deckCount">20 letters</small></div>
       <button class="icon-btn" id="deckCloseBtn">Close</button>
@@ -1318,6 +1329,10 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
     <div class="deck-boss" id="deckBoss"></div>
     <div class="deck-perks" id="deckPerks"></div>
     <div class="deck-words" id="deckWords"></div>
+    <div class="pick-bar hidden" id="deckPickBar">
+      <div class="pick-what" id="deckPickWhat">Tap a tile</div>
+      <button class="menu-btn" id="deckPickGo" disabled>Choose a tile</button>
+    </div>
   </div>
 </div>
 
@@ -1482,13 +1497,19 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 
 <!-- ===== First-up / Finale letter chooser ===== -->
 <div class="overlay hidden" id="bonusChooser">
-  <div class="clone-sheet">
-    <div class="clone-title" id="bonusTitle">Pick a letter</div>
-    <div class="clone-sub" id="bonusSub"></div>
-    <div class="clone-choices" id="bonusChoices"></div>
-    <div class="bonus-deck-head">Your deck <small id="bonusDeckCount"></small></div>
-    <div class="deck-list bonus-deck" id="bonusDeck"></div>
-    <button class="menu-btn alt" id="bonusCancel" style="max-width:200px">Cancel</button>
+  <div class="sheet pick-sheet">
+    <div class="sheet-head">
+      <div class="sheet-title" id="bonusTitle">Pick a letter<small id="bonusDeckCount"></small></div>
+      <button class="icon-btn" id="bonusCancel">Cancel</button>
+    </div>
+    <div class="select-hint gild" id="bonusSub"></div>
+    <div class="deck-list" id="bonusDeck"></div>
+    <div class="deck-summary" id="bonusSummary"></div>
+    <div class="pick-bar" id="bonusPickBar">
+      <div class="pick-faces hidden" id="bonusFaces"></div>
+      <div class="pick-what" id="bonusPickWhat">Tap a letter</div>
+      <button class="menu-btn" id="bonusPickGo" disabled>Choose a letter</button>
+    </div>
   </div>
 </div>
 
@@ -1744,7 +1765,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "0.5f";
+const VERSION = "0.5g";
 const WIN_LEVEL = 6;    // v0.5a: clear this round to WIN (rank "Letterati"); afterwards, optional endless mode. Was 10.
 /* v0.5a: the run is six rounds, not ten, so a daily fits in one sitting.
    eqLevel() maps a live round onto the old ten-round curve, so targets, shop
@@ -2349,7 +2370,7 @@ function lenMult(n){ return n<=3?1 : n===4?1.5 : (n-3); }   // 5→2,6→3,7→4
 // casual win rate at its pre-bump level (skilled ~96%, casual ~14%), the small remainder
 // is a deliberate floor-raise that helps weaker seeds. Set to 1 to disable.
 const TARGET_SCALE = 1.04;
-const GOAL_SCALE = 1.656*1.10;  // v3d +15%, v41a +20%, v48g +20% more (1.15*1.20*1.20) point goal across every level; v0.5e +10% more (v0.5d tried +25%, too steep)
+const GOAL_SCALE = 1.656*1.10*0.80;   // v0.5g: -20% across the board  // v3d +15%, v41a +20%, v48g +20% more (1.15*1.20*1.20) point goal across every level; v0.5e +10% more (v0.5d tried +25%, too steep)
 const ENDLESS_WALL_BASE = 1.5;   // v492d: post-win escalation starts here...
 const ENDLESS_WALL_STEP = 0.25;  // ...and each endless round multiplies by 0.25 more than the last
 /* v0.5a tuning knob. Five shops build a smaller engine than nine: on its own the
@@ -2593,6 +2614,16 @@ function gildStepCost(value, existingGilds){
   return px((GILD_BASE/2 + value*Math.pow(2,u)) * Math.pow(2,u) * GILD_PRICE_SCALE);
 }
 // Shop-equivalent cost to acquire a letter at a given gild level (base letter + each gild).
+/* v0.5g: every fusion costs between FUSE_COST_MIN and FUSE_COST_MAX coins. The old
+   price (the letters' acquire cost, gilds included) still sets the order, so a
+   gilded X still costs more than two Es, but it is squeezed onto a soft curve that
+   tops out at the cap instead of running to 100+. */
+const FUSE_COST_MIN = 5, FUSE_COST_MAX = 20;
+function fusionCost(raw){
+  const k=1-Math.exp(-Math.max(0,(+raw||0)-2)/18);
+  return Math.max(FUSE_COST_MIN, Math.min(FUSE_COST_MAX, Math.round(FUSE_COST_MIN+(FUSE_COST_MAX-FUSE_COST_MIN)*k)));
+}
+function fuseTilePrice(p){ return Math.max(FUSE_COST_MIN, Math.min(FUSE_COST_MAX, p)); }   // ready-made fused tiles in the shop
 function letterAcquireCost(L, gild){
   const v=LETTER_VALUES[L]; let p=px((2+Math.ceil(v/2))*LETTER_PRICE_SCALE);   // v0.5a: the letter part is 30% cheaper; gild steps are not
   for(let u=0; u<(gild||0); u++){ p += gildStepCost(v, u); }
@@ -6517,12 +6548,12 @@ function trioFusionOffer(rng){
   const tri=TRIO_POOL[Math.floor((rng?rng():Math.random())*TRIO_POOL.length)];
   return {kind:"Tile",rarity:"epic",name:"Fused "+tri,
     desc:"Three letters in one slug, arranged however you like on the press.",
-    price:px(10), art:`<span class="mini-tile">${tri}</span>`, d:{type:"trio", letters:tri.split("")}};
+    price:fuseTilePrice(px(10)), art:`<span class="mini-tile">${tri}</span>`, d:{type:"trio", letters:tri.split("")}};
 }
 function trioUpgradeOffer(){
   return {kind:"Upgrade",rarity:"epic",name:"Triple fusion",
-    desc:"Add one of your letters to one of your fused pairs, forging a three letter slug you arrange at will. Gilds carry over.",
-    price:px(6), art:"⛓️", needsTarget:"triofuse", d:{type:"trioUpgrade"}};
+    desc:"Add one of your letters to one of your fused pairs, forging a three letter slug you arrange at will. Gilds carry over. Costs "+FUSE_COST_MIN+" to "+FUSE_COST_MAX+" coins depending on the letter.",
+    price:FUSE_COST_MIN, art:"⛓️", needsTarget:"triofuse", d:{type:"trioUpgrade"}};
 }
 function triptychOffer(){
   return {kind:"Card",rarity:"common",name:"Triptych",
@@ -7044,8 +7075,8 @@ function watermarkOffer(){
 }
 function fusionOffer(){
   return {kind:"Upgrade",rarity:"common",name:"Letter fusion",
-    desc:"Fuse two letters into one tile. Play it as either single letter, or as the pair in either order. Cost is the two letters combined.",
-    price:px(4), art:"⛓", needsTarget:"fuse", d:{type:"fuse"}};
+    desc:"Fuse two letters into one tile. Play it as either single letter, or as the pair in either order. Costs "+FUSE_COST_MIN+" to "+FUSE_COST_MAX+" coins depending on the letters.",
+    price:FUSE_COST_MIN, art:"⛓", needsTarget:"fuse", d:{type:"fuse"}};
 }
 function comboOffer(key){
   const d=COMBO_DEFS[key]; const val=d.seq.length;   // 1 pt per letter
@@ -7057,10 +7088,10 @@ function comboOffer(key){
 }
 function fusedDoubleOffer(L){
   // a fused double letter (T+T, G+G, P+P, R+R): play it as one letter, or as the doubled pair
-  const v=LETTER_VALUES[L], price=4+v*2;
+  const v=LETTER_VALUES[L], price=4+v*2;   // v0.5g: final price clamped to 5..20 below
   return {kind:"Tile",rarity:"rare",name:"Fused "+L+"+"+L,
     desc:"One tile fusing two "+L+"s. Play it as a single "+L+", or as "+L+L+" together.",
-    price:px(price),
+    price:fuseTilePrice(px(price)),
     art:`<span class="mini-tile" style="background:linear-gradient(180deg,#EAF3EF,#D8E8E0);border-color:#A9CcBD;font-size:.74rem;font-family:var(--serif)">${L}${L}<span class="mv">${v*2}</span></span>`,
     d:{type:"fusedPair", a:L, b:L}};
 }
@@ -7068,7 +7099,7 @@ function fusedEROffer(){
   // a ready-made fused E+R tile: play it as E, R, ER or RE
   return {kind:"Tile",rarity:"rare",name:"Fused E+R",
     desc:"One tile fusing E and R. Play it as either letter, or as the pair in either order.",
-    price:px(7),
+    price:fuseTilePrice(px(7)),
     art:`<span class="mini-tile" style="background:linear-gradient(180deg,#EAF3EF,#D8E8E0);border-color:#A9CcBD;font-size:.74rem;font-family:var(--serif)">ER<span class="mv">2</span></span>`,
     d:{type:"fusedPair", a:"E", b:"R"}};
 }
@@ -7201,11 +7232,9 @@ function buyOffer(i){
   const o=G.shopOffers[i];
   if(o.sold) return;
   if(o.d && o.d.type==="trioUpgrade"){
-    if(G.coins<o.price) return;
+    if(G.coins<o.price) return;     // v0.5g: gate only, like Letter fusion; the whole 5..20 cost is charged at confirm
     pushShopUndo();
-    G.coins-=o.price;              // the offer price opens the forge; the letter's acquire cost is charged at confirm
-    o.sold=true;
-    statShopBuy(o.name, o.price, "trioUpgradeOpen");
+    G.fuseOfferIdx=i;
     G.trioPairPending=null;
     openDeck("triofuse");
     renderShop(); save();
@@ -7334,7 +7363,10 @@ function skipChallenge(){
    ============================================================ */
 function openDeck(mode){
   G.selectMode=mode||null;
+  G.deckPick=null;
   $("deckScreen").classList.remove("hidden");
+  { const sh=$("deckSheet"); if(sh) sh.classList.toggle("picking", !!mode && mode!=="dealer"); }
+  { const cb=$("deckCloseBtn"); if(cb) cb.textContent = mode ? "Cancel" : "Close"; }
   const hint=$("selectHint");
   if(mode==="remove"){ hint.textContent="Tap a letter to remove it from your deck."; hint.className="select-hint"; }
   else if(mode==="growth"){ hint.textContent="Tap a tile. It gains +1 point every time you play it."; hint.className="select-hint"; }
@@ -7357,25 +7389,64 @@ function openDeck(mode){
   if(mode){ hint.classList.remove("hidden"); }
   renderDeck();
 }
+/* v0.5g: single-step pick modes select first and confirm from the pick bar */
+const PICK_VERB={remove:"Remove", growth:"Growth Mindset on", encore:"Encore on", foil:"Foil Stamp on", watermark:"Watermark on",
+  boldface:"Bold Face on", dropcap:"Drop Cap on", serif:"Serif on", ditto:"Ditto on", inkwell:"Inkwell on",
+  freegild:"Gild", department:"Department of Letters for", gemini:"Twin", goldStandard:"Gold Standard for"};
+function tileName(c){
+  if(!c) return "";
+  if(c.kind==="letter") return c.letter;
+  if(c.kind==="fused" && typeof fusedLabel==="function") return fusedLabel(c);
+  if(c.kind==="trio" && typeof trioLabel==="function") return trioLabel(c);
+  return c.label || c.letter || c.kind;
+}
+function pickOn(wrap, c, fn){
+  if(G.deckPick && G.deckPick.id===c.id){ wrap.classList.add("picked"); G.deckPick.fn=fn; }
+  wrap.addEventListener("click",()=>{
+    G.deckPick = (G.deckPick && G.deckPick.id===c.id) ? null : {id:c.id, fn};
+    haptic(8); renderDeck();
+  });
+}
+function renderPickBar(){
+  const bar=$("deckPickBar"); if(!bar) return;
+  const mode=G.selectMode, single=!!PICK_VERB[mode];
+  bar.classList.toggle("hidden", !single);
+  if(!single) return;
+  const go=$("deckPickGo"), what=$("deckPickWhat");
+  const c = G.deckPick ? G.deck.find(x=>x.id===G.deckPick.id) : null;
+  if(!c){ G.deckPick=null; what.innerHTML="Tap a tile"; go.disabled=true; go.textContent="Choose a tile"; go.classList.remove("danger"); return; }
+  let extra="";
+  if(mode==="freegild"){ const v=effValue(c); extra=`<small>${v} points → ${v*2} points</small>`; }
+  else if(mode==="remove"){ extra=`<small>Your deck goes from ${G.deck.length} to ${G.deck.length-1} cards</small>`; }
+  else { const n=upgradeCount(c); extra=`<small>${n+1} of ${MAX_TILE_UPGRADES} upgrade slots used after this</small>`; }
+  what.innerHTML=`${PICK_VERB[mode]} <b>${escHtml(tileName(c))}</b>${extra}`;
+  go.disabled=false; go.textContent= mode==="remove" ? "Remove it" : "Confirm";
+}
+function confirmDeckPick(){
+  const pk=G.deckPick; if(!pk || typeof pk.fn!=="function") return;
+  G.deckPick=null;
+  pk.fn();
+  if(!$("deckScreen").classList.contains("hidden")) renderDeck();
+}
 function deckTileEl(c){
   const wrap=document.createElement("div");
   wrap.className="deck-tile";
   wrap.appendChild(buildStaticTile(c));
   if(upgradeCount(c)>=MAX_TILE_UPGRADES){ const m=document.createElement("span"); m.className="dt-max"; m.textContent="MAX"; wrap.appendChild(m); wrap.classList.add("maxed"); }   // v0.5e
   const upgradable = c.kind==="letter" || c.kind==="fused" || c.kind==="trio";   // v492e: trios take every stamp
-  if(G.selectMode==="remove"){ wrap.classList.add("selectable","danger"); wrap.addEventListener("click",()=>doRemove(c.id)); }
-  if(G.selectMode==="growth"    && stampTargetOk(c,"growth")){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"growth")); }
+  if(G.selectMode==="remove"){ wrap.classList.add("selectable","danger"); pickOn(wrap,c,()=>doRemove(c.id)); }
+  if(G.selectMode==="growth"    && stampTargetOk(c,"growth")){ wrap.classList.add("selectable","gild"); pickOn(wrap,c,()=>doTileUpgrade(c.id,"growth")); }
   if(G.selectMode==="dealer" && !G.hand.includes(c) && !G.canvas.includes(c)){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doDealerSwap(c.id)); }
-  if(G.selectMode==="gemini" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doGemini(c.id)); }
-  if(G.selectMode==="goldStandard" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doGoldStandard(c.id)); }
-  if(G.selectMode==="encore"    && stampTargetOk(c,"encore")){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"encore")); }
-  if(G.selectMode==="foil"      && stampTargetOk(c,"foil")){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"foil")); }
-  if(G.selectMode==="watermark" && stampTargetOk(c,"watermark")){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,"watermark")); }
+  if(G.selectMode==="gemini" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); pickOn(wrap,c,()=>doGemini(c.id)); }
+  if(G.selectMode==="goldStandard" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); pickOn(wrap,c,()=>doGoldStandard(c.id)); }
+  if(G.selectMode==="encore"    && stampTargetOk(c,"encore")){ wrap.classList.add("selectable","gild"); pickOn(wrap,c,()=>doTileUpgrade(c.id,"encore")); }
+  if(G.selectMode==="foil"      && stampTargetOk(c,"foil")){ wrap.classList.add("selectable","gild"); pickOn(wrap,c,()=>doTileUpgrade(c.id,"foil")); }
+  if(G.selectMode==="watermark" && stampTargetOk(c,"watermark")){ wrap.classList.add("selectable","gild"); pickOn(wrap,c,()=>doTileUpgrade(c.id,"watermark")); }
   ["boldface","dropcap","serif","ditto","inkwell"].forEach(k=>{
-    if(G.selectMode===k && stampTargetOk(c,k)){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doTileUpgrade(c.id,k)); }
+    if(G.selectMode===k && stampTargetOk(c,k)){ wrap.classList.add("selectable","gild"); pickOn(wrap,c,()=>doTileUpgrade(c.id,k)); }
   });
-  if(G.selectMode==="freegild" && stampTargetOk(c,"freegild")){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doFreeGild(c.id)); }
-  if(G.selectMode==="department" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>doDepartmentPick(c.id)); }
+  if(G.selectMode==="freegild" && stampTargetOk(c,"freegild")){ wrap.classList.add("selectable","gild"); pickOn(wrap,c,()=>doFreeGild(c.id)); }
+  if(G.selectMode==="department" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); pickOn(wrap,c,()=>doDepartmentPick(c.id)); }
   if(G.selectMode==="fuse" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); if(G.fusePending===c.id) wrap.classList.add("fuse-pending"); wrap.addEventListener("click",()=>tapFuse(c.id)); }
   if(G.selectMode==="triofuse"){
     if(G.trioPairPending==null && c.kind==="fused"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>tapTrioFuse(c.id)); }
@@ -7443,6 +7514,7 @@ function renderDeck(){
   { const bf=$("deckBoss"); if(bf) bf.innerHTML=bossCardHtml("deck-boss","Round "+WIN_LEVEL+" · the final proof"); }
   renderDeckPerks();
   renderDeckWords();
+  renderPickBar();
 }
 /* Who you are playing, at the head of the deck sheet, with the same boon and
    bane wording the character-select screen uses (v4912a). */
@@ -7682,7 +7754,7 @@ function tapTrioFuse(id){
   showTrioFuseConfirm(pair,c);
 }
 function showTrioFuseConfirm(pair,letter){
-  const cost=letterAcquireCost(letter.letter, letter.upLevel||0);
+  const cost=fusionCost(px(6)+letterAcquireCost(letter.letter, letter.upLevel||0));   // v0.5g: old fee + letter, squeezed to 5..20
   trioFusePendingPair={pairId:pair.id, letterId:letter.id, cost};
   fusePendingPair=null;
   $("fuseMsg").innerHTML=`<b>${fusedLabel(pair)}</b> ${fusedValue(pair)} pts &nbsp;+&nbsp; <b>${letter.letter}</b> ${fusedSideValue(letter)} pts<br><span class="gild-note">one three letter slug, arranged at will · gilds carry over</span>`;
@@ -7721,7 +7793,7 @@ function confirmTrioFuse(){
   closeFuseConfirm(); closeDeck(); save();
 }
 function showFuseConfirm(a,b){
-  const cost=letterAcquireCost(a.letter,a.upLevel||0)+letterAcquireCost(b.letter,b.upLevel||0);
+  const cost=fusionCost(letterAcquireCost(a.letter,a.upLevel||0)+letterAcquireCost(b.letter,b.upLevel||0));   // v0.5g: 5..20
   fusePendingPair={aId:a.id,bId:b.id,cost};
   const av=fusedSideValue(a), bv=fusedSideValue(b);
   $("fuseMsg").innerHTML=`<b>${a.letter}</b> ${av} pts &nbsp;+&nbsp; <b>${b.letter}</b> ${bv} pts<br><span class="gild-note">one tile, play it as either</span>`;
@@ -7863,34 +7935,64 @@ function deckLetterFaces(){
   return out;
 }
 function bonusCostFor(kind, L){ const stacks=(G.perks[kind][L]||0); return px(7*Math.pow(2,stacks)); }
+/* v0.5g: the chooser is the deck itself. Tap a tile to pick its letter; a fused
+   pair, trio or combo offers its faces in a strip above the bar. Every tile that
+   carries the chosen letter lights up, and the bar shows the new multiplier and
+   the price before anything is bought. */
+function bonusTileFaces(c){
+  if(c.kind==="letter") return [c.letter];
+  if(c.kind==="fused" && Array.isArray(c.sides)) return c.sides.map(sd=>sd.letter).filter(Boolean);
+  if(c.kind==="trio") return (c.letters||[]).slice();
+  if(c.kind==="combo") return comboEntries(c).map(e=>e.letter).filter(Boolean);
+  return [];
+}
 function openBonusChooser(kind){
-  G.bonusKind=kind;
-  $("bonusTitle").textContent = kind==="firstUp" ? "First-up: pick a letter" : "Finale: pick a letter";
+  G.bonusKind=kind; G.bonusPick=null; G.bonusFacesFor=null;
+  $("bonusTitle").firstChild.textContent = kind==="firstUp" ? "First-up: pick a letter" : "Finale: pick a letter";
   $("bonusSub").textContent   = kind==="firstUp"
     ? "Words that START with it score +50% per stack."
     : "Words that END with it score +50% per stack.";
-  const wrap=$("bonusChoices"); wrap.innerHTML="";
-  // v491g: letters that only exist inside a fused pair or an -ING/-ATE combo are
-  // still letters a word can start or end with, so they belong in this list. They
-  // appear individually; scoring already reads the resolved first/last letter, so a
-  // fused tile rotated to face its bonus letter outward triggers the stack normally.
-  const faces=deckLetterFaces();
-  const letters=[...new Set(faces)].sort();
-  letters.forEach(L=>{
-    const stacks=(G.perks[kind][L]||0), cost=bonusCostFor(kind,L);
-    const b=document.createElement("button");
-    b.className="clone-choice"+(G.coins<cost?" disabled":"");
-    const held=faces.filter(x=>x===L).length;   // v0.5b: how many of this letter the deck holds
-    b.innerHTML=`<span class="cc-count">×${held}</span>${L}<span class="cc-val">→×${1+0.5*(stacks+1)}</span><span class="cc-cost"><span class="c-ico">◉</span>${cost}</span>`;
-    if(G.coins>=cost) b.addEventListener("click",()=>chooseBonus(L));
-    wrap.appendChild(b);
-  });
-  // v0.5b: the whole deck, drawn exactly as the Deck button shows it, so the pick is informed
-  { const dl=$("bonusDeck"); if(dl){ dl.innerHTML=""; const keep=G.selectMode; G.selectMode=null;
-      G.deck.slice().sort(deckSortKey()).forEach(c=>dl.appendChild(deckTileEl(c)));
-      G.selectMode=keep;
-      const dc=$("bonusDeckCount"); if(dc) dc.textContent=G.deck.length+" cards"; } }
+  renderBonusChooser();
   $("bonusChooser").classList.remove("hidden");
+}
+function renderBonusChooser(){
+  const kind=G.bonusKind, L=G.bonusPick;
+  const dl=$("bonusDeck"); dl.innerHTML="";
+  const keep=G.selectMode; G.selectMode=null;
+  G.deck.slice().sort(deckSortKey()).forEach(c=>{
+    const el=deckTileEl(c), faces=[...new Set(bonusTileFaces(c))];
+    if(faces.length){
+      el.classList.add("selectable","gild");
+      if((L && faces.includes(L)) || G.bonusFacesFor===c.id) el.classList.add("picked");
+      el.addEventListener("click",()=>{
+        if(faces.length===1){ G.bonusPick = (G.bonusPick===faces[0]) ? null : faces[0]; G.bonusFacesFor=null; }
+        else { G.bonusFacesFor=c.id; if(!faces.includes(G.bonusPick)) G.bonusPick=null; }
+        haptic(8); renderBonusChooser();
+      });
+    }
+    dl.appendChild(el);
+  });
+  G.selectMode=keep;
+  { const dc=$("bonusDeckCount"); if(dc) dc.textContent=G.deck.length+" cards"; }
+  { const s=$("bonusSummary"); if(s) s.innerHTML=deckSummaryHtml(); }
+  // faces strip for a multi-letter tile
+  const fx=$("bonusFaces"); fx.innerHTML="";
+  const ft=G.bonusFacesFor!=null ? G.deck.find(x=>x.id===G.bonusFacesFor) : null;
+  if(ft){
+    [...new Set(bonusTileFaces(ft))].forEach(f=>{
+      const b=document.createElement("button"); b.textContent=f; if(f===G.bonusPick) b.className="on";
+      b.addEventListener("click",()=>{ G.bonusPick=f; haptic(8); renderBonusChooser(); });
+      fx.appendChild(b);
+    });
+  }
+  fx.classList.toggle("hidden", !ft);
+  const what=$("bonusPickWhat"), go=$("bonusPickGo");
+  if(!G.bonusPick){ what.innerHTML = ft ? "Which letter on this tile?" : "Tap a letter"; go.disabled=true; go.textContent="Choose a letter"; return; }
+  const stacks=(G.perks[kind][G.bonusPick]||0), cost=bonusCostFor(kind,G.bonusPick);
+  const held=deckLetterFaces().filter(x=>x===G.bonusPick).length;
+  what.innerHTML=`${kind==="firstUp"?"First-up":"Finale"} <b>${G.bonusPick}</b>: ×${1+0.5*stacks} → ×${1+0.5*(stacks+1)}<small>You hold ${held} ${G.bonusPick}${held===1?"":"s"}</small>`;
+  go.disabled = G.coins<cost;
+  go.innerHTML = G.coins<cost ? "Not enough ◉" : `Buy for <span class="c-ico">◉</span>${cost}`;
 }
 function chooseBonus(L){
   const kind=G.bonusKind, cost=bonusCostFor(kind,L);
@@ -8843,6 +8945,8 @@ function closeDeck(){
     const o=(G.shopOffers||[]).find(x=>x.d&&x.d.type==="freeGild"&&x.sold); if(o) o.sold=false;
   }
   G._freeGildDone=false;
+  G.deckPick=null;
+  { const sh=$("deckSheet"); if(sh) sh.classList.remove("picking"); }
   $("deckScreen").classList.add("hidden");
   $("selectHint").classList.add("hidden");
   G.selectMode=null; G.fuseOfferIdx=null; G.fusePending=null; fusePendingPair=null; G.trioPairPending=null; trioFusePendingPair=null;
@@ -9321,6 +9425,8 @@ $("pauseHowtoBtn").addEventListener("click",()=>$("howtoScreen").classList.remov
 $("howtoCloseBtn").addEventListener("click",()=>$("howtoScreen").classList.add("hidden"));
 // first/last-up letter chooser
 $("bonusCancel").addEventListener("click",cancelBonus);
+$("bonusPickGo").addEventListener("click",()=>{ if(G.bonusPick) chooseBonus(G.bonusPick); });
+$("deckPickGo").addEventListener("click",confirmDeckPick);
 
 // physical keyboard: type letters to place from hand, Enter submit, Backspace recall one
 document.addEventListener("keydown",e=>{
