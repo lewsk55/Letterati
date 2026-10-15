@@ -1,0 +1,754 @@
+<!doctype html>
+<html lang="en"><head>
+<meta charset="utf-8"><meta name="viewport" content="width=device-width,initial-scale=1">
+<title>Letterati Simulator v2</title>
+<style>
+:root{--ink:#23202E;--soft:#6A6478;--page:#F3ECDC;--card:#FBF6EA;--edge:#D8C8A4;--brass:#B98A2E;--moss:#3C6E63;--ox:#9E3B2E;--bar:#E7DCC4}
+@media (prefers-color-scheme: dark){:root{--ink:#ECE4D4;--soft:#9A93A6;--page:#191621;--card:#24212E;--edge:#3E3A4A;--brass:#D8AA4E;--moss:#6FB3A2;--ox:#D06A5C;--bar:#2E2A3A}}
+*{box-sizing:border-box}
+body{margin:0;background:var(--page);color:var(--ink);font:15px/1.45 "Helvetica Neue",Arial,sans-serif}
+main{max-width:980px;margin:0 auto;padding:20px 16px 60px}
+h1{font-family:Georgia,serif;font-size:1.7rem;margin:0 0 2px}
+.sub{color:var(--soft);margin:0 0 18px;font-size:.9rem}
+.card{background:var(--card);border:1px solid var(--edge);border-radius:12px;padding:14px 16px;margin:0 0 14px}
+.grid{display:grid;grid-template-columns:repeat(auto-fit,minmax(170px,1fr));gap:10px 14px}
+label{display:flex;flex-direction:column;font-size:.74rem;font-weight:800;letter-spacing:.06em;text-transform:uppercase;color:var(--soft);gap:4px}
+input,select{font:inherit;padding:7px 9px;border-radius:8px;border:1px solid var(--edge);background:var(--page);color:var(--ink);text-transform:none;letter-spacing:0;font-weight:500}
+button{font:inherit;font-weight:800;padding:10px 18px;border-radius:999px;border:0;background:var(--ink);color:var(--page);cursor:pointer}
+button.alt{background:transparent;color:var(--ink);border:1px solid var(--edge)}
+button:disabled{opacity:.5;cursor:default}
+.row{display:flex;gap:10px;align-items:center;flex-wrap:wrap;margin-top:12px}
+.prog{height:8px;background:var(--bar);border-radius:99px;overflow:hidden;flex:1;min-width:120px}
+.prog i{display:block;height:100%;width:0;background:var(--moss);transition:width .2s}
+.big{display:flex;gap:22px;flex-wrap:wrap}
+.big div{min-width:120px}
+.big b{display:block;font-family:Georgia,serif;font-size:2rem;line-height:1.1}
+.big span{font-size:.78rem;color:var(--soft)}
+table{width:100%;border-collapse:collapse;font-size:.88rem}
+th,td{text-align:left;padding:6px 8px;border-bottom:1px solid var(--edge);vertical-align:top}
+th{font-size:.7rem;letter-spacing:.06em;text-transform:uppercase;color:var(--soft)}
+td.n{text-align:right;font-variant-numeric:tabular-nums}
+.bars{display:flex;align-items:flex-end;gap:6px;height:90px;margin-top:8px}
+.bars div{flex:1;background:var(--ox);border-radius:4px 4px 0 0;position:relative;min-height:2px}
+.bars div span{position:absolute;bottom:-18px;left:0;right:0;text-align:center;font-size:.7rem;color:var(--soft)}
+.bars div em{position:absolute;top:-17px;left:0;right:0;text-align:center;font-size:.7rem;font-style:normal}
+.note{font-size:.82rem;color:var(--soft)}
+.warn{color:var(--ox);font-weight:700}
+h2{font-size:1rem;margin:0 0 8px}
+iframe{position:absolute;left:-9999px;top:0;width:390px;height:844px;border:0}
+.scroll{overflow-x:auto}
+</style></head><body><main>
+<h1>Letterati Simulator v2</h1>
+<p class="sub">Plays the real game in a hidden frame, the way a person would, and measures the runs with the same yardstick as your own play data. Keep this file in the same folder as the game and its three dictionary files. Nothing it plays is saved to your browser or sent to the run database.</p>
+
+<div class="card">
+  <div class="grid">
+    <label>Game file <input id="gameFile" value="index.html"></label>
+    <label>Runs <input id="nRuns" type="number" min="1" max="2000" value="100"></label>
+    <label>Player <select id="profile"></select></label>
+    <label>Character <select id="charSel"><option value="mix">Your mix (writer 64%, detective 36%)</option><option value="writer">The Writer</option><option value="detective">The Detective</option></select></label>
+    <label>Ascension <select id="ascSel"><option value="mix">Your mix (A0 to A6)</option></select></label>
+    <label>Random seed <input id="rseed" type="number" value="1"></label>
+  </div>
+  <div class="row">
+    <label style="flex:1;min-width:220px">Compare with your play data (letterati_all_runs.json) <input id="realFile" type="file" accept=".json,application/json"></label>
+    <label style="min-width:160px">Versions to compare <input id="realFilter" value="^0\.5"></label>
+  </div>
+  <div class="row">
+    <button id="goBtn">Run the simulation</button>
+    <button class="alt" id="stopBtn" disabled>Stop</button>
+    <button class="alt" id="dlBtn" disabled>Download runs (JSON)</button>
+    <div class="prog"><i id="progBar"></i></div><span class="note" id="progTxt"></span>
+  </div>
+</div>
+
+<div id="out"></div>
+<iframe id="gameFrame" title="game" aria-hidden="true"></iframe>
+
+<script>
+/* ============================================================
+   Letterati Simulator v2: the player agent
+   ------------------------------------------------------------
+   v1 re-implemented the round loop next to the game and skipped
+   whole systems (challenges, the final proof, mystery words,
+   characters, ascension, fusions, most targeted upgrades). v2
+   plays the REAL game instead: it loads the game page in a hidden
+   iframe with a virtual clock, then taps the same functions and
+   buttons a person would. Every rule the game has applies, and
+   every run produces the game's own telemetry record, so sim runs
+   and real runs are measured with the same yardstick.
+
+   The behaviour model is fitted to Adam's exported play data
+   (letterati_all_runs.json, versions 48 to 0.5f):
+   - shop: per-item buy rates from his shops, then gild chasing,
+     fusion pairing and stamp targeting on top
+   - words: knows the common-word list plus a slice of rarer words,
+     sometimes settles for a lesser word, spots ~20% of mystery words
+   - discards: digs when the hand is short of what the round needs,
+     and digs harder for gilded tiles still in the draw pile
+   - always takes challenges, prefers the upgrade and epic rewards
+   ============================================================ */
+(function(root){
+"use strict";
+
+/* ---------- Adam's revealed shop preferences ----------
+   Share of times each offer type was bought when it was on the shelf,
+   smoothed toward 0.15. Built from 470+ shops in versions 48 to 0.5f. */
+const BUY_RATE = {"gildLetter":0.95,"freeGild":0.95,"vowelPower":0.9,"extraDiscard":0.9,"fuller":0.9,"fireSale":0.9,
+ "freeRerolls":0.85,"foil":0.85,"heavyPress":0.85,"shortKing":0.85,"twoOfAKind":0.85,"twinsies":0.85,"dittoStamp":0.85,
+ "fiveTimer":0.85,"verbose":0.85,"serifStamp":0.85,"lucky7":0.85,"colophon":0.85,"blindFaith":0.8,"encore":0.8,"copyCat":0.8,
+ "consonantCluster":0.8,"firstUp":0.75,"lastUp":0.75,"fingerprint":0.75,"fightingWords":0.75,"verbizer":0.75,"midnightPress":0.7,
+ "galleyProof":0.7,"caseClosed":0.7,"dragnet":0.7,"watermark":0.7,"superStore":0.65,"extraTurn":0.7,"deadlineExt":0.65,
+ "cutAbove":0.6,"goldenTicket":0.6,"bigWords":0.6,"secondOpinion":0.6,"heart":0.6,"dropcapStamp":0.6,"triptych":0.55,"clone":0.55,
+ "vowelPuller":0.55,"trioUpgrade":0.55,"alphabetizer":0.5,"growthMind":0.5,"proofSheet":0.5,"onTheBeat":0.5,"wetProof":0.5,
+ "crossword":0.5,"fusedPair":0.6,"marginalia":0.45,"pressMult":0.45,"vanityPress":0.4,"anthology":0.4,"boldfaceStamp":0.4,
+ "trio":0.4,"abridged":0.4,"finalProof":0.4,"fusedFocus":0.4,"gildedAge":0.5,"emQuad":0.35,"department":0.35,"repeater":0.35,
+ "ligature":0.3,"secondEdition":0.3,"hotMetal":0.3,"killFee":0.3,"columnInch":0.3,"wildCons":0.3,"goldenLetter":0.45,
+ "rapSheet":0.3,"vowelMovement":0.28,"inkBall":0.27,"movableType":0.27,"tailpiece":0.27,"descender":0.26,"powerTrio":0.25,
+ "compositor":0.24,"dealer":0.23,"standingHead":0.23,"wordBinder":0.0,"eraser":0.22,"typeHigh":0.22,"slugLine":0.2,
+ "justified":0.2,"pulpMill":0.17,"wildVowel":0.17,"redHerring":0.16,"commission":0.15,"inkwellStamp":0.15,"interest":0.12,
+ "kerning":0.1,"mirror":0.1,"recycledStock":0.08,"letter":0.12,"abcs":0.07,"fuse":0.75,"combo":0.4,"sealedShelf":0.5};
+// what he picked in the opening draft, most often first
+const DRAFT_ORDER=["fuller","fireSale","shortKing","extraTurn","blindFaith","colophon","proofSheet","wetProof","kerning","consonantCluster",
+  "vowelPower","extraDiscard","heavyPress","twoOfAKind","twinsies","fiveTimer","verbose"];
+
+/* ---------- player profiles ----------
+   regular: fitted to Adam's data. casual: same habits, less skill and less shopping.
+   Every knob is a plain number so the calibration can be re-run. */
+const PROFILES={
+  regular:{ label:"Regular (fitted to your play)", findScale:1.0, salience:1.0, rareVocab:0.30, commonRank:60000, missRate:0.12, mysterySee:0.42,
+    discardBar:0.75, huntGild:0.6, buyScale:1.0, reserve:1, rerollP:0.85, maxRerolls:2, takeChallenge:0.98,
+    rewardPref:["upgrade","epic","cash20","cash15","double","cash10"], useCards:true, thinkTopK:3 },
+  casual:{ label:"Casual", findScale:0.6, salience:0.2, rareVocab:0.05, commonRank:25000, missRate:0.35, mysterySee:0.15,
+    discardBar:0.45, huntGild:0.0, buyScale:0.7, reserve:3, rerollP:0.15, maxRerolls:1, takeChallenge:0.6,
+    rewardPref:["cash20","cash15","cash10","upgrade","epic","double"], useCards:true, thinkTopK:4 }
+};
+// character and ascension mix seen in his 6-round runs (editor is not simulated yet)
+const CHAR_MIX={writer:0.64, detective:0.36};
+
+/* ---------- small helpers ---------- */
+function mulberry32(a){ return function(){ a|=0; a=a+0x6D2B79F5|0; let t=Math.imul(a^a>>>15,1|a); t=t+Math.imul(t^t>>>7,61|t)^t; return ((t^t>>>14)>>>0)/4294967296; }; }
+function hashStr(s){ let h=2166136261; for(let i=0;i<s.length;i++){ h^=s.charCodeAt(i); h=Math.imul(h,16777619); } return h>>>0; }
+function sortKey(s){ return s.split("").sort().join(""); }
+const LETTER_FREQ={E:12.7,T:9.1,A:8.2,O:7.5,I:7.0,N:6.7,S:6.3,H:6.1,R:6.0,D:4.3,L:4.0,C:2.8,U:2.8,M:2.4,W:2.4,F:2.2,G:2.0,Y:2.0,P:1.9,B:1.5,V:1.0,K:0.8,J:0.15,X:0.15,Q:0.1,Z:0.07};
+const FIRST_FREQ={S:11,C:9,P:8,T:7,B:6,A:6,M:6,D:6,R:5,F:5,H:4,G:4,E:4,W:4,L:4,I:3,O:3,N:3,U:2,V:2,K:1,J:1,Q:1,Y:1,Z:0.3,X:0.2};
+const LAST_FREQ={S:20,E:16,D:10,Y:8,T:8,R:7,N:6,G:5,L:4,H:3,K:2,A:2,O:2,M:2,P:1,C:1,F:1,W:1,X:1,I:1,U:0.5,B:0.5,V:0.1,Z:0.3,J:0.05,Q:0.05};
+const BIGRAMS={QU:30,ER:10,ED:8,ST:8,TH:9,IN:8,RE:7,ES:7,EN:6,ON:6,AN:6,AT:5,ND:5,OR:5,AR:5,TE:5,TI:4,NG:5,CK:4,SH:4,CH:4,LE:4,LY:3,EE:2,OO:2,LL:3,SS:3,TT:2,PP:1,RR:1};
+const TRIGRAMS={ING:20,THE:10,ERS:8,EST:7,ATE:6,ION:6,ENT:6,AND:5,TER:5,QUE:9,QUA:6,QUI:6,ERE:3,RED:4,TED:4,LED:4,NED:4,ESS:4,STE:4,STR:4};
+const VOWEL_SET=new Set(["A","E","I","O","U"]);
+
+/* ============================================================
+   The harness: one iframe running the real game on a virtual clock
+   ============================================================ */
+const PRELUDE = `<script>(function(){
+  var Q=[], now=0, seq=0;
+  window.__vt={ now:function(){return now;}, pending:function(){return Q.length;},
+    run:function(limitMs){ var end=now+(limitMs||60000), n=0;
+      while(Q.length && n<20000){ var bi=0; for(var i=1;i<Q.length;i++){ if(Q[i].t<Q[bi].t||(Q[i].t===Q[bi].t&&Q[i].id<Q[bi].id)) bi=i; }
+        var it=Q[bi]; if(it.t>end) break; Q.splice(bi,1); if(it.t>now) now=it.t; n++;
+        try{ it.f.apply(null,it.a||[]); }catch(e){ window.__simErrors=(window.__simErrors||[]); window.__simErrors.push(String(e&&e.stack||e)); } }
+      return n; },
+    step:function(){ if(!Q.length) return 0; var mt=Infinity; for(var i=0;i<Q.length;i++) if(Q[i].t<mt) mt=Q[i].t;
+      if(mt>now) now=mt; var n=0;
+      while(n<5000){ var bi=-1; for(var j=0;j<Q.length;j++){ if(Q[j].t<=now && (bi<0||Q[j].t<Q[bi].t||(Q[j].t===Q[bi].t&&Q[j].id<Q[bi].id))) bi=j; }
+        if(bi<0) break; var it=Q[bi]; Q.splice(bi,1); n++;
+        try{ it.f.apply(null,it.a||[]); }catch(e){ window.__simErrors=(window.__simErrors||[]); window.__simErrors.push(String(e&&e.stack||e)); } }
+      return n; },
+    clear:function(){ Q.length=0; } };
+  window.setTimeout=function(f,ms){ if(typeof f!=="function") return 0; var id=++seq; Q.push({id:id,t:now+(+ms||0),f:f,a:[].slice.call(arguments,2)}); return id; };
+  window.clearTimeout=function(id){ for(var i=0;i<Q.length;i++) if(Q[i].id===id){ Q.splice(i,1); return; } };
+  window.setInterval=function(){ return ++seq; }; window.clearInterval=function(){};
+  window.requestAnimationFrame=function(f){ return window.setTimeout(function(){ f(now); },16); };
+  window.cancelAnimationFrame=function(id){ window.clearTimeout(id); };
+  var mm=window.matchMedia;
+  window.matchMedia=function(q){ var m=/reduce/.test(q); return {matches:m,media:q,addListener:function(){},removeListener:function(){},addEventListener:function(){},removeEventListener:function(){}}; };
+  var mem={}; var store={getItem:function(k){return Object.prototype.hasOwnProperty.call(mem,k)?mem[k]:null;},setItem:function(k,v){mem[k]=String(v);},removeItem:function(k){delete mem[k];},clear:function(){mem={};},key:function(i){return Object.keys(mem)[i]||null;},get length(){return Object.keys(mem).length;}};
+  try{ Object.defineProperty(window,"localStorage",{value:store,configurable:true}); }catch(e){}
+  try{ Object.defineProperty(window,"sessionStorage",{value:store,configurable:true}); }catch(e){}
+  window.__simStore=store;
+  // no telemetry, no dictionary API: every lookup gets a stand-in definition
+  window.fetch=function(url){ var u=String(url||"");
+    var body = /freedictionaryapi/.test(u) ? {entries:[{partOfSpeech:"noun",senses:[{definition:"a word in the simulated dictionary"}]}]}
+             : /dictionaryapi\\.dev/.test(u) ? [{meanings:[{partOfSpeech:"noun",definitions:[{definition:"a word in the simulated dictionary"}]}]}] : {};
+    return Promise.resolve({ok:true,status:200,json:function(){return Promise.resolve(body);},text:function(){return Promise.resolve("");}}); };
+  try{ navigator.sendBeacon=function(){return true;}; }catch(e){}
+  try{ Object.defineProperty(navigator,"vibrate",{value:function(){return true;},configurable:true}); }catch(e){}
+  window.AudioContext=undefined; window.webkitAudioContext=undefined;
+  window.alert=function(){}; window.confirm=function(){return true;};
+})();<\/script>`;
+
+async function loadHarness(gameUrl, iframe){
+  const resp=await fetch(gameUrl,{cache:"no-store"});
+  if(!resp.ok) throw new Error("Could not load "+gameUrl+" ("+resp.status+")");
+  let html=await resp.text();
+  const base=new URL(gameUrl, location.href).href.replace(/[^/]*$/,"");
+  html=html.replace(/<head[^>]*>/i, m=>m+`<base href="${base}">`+PRELUDE);
+  await new Promise((res,rej)=>{ iframe.onload=()=>res(); iframe.onerror=rej; iframe.srcdoc=html; });
+  const W=iframe.contentWindow;
+  for(let i=0;i<200 && !W.__vt;i++) await new Promise(r=>setTimeout(r,10));
+  const E=s=>{ try{ return W.eval(s); }catch(e){ return undefined; } };
+  const H={W,E,doc:W.document};
+  H.G=E("G");
+  H.version=E("VERSION");
+  H.vis=id=>{ const el=W.document.getElementById(id); return !!el && !el.classList.contains("hidden"); };
+  H.click=id=>{ const el=W.document.getElementById(id); if(el && !el.disabled){ el.click(); return true; } return false; };
+  // Advance the virtual clock one due-time at a time, letting promises (the stand-in
+  // dictionary lookups) settle in between, exactly as a real browser would.
+  const mc=new MessageChannel(); let waiters=[];
+  mc.port1.onmessage=()=>{ const w=waiters; waiters=[]; w.forEach(f=>f()); };
+  const tick=()=>new Promise(r=>{ waiters.push(r); mc.port2.postMessage(0); });
+  H.flush=async(ms)=>{ const t0=W.__vt.now(), lim=ms||12000;
+    await tick();
+    for(let k=0;k<400;k++){ if(!W.__vt.pending()) { await tick(); if(!W.__vt.pending()) break; }
+      if(W.__vt.now()-t0>lim) break;
+      W.__vt.step(); await tick(); } };
+  // signature map over the full word list, built once in this realm
+  const words=E("WORDS"), sig=new Map();
+  for(const w of words){ if(w.length<2||w.length>12||!/^[a-z]+$/.test(w)) continue;
+    const k=sortKey(w); let a=sig.get(k); if(!a){ a=[]; sig.set(k,a); } a.push(w); }
+  H.sig=sig;
+  const common=E("COMMON"), rank=new Map(); let i=0; for(const w of common){ rank.set(w,i++); }
+  H.commonRank=rank;
+  return H;
+}
+
+/* ============================================================
+   The agent
+   ============================================================ */
+function makeAgent(H, profile, rng){
+  const {E,G}=H, P=profile;
+  const fn=n=>{ const f=E(n); return (typeof f==="function")?f:(typeof f!=="undefined"?f:(()=>undefined)); };
+  const F={ effValue:fn("effValue"), cardValue:fn("cardValue"), scoreOf:fn("scoreOf"), resolvedCanvas:fn("resolvedCanvas"),
+    wordValid:fn("wordValid"), submitWord:fn("submitWord"), moveToBin:fn("moveToBin"), discardBinNow:fn("discardBinNow"),
+    comboSeq:fn("comboSeq"), setCloneLetter:fn("setCloneLetter"), useLucky7:fn("useLucky7"), useTriptych:fn("useTriptych"),
+    useDealersChoice:fn("useDealersChoice"), doDealerSwap:fn("doDealerSwap"), buyOffer:fn("buyOffer"), rerollCost:fn("rerollCost"),
+    rerollShop:fn("rerollShop"), stampTargetOk:fn("stampTargetOk"), upgradeCount:fn("upgradeCount"), canGild:fn("canGild"),
+    tapFuse:fn("tapFuse"), tapTrioFuse:fn("tapTrioFuse"), chooseBonus:fn("chooseBonus"), bonusCostFor:fn("bonusCostFor"),
+    deckLetterFaces:fn("deckLetterFaces"), closeDeck:fn("closeDeck"), selectChallengeReward:fn("selectChallengeReward"),
+    lenMult:fn("lenMult"), LETTER_VALUES:fn("LETTER_VALUES") };
+  const MAXUP=E("MAX_TILE_UPGRADES")||3;
+  const tally={stuckHadWord:null, stuckRule:"", discards:0, rounds:0, mysterySeen:0, mysteryPlayed:0, words:0, noWord:0, fusions:0, cardsUsed:0};
+  const seenMystery=new Map();
+
+  // How likely a person is to spot a given word in the hand this turn. People find
+  // short and familiar words, and miss long or obscure ones even when they fit.
+  const LEN_F={2:0.45,3:0.75,4:0.85,5:0.7,6:0.45,7:0.25,8:0.12,9:0.06,10:0.03,11:0.02,12:0.01};
+  function pFind(w){
+    const r=H.commonRank.get(w);
+    let g;
+    if(r!=null && r<P.commonRank){ g = r<5000?1 : r<15000?0.8 : r<30000?0.55 : 0.35; }
+    else { if((hashStr("v:"+w)%1000)/1000 >= P.rareVocab) return 0; g=0.3; }
+    return Math.min(1, P.findScale * (LEN_F[w.length]||0.01) * g);
+  }
+  // how much a tile is worth keeping / upgrading: points times how often it gets played
+  function playRate(L){ const lp=(G.letterPlays||{})[L]||0; return (LETTER_FREQ[L]||1)/4 + lp*0.6; }
+  function tileLetters(c){
+    if(c.kind==="letter") return [c.letter];
+    if(c.kind==="fused") return (c.sides||[]).map(s=>s.letter);
+    if(c.kind==="trio") return (c.letters||[]).slice();
+    if(c.kind==="combo") return F.comboSeq(c).slice();
+    return [];
+  }
+  function tilePoints(c){
+    try{ if(c.kind==="letter") return F.effValue(c);
+      if(c.kind==="fused") return E("fusedValue")(c);
+      if(c.kind==="trio") return E("trioValue")(c);
+      if(c.kind==="combo") return E("comboValue")(c); }catch(e){}
+    return 0;
+  }
+  function goldOf(c){ return (c.mult||1); }
+  // Which tile to pour upgrades into. In the six-round game Adam gilds the 4-point
+  // letters (H, F, Y, V, W) and the big ones (Q, Z, X), and mostly leaves 1-point
+  // letters alone: points first, how often the letter turns up second.
+  function chaseScore(c){
+    const Ls=tileLetters(c); if(!Ls.length) return 0;
+    const pr=Ls.reduce((s,L)=>s+playRate(L),0)/Ls.length;
+    return tilePoints(c) * (0.55 + 0.45*Math.min(1, pr/2.2)) * goldOf(c);
+  }
+  const GILD_RATE_BY_VALUE={1:0.3,2:0.55,3:0.6,4:0.98,5:0.85,8:0.8,10:0.8};
+  function keepValue(c){
+    if(c.kind==="lucky7"||c.kind==="triptych"||c.kind==="dealer") return 999;
+    if(c.kind==="clone"||c.kind==="wildvowel"||c.kind==="wildcons"||c.kind==="copycat") return 60;
+    let v=tilePoints(c)*goldOf(c) + (c.upLevel||0)*6 + (F.upgradeCount?F.upgradeCount(c):0)*4;
+    if(c.kind==="letter" && VOWEL_SET.has(c.letter)){
+      const vowels=G.hand.filter(x=>x.kind==="letter"&&VOWEL_SET.has(x.letter)).length;
+      v += vowels<=2 ? 6 : vowels>=4 ? -2 : 2;
+    }
+    if(c.kind==="letter" && "QJXZ".includes(c.letter) && !(c.upLevel)) v-=4;   // hard to place unless it is a carry tile
+    return v;
+  }
+
+  /* ---------- word search over the real hand, real scoring ---------- */
+  function unitOptions(c, hand){
+    const o=[];
+    if(c.kind==="letter") o.push({seq:c.letter, cfg:null});
+    else if(c.kind==="fused" && c.sides && c.sides.length===2){
+      const a=c.sides[0].letter, b=c.sides[1].letter;
+      o.push({seq:a,cfg:{mode:0}},{seq:b,cfg:{mode:1}},{seq:a+b,cfg:{mode:2}});
+      if(a!==b) o.push({seq:b+a,cfg:{mode:3}});
+    } else if(c.kind==="trio"){
+      const Ls=c.letters||[]; const idx=[0,1,2];
+      const perms=[[0],[1],[2],[0,1],[1,0],[0,2],[2,0],[1,2],[2,1],[0,1,2],[0,2,1],[1,0,2],[1,2,0],[2,0,1],[2,1,0]];
+      const seen=new Set();
+      perms.forEach(pm=>{ const seq=pm.map(i=>Ls[i]).join(""); if(seen.has(seq)) return; seen.add(seq);
+        const rest=idx.filter(i=>!pm.includes(i)); const act=[0,1,2].map(i=>pm.includes(i));
+        o.push({seq, cfg:{order:pm.concat(rest), active:act}}); });
+    } else if(c.kind==="combo") o.push({seq:F.comboSeq(c).join(""), cfg:null});
+    else if(c.kind==="wildvowel") ["A","E","I","O","U"].forEach(L=>o.push({seq:L,cfg:{vowel:L}}));
+    else if(c.kind==="wildcons") ["S","T","R","N","L","D","C","M","P","B","G","H","K","Y","F","W","V","X","Z","J","Q"].forEach(L=>o.push({seq:L,cfg:{cons:L}}));
+    else if(c.kind==="clone"){ const s=new Set(hand.filter(x=>x.kind==="letter").map(x=>x.letter)); s.forEach(L=>o.push({seq:L,cfg:{clone:L}})); }
+    return o;
+  }
+  function applyCfg(c,cfg){
+    if(!cfg) return;
+    if(cfg.mode!=null) c.mode=cfg.mode;
+    if(cfg.order){ c.order=cfg.order.slice(); c.active=cfg.active.slice(); }
+    if(cfg.vowel) c.vowel=cfg.vowel;
+    if(cfg.cons) c.cons=cfg.cons;
+    if(cfg.clone) F.setCloneLetter(c,cfg.clone);
+  }
+  function arrange(units, w){   // units: [{c,seq,cfg}] -> ordered array or null
+    const used=new Array(units.length).fill(false), out=[];
+    const U=w.toUpperCase();
+    function go(p){
+      if(p===U.length) return out.length===units.length;
+      for(let i=0;i<units.length;i++){
+        if(used[i]) continue; const s=units[i].seq;
+        if(U.startsWith(s,p)){ used[i]=true; out.push(units[i]); if(go(p+s.length)) return true; out.pop(); used[i]=false; }
+      }
+      return false;
+    }
+    return go(0) ? out.slice() : null;
+  }
+  function evalPlay(ordered){
+    const cards=ordered.map(u=>u.c);
+    const saveHand=G.hand, saveCanvas=G.canvas;
+    ordered.forEach(u=>applyCfg(u.c,u.cfg));
+    G.hand=saveHand.filter(x=>!cards.includes(x)); G.canvas=cards;
+    let ok=false, sc=null;
+    try{ ok=F.wordValid(); if(ok) sc=F.scoreOf(F.resolvedCanvas()); }catch(e){ ok=false; }
+    G.hand=saveHand; G.canvas=saveCanvas;
+    return ok&&sc ? sc.total : -1;
+  }
+  function findWords(hand, opts){
+    opts=opts||{};
+    let cards=hand.filter(c=>["letter","fused","trio","combo","wildvowel","wildcons","clone"].includes(c.kind));
+    if(cards.length>10) cards=cards.slice().sort((a,b)=>keepValue(b)-keepValue(a)).slice(0,10);
+    const opt=cards.map(c=>unitOptions(c,hand));
+    const n=cards.length, found=[];
+    const myst = G.mystery && G.mystery.word ? G.mystery.word : null;
+    let mystOk=false;
+    if(myst){ const key=myst+":"+G.level+":"+(G.handsLeft|0); if(!seenMystery.has(key)) seenMystery.set(key, rng()<P.mysterySee); mystOk=seenMystery.get(key); }
+    for(let mask=1; mask<(1<<n); mask++){
+      const idx=[]; for(let i=0;i<n;i++) if(mask&(1<<i)) idx.push(i);
+      let combos=[[]];
+      for(const i of idx){ const next=[]; for(const base of combos){ for(const o of opt[i]){ next.push(base.concat([{c:cards[i],seq:o.seq,cfg:o.cfg}])); if(next.length>160) break; } if(next.length>160) break; } combos=next; }
+      for(const units of combos){
+        let len=0; for(const u of units) len+=u.seq.length;
+        if(len<2||len>12) continue;
+        const ws=H.sig.get(sortKey(units.map(u=>u.seq).join("").toLowerCase())); if(!ws) continue;
+        for(const w of ws){
+          const isMyst = myst && w===myst;
+          if(isMyst){ if(!mystOk) continue; }
+          else if(opts.anyWord){ /* full dictionary, no vocabulary model */ }
+          else { let pf=pFind(w); if(pf<=0) continue;
+            const glow=units.reduce((n,u)=>n+((u.c.upLevel||0)>0||(u.c.mult||1)>1?1:0),0);
+            pf=Math.min(1, pf*(1+P.salience*glow));
+            if(!opts.exhaustive && rng()>pf) continue; }
+          const ord=arrange(units,w); if(!ord) continue;
+          // quick estimate before the real (slower) scoring
+          let est=0; ord.forEach(u=>{ est+=tilePoints(u.c)/(Math.max(1,tileLetters(u.c).length))*u.seq.length*goldOf(u.c); });
+          est*= Math.pow(w.length,1.3) * (isMyst?2:1);
+          found.push({w,ord,est,isMyst});
+        }
+      }
+    }
+    // de-dupe by word, keep the best estimate, then real-score the top candidates
+    const byW=new Map(); found.forEach(f=>{ const p=byW.get(f.w); if(!p||f.est>p.est) byW.set(f.w,f); });
+    // real-score the most promising first; if the round's rules knock them all out
+    // (No Reprints, Longform, house letter), keep going down the list like a person would
+    const all=[...byW.values()].sort((a,b)=>b.est-a.est), top=opts.top||28, out=[];
+    for(let i=0;i<all.length && i<320;i++){
+      const f=all[i]; f.score=evalPlay(f.ord); if(f.score>0) out.push(f);
+      if(i+1>=top && out.length>=2) break;
+    }
+    return out.sort((a,b)=>b.score-a.score);
+  }
+  function choose(list){
+    if(!list.length) return null;
+    if(rng()<P.missRate && list.length>1){ const k=Math.min(P.thinkTopK,list.length); return list[1+Math.floor(rng()*(k-1))]||list[0]; }
+    return list[0];
+  }
+  async function play(pick){
+    const cards=pick.ord.map(u=>u.c);
+    pick.ord.forEach(u=>applyCfg(u.c,u.cfg));
+    G.hand=G.hand.filter(x=>!cards.includes(x)); G.canvas=cards;
+    if(!F.wordValid()){ G.hand=G.hand.concat(cards); G.canvas=[]; return false; }
+    if(pick.isMyst) tally.mysteryPlayed++;
+    F.submitWord(); tally.words++;
+    await H.flush();
+    return true;
+  }
+
+  /* ---------- one turn in play ---------- */
+  async function turn(){
+    const need=Math.max(1,(G.target-G.score))/Math.max(1,G.handsLeft);
+    // cards that draw or fetch tiles
+    if(P.useCards){
+      const quick=findWords(G.hand,{top:10}); const best0=quick[0]?quick[0].score:0;
+      const weak=best0<need*0.7;
+      const l7=G.hand.find(c=>c.kind==="lucky7"), tri=G.hand.find(c=>c.kind==="triptych"), dl=G.hand.find(c=>c.kind==="dealer");
+      if(weak && l7){ F.useLucky7(l7); tally.cardsUsed++; await H.flush(); }
+      else if(weak && tri){ F.useTriptych(tri); tally.cardsUsed++; await H.flush(); }
+      else if(dl && (G.drawPile||[]).length){
+        const prize=[...(G.drawPile||[]),...(G.played||[])].sort((a,b)=>chaseScore(b)-chaseScore(a))[0];
+        if(prize && (prize.upLevel||0)>0){ F.useDealersChoice(dl); await H.flush(); if(H.vis("deckScreen")&&G.selectMode==="dealer"){ F.doDealerSwap(prize.id); tally.cardsUsed++; await H.flush(); } }
+      }
+    }
+    let list=findWords(G.hand);
+    let best=list[0];
+    // discard: dig when the best word falls short, dig harder for gilded tiles still in the pile
+    let digs=0;
+    while(G.discardsLeft>0 && (digs<3 || (!best && digs<12))){
+      const bestScore=best?best.score:0;
+      const pileGild=(G.drawPile||[]).filter(c=>(c.upLevel||0)>0||goldOf(c)>1).length;
+      const handGild=G.hand.filter(c=>(c.upLevel||0)>0||goldOf(c)>1).length;
+      const short = bestScore < need*P.discardBar;
+      const hunt = pileGild>0 && handGild===0 && G.handsLeft>=2 && bestScore<need*1.25 && rng()<P.huntGild;
+      if(!(short||hunt)) break;
+      const keep=new Set(best?best.ord.map(u=>u.c):[]);
+      const maxT=E("DISCARD_MAX_TILES")||5;   // builds before 0.5f had no cap; people rarely bin more than 5
+      const junk=G.hand.filter(c=>!keep.has(c) && !["lucky7","triptych","dealer"].includes(c.kind)).sort((a,b)=>keepValue(a)-keepValue(b)).slice(0,maxT);
+      if(!junk.length) break;
+      let moved=0; for(const c of junk){ if(F.moveToBin(c,"hand")) moved++; }
+      if(!moved) break;
+      F.discardBinNow(); tally.discards++; digs++;
+      await H.flush();
+      list=findWords(G.hand); best=list[0];
+    }
+    let pick=choose(list);
+    if(!pick){
+      // nothing spotted and nothing left to discard: keep staring until something short turns up
+      let all=findWords(G.hand,{exhaustive:true,top:60});
+      if(!all.length) all=findWords(G.hand,{exhaustive:true,anyWord:true,top:400}).filter(f=>{ const r=H.commonRank.get(f.w); return r!=null && r<P.commonRank; });
+      all.sort((a,b)=>a.w.length-b.w.length || b.score-a.score);
+      pick=all[0]||null;
+    }
+    if(!pick){ tally.noWord++;
+      // record whether ANY dictionary word was playable, to tell a soft lock from a vocabulary gap
+      const any=findWords(G.hand,{exhaustive:true,anyWord:true,top:400});
+      tally.stuckHadWord = any.length ? any[0].w : "";
+      tally.stuckRule = (G.challenge&&G.challenge.type) || (G.boss&&G.boss.type) || "";
+      tally.stuckState = {disc:G.discardsLeft, hands:G.handsLeft, hand:G.hand.map(c=>c.kind==="letter"?c.letter:c.kind==="fused"?"["+c.sides.map(x=>x.letter).join("")+"]":c.kind==="trio"?"{"+c.letters.join("")+"}":c.kind).join(" "),
+        lens:(G.roundLengths||[]).slice(), ch:JSON.stringify(G.challenge), boss:G.boss&&G.boss.type, bossActive:E('bossActive')(), canvas:G.canvas.length, bin:(G.discardBin||[]).length, minLen:E('challengeMinLen')(), ban:[...(E('bannedLetterSet')()||[])].join(''), gameSaysLegal: (typeof E("handHasLegalPlay")==="function") ? [E("handHasLegalPlay")(), E("handHasLegalPlay")(true)] : null};
+      return false; }
+    if(await play(pick)) return true;
+    // the chosen word would not set (a stale tile setting): try the rest of the list
+    for(const alt of list){ if(alt!==pick && await play(alt)) return true; }
+    const all2=findWords(G.hand,{exhaustive:true,anyWord:true,top:400});
+    for(const alt of all2){ if(await play(alt)) return true; }
+    tally.noWord++; tally.playFailed=(tally.playFailed||0)+1;
+    return false;
+  }
+
+  /* ---------- shop ---------- */
+  function offerType(o){ return (o.d&&o.d.type)||o.name||"?"; }
+  function offerWant(o){
+    const t=offerType(o); let w=(BUY_RATE[t]!=null?BUY_RATE[t]:0.3)*P.buyScale;
+    if(t==="gildLetter"){
+      const c=G.deck.find(x=>x.id===(o.d&&o.d.cardId));
+      if(!c || !F.canGild(c)) return 0;
+      const base=c.kind==="letter"?(c.base||1):Math.max(...tileLetters(c).map(L=>(F.LETTER_VALUES||{})[L]||1));
+      const vr=GILD_RATE_BY_VALUE[base]!=null?GILD_RATE_BY_VALUE[base]:(base>=4?0.9:0.4);
+      const easy = c.kind==="letter" && "EAS".includes(c.letter) ? 0.25 : 0;   // the 1-pointers he does gild
+      w = Math.min(0.98, (vr+easy) * (1+0.15*(c.upLevel||0))) * P.buyScale;   // and he keeps feeding a tile once it is gilded
+    }
+    if(t==="fuse"){ if(!bestPair()) return 0; w=Math.max(w, 0.55)*P.buyScale; }
+    if(t==="trioUpgrade"){ if(!G.deck.some(c=>c.kind==="fused")) return 0; }
+    const STAMP={foil:"foil",watermark:"watermark",encore:"encore",growthMind:"growth",boldfaceStamp:"boldface",dropcapStamp:"dropcap",serifStamp:"serif",dittoStamp:"ditto",inkwellStamp:"inkwell"};
+    if(STAMP[t] && !G.deck.some(c=>F.stampTargetOk(c,STAMP[t]))) return 0;
+    return w;
+  }
+  async function shop(){
+    let rerolls=0;
+    for(let pass=0; pass<8; pass++){
+      let bought=0;
+      const order=G.shopOffers.map((o,i)=>({o,i,w:offerWant(o)})).filter(x=>!x.o.sold && x.w>0).sort((a,b)=>b.w-a.w);
+      for(const {o,i,w} of order){
+        if(o.sold) continue;
+        if(G.coins-o.price < P.reserve && o.price>0) continue;
+        if(rng() > w) { o._passed=true; continue; }
+        const before=G.coins;
+        F.buyOffer(i); await H.flush();
+        await resolvePickers();
+        if(o.sold || G.coins<before) bought++;
+      }
+      // reroll when money is left and the shelf is spent
+      const rc=F.rerollCost();
+      if(rerolls<P.maxRerolls && G.coins-rc>=4 && rng()<P.rerollP){ F.rerollShop(); rerolls++; await H.flush(); continue; }
+      if(!bought) break;
+    }
+    H.click("nextBtn"); await H.flush();
+  }
+
+  /* ---------- targeted pickers (deck screen, choosers, fuse confirm) ---------- */
+  function bestPair(){
+    const ls=G.deck.filter(c=>c.kind==="letter");
+    let best=null;
+    for(let i=0;i<ls.length;i++) for(let j=i+1;j<ls.length;j++){
+      const a=ls[i], b=ls[j], bg=Math.max(BIGRAMS[a.letter+b.letter]||0, BIGRAMS[b.letter+a.letter]||0);
+      if(!bg) continue;
+      const s=bg*(1+0.15*(tilePoints(a)+tilePoints(b)));
+      if(!best||s>best.s) best={a,b,s};
+    }
+    return best;
+  }
+  function bestTrio(){
+    const pairs=G.deck.filter(c=>c.kind==="fused"), ls=G.deck.filter(c=>c.kind==="letter");
+    let best=null;
+    pairs.forEach(p=>{ const [x,y]=p.sides.map(s=>s.letter);
+      ls.forEach(l=>{ const L=l.letter; const perms=[x+y+L,x+L+y,L+x+y,y+x+L,y+L+x,L+y+x];
+        const tg=Math.max(...perms.map(s=>TRIGRAMS[s]||0)); const s=(tg+1)*(1+0.1*tilePoints(l));
+        if(!best||s>best.s) best={p,l,s}; }); });
+    return best;
+  }
+  function bestTileFor(mode){
+    const pool=G.deck.filter(c=>{
+      if(mode==="remove") return c.kind==="letter";
+      if(mode==="gemini"||mode==="goldStandard"||mode==="department") return c.kind==="letter";
+      if(mode==="freegild") return F.stampTargetOk(c,"freegild");
+      return F.stampTargetOk(c,mode);
+    });
+    if(!pool.length) return null;
+    if(mode==="remove"){
+      const vowels=G.deck.filter(c=>c.kind==="letter"&&VOWEL_SET.has(c.letter)).length;
+      return pool.filter(c=>!(VOWEL_SET.has(c.letter)&&vowels<=8)).sort((a,b)=>chaseScore(a)-chaseScore(b))[0]||null;
+    }
+    return pool.sort((a,b)=>chaseScore(b)-chaseScore(a))[0];
+  }
+  const ACT={ remove:"doRemove", growth:null, encore:null, foil:null, watermark:null, boldface:null, dropcap:null, serif:null, ditto:null, inkwell:null,
+    freegild:"doFreeGild", department:"doDepartmentPick", gemini:"doGemini", goldStandard:"doGoldStandard" };
+  async function resolvePickers(){
+    for(let guard=0; guard<6; guard++){
+      if(H.vis("fuseConfirm")){ if(!H.click("fuseYes")) H.click("fuseNo"); await H.flush(); tally.fusions++; continue; }
+      if(H.vis("bonusChooser")){
+        const kind=G.bonusKind, freq=kind==="firstUp"?FIRST_FREQ:LAST_FREQ;
+        const faces=F.deckLetterFaces(); const cnt={}; faces.forEach(L=>cnt[L]=(cnt[L]||0)+1);
+        const L=Object.keys(cnt).sort((a,b)=>(cnt[b]*(freq[b]||0.1))-(cnt[a]*(freq[a]||0.1)))[0];
+        if(L && G.coins>=F.bonusCostFor(kind,L)) F.chooseBonus(L); else H.click("bonusCancel");
+        await H.flush(); continue;
+      }
+      if(H.vis("deckScreen") && G.selectMode){
+        const mode=G.selectMode;
+        if(mode==="fuse"){ const bp=bestPair(); if(bp){ F.tapFuse(bp.a.id); F.tapFuse(bp.b.id); await H.flush(); if(H.vis("fuseConfirm")) continue; } F.closeDeck(); await H.flush(); continue; }
+        if(mode==="triofuse"){ const bt=bestTrio(); if(bt){ F.tapTrioFuse(bt.p.id); F.tapTrioFuse(bt.l.id); await H.flush(); if(H.vis("fuseConfirm")) continue; } F.closeDeck(); await H.flush(); continue; }
+        if(mode==="dealer"){ F.closeDeck(); await H.flush(); continue; }
+        const c=bestTileFor(mode);
+        if(!c){ F.closeDeck(); await H.flush(); continue; }
+        if(ACT[mode]) E(ACT[mode])(c.id); else E("doTileUpgrade")(c.id, mode);
+        await H.flush();
+        if(H.vis("deckScreen")){ F.closeDeck(); await H.flush(); }
+        continue;
+      }
+      if(H.vis("binderOverlay")){ H.click("binderCancel"); await H.flush(); continue; }
+      break;
+    }
+  }
+
+  /* ---------- the run loop ---------- */
+  async function runOne(seed, charId, asc){
+    E("newRun")(seed, charId, asc, "free");
+    await H.flush();
+    let steps=0, ended=null;
+    while(steps++<900){
+      if(H.vis("draftScreen")){
+        const offs=(G.draft&&G.draft.offers)||[]; let pick=0, br=1e9;
+        offs.forEach((o,i)=>{ const t=offerType(o); const r=DRAFT_ORDER.indexOf(t); const rr=r<0?50-(BUY_RATE[t]||0)*10:r; if(rr<br){br=rr;pick=i;} });
+        const cards=H.doc.querySelectorAll("#draftGrid .chal-reward"); if(cards[pick]) cards[pick].click();
+        if(!H.click("draftTakeBtn")){ E("takeDraft")(); } await H.flush(); continue;
+      }
+      if(H.vis("runIntroScreen")){ H.click("introGoBtn"); await H.flush(); continue; }
+      if(H.vis("bossScreen")){ H.click("bossGoBtn"); await H.flush(); continue; }
+      if(H.vis("challengeScreen")){
+        const p=G.challengePending; const forced=H.vis("chalSkipBtn")===false;
+        if(forced || rng()<P.takeChallenge){
+          const trio=(p&&p.trio)||[]; const r=P.rewardPref.find(k=>trio.includes(k))||trio[0];
+          F.selectChallengeReward(r, G.level); H.click("chalTakeBtn");
+        } else H.click("chalSkipBtn");
+        await H.flush(); continue;
+      }
+      if(H.vis("summaryScreen")){ tally.rounds++; H.click("sumNextBtn"); await H.flush(); continue; }
+      if(H.vis("shopScreen") && !H.vis("deckScreen")){ await shop(); continue; }
+      if(H.vis("deckScreen")||H.vis("fuseConfirm")||H.vis("bonusChooser")||H.vis("binderOverlay")){ await resolvePickers(); if(H.vis("deckScreen")){ F.closeDeck(); await H.flush(); } continue; }
+      if(H.vis("winScreen")){ ended="win"; H.click("winFinishBtn"); await H.flush(); break; }
+      if(H.vis("overScreen")){ ended=ended||"lose"; break; }
+      if(H.vis("play")){
+        if(G.mystery==null && G._mysteryLoading){ await H.flush(); }
+        const ok=await turn();
+        if(!ok){ // stuck with no playable word and no discards: a real player ends the run
+          E("endRun")(); await H.flush(); ended="stuck"; if(H.vis("overScreen")) break;
+        }
+        continue;
+      }
+      await H.flush();
+      if(steps>5 && !H.W.__vt.pending()){ ended="hung"; break; }
+    }
+    const st=JSON.parse(JSON.stringify(G.stats||{}));
+    st._sim={ended, steps, profile:P.label, tally:Object.assign({},tally), errors:(H.W.__simErrors||[]).slice(0,3)};
+    H.W.__simErrors=[];
+    Object.keys(tally).forEach(k=>tally[k]=0); seenMystery.clear();
+    return st;
+  }
+  return {runOne, _findWords:findWords};
+}
+
+/* ============================================================
+   Metrics: the same yardstick for sim runs and real runs
+   ============================================================ */
+function metrics(runs, commonRank){
+  const R=runs.filter(r=>r && r.result && r.result!=="abandoned");
+  const done=R.filter(r=>r.result==="win"||r.result==="lose"||r.result==="end");
+  const wins=done.filter(r=>r.result==="win").length;
+  const words=R.flatMap(r=>r.words||[]);
+  const wpr={}; R.forEach(r=>(r.words||[]).forEach(w=>{ const k=r.runId+":"+w.round; wpr[k]=(wpr[k]||0)+1; }));
+  const rounds=R.flatMap(r=>r.rounds||[]);
+  const shops=R.flatMap(r=>r.shops||[]);
+  const buys=shops.flatMap(s=>s.bought||[]);
+  const bt={}; buys.forEach(b=>{ const t=b.type||b.name; bt[t]=(bt[t]||0)+1; });
+  const mean=a=>a.length?a.reduce((s,x)=>s+x,0)/a.length:0;
+  const med=a=>{ if(!a.length) return 0; const s=a.slice().sort((x,y)=>x-y); return s[Math.floor(s.length/2)]; };
+  const byRound=k=>rounds.filter(x=>x.round===k);
+  const fail={}; done.filter(r=>r.result!=="win").forEach(r=>{ const k=r.finalRound||"?"; fail[k]=(fail[k]||0)+1; });
+  const myst=R.flatMap(r=>r.mystery||[]);
+  const ch=R.flatMap(r=>r.challenges||[]);
+  const gildShare=buys.length? (buys.filter(b=>/gild/i.test(b.type||"")).length/buys.length):0;
+  const fuseBuys=buys.filter(b=>["fuse","fusedPair","trioUpgrade","trioUpgradeOpen","trio"].includes(b.type)).length;
+  const lenDist={}; words.forEach(w=>{ lenDist[w.len]=(lenDist[w.len]||0)+1; });
+  return {
+    runs:R.length, finished:done.length, winRate:done.length?wins/done.length:0, failAt:fail,
+    wordsPerRound:mean(Object.values(wpr)), wordLen:mean(words.map(w=>w.len)), lenDist,
+    commonShare: commonRank? (words.length? words.filter(w=>{ const r=commonRank.get(String(w.word).toLowerCase()); return r!=null && r<60000; }).length/words.length : 0) : null,
+    discardsPerRound:mean(rounds.map(x=>Math.max(0,x.discardsSpent||0))),
+    discardsByRound:[1,2,3,4,5,6].map(k=>+mean(byRound(k).map(x=>Math.max(0,x.discardsSpent||0))).toFixed(2)),
+    scoreRatioByRound:[1,2,3,4,5,6].map(k=>+med(byRound(k).filter(x=>x.target).map(x=>x.score/x.target)).toFixed(2)),
+    heartsLostRounds:[1,2,3,4,5,6].map(k=>byRound(k).filter(x=>x.cleared===false).length),
+    buysPerShop:mean(shops.map(s=>(s.bought||[]).length)), rerollsPerShop:mean(shops.map(s=>s.rerolls||0)),
+    coinsLeftAfterShop:med(shops.map(s=>s.coinsOut||0)), coinsIntoShop:med(shops.map(s=>s.coinsIn||0)),
+    gildShareOfBuys:gildShare, fusionBuysPerRun:R.length?fuseBuys/R.length:0,
+    mysterySolveRate:myst.length? myst.filter(m=>m.solved).length/myst.length : 0,
+    challengeTakeRate:ch.length? ch.filter(c=>c.taken).length/ch.length : 0,
+    topBuys:Object.entries(bt).sort((a,b)=>b[1]-a[1]).map(([k,v])=>[k, R.length? +(v/R.length).toFixed(2) : 0])
+  };
+}
+
+root.LetteratiSim2={PROFILES,CHAR_MIX,BUY_RATE,loadHarness,makeAgent,metrics,mulberry32,hashStr};
+})(typeof window!=="undefined"?window:globalThis);
+
+</script>
+<script>
+(function(){
+const S=window.LetteratiSim2;
+const $=id=>document.getElementById(id);
+Object.entries(S.PROFILES).forEach(([k,p])=>{ const o=document.createElement("option"); o.value=k; o.textContent=p.label; $("profile").appendChild(o); });
+for(let a=0;a<=10;a++){ const o=document.createElement("option"); o.value=a; o.textContent="A"+a; $("ascSel").appendChild(o); }
+const ASC_MIX=[0,0,0,1,2,2,3,3,3,3,4,4,4,5,6];   // the ascensions in your 0.5 runs
+let H=null, Hfile=null, stop=false, lastRuns=[], realRuns=null;
+
+async function harness(file){
+  if(H && Hfile===file) return H;
+  H=await S.loadHarness(file, $("gameFrame")); Hfile=file; return H;
+}
+async function runBatch(opts, onProg){
+  const h=await harness(opts.game);
+  const rng=S.mulberry32(opts.seed||1);
+  const P=Object.assign({}, S.PROFILES[opts.profile||"regular"], opts.override||{});
+  const A=S.makeAgent(h,P,rng); const out=[]; const t0=performance.now();
+  for(let i=0;i<opts.n && !stop;i++){
+    h.W.Math.random=S.mulberry32(S.hashStr("run"+i+":"+(opts.seed||1)));
+    const seed=h.E("generateValidatedSeed")();
+    const ch = opts.char==="mix"||!opts.char ? (rng()<S.CHAR_MIX.writer?"writer":"detective") : opts.char;
+    const asc = opts.asc==="mix"||opts.asc==null ? ASC_MIX[Math.floor(rng()*ASC_MIX.length)] : +opts.asc;
+    const st=await A.runOne(seed,ch,asc);
+    st._sim.character=ch; st._sim.ascension=asc;
+    out.push(st);
+    if(onProg && (i%2===1||i===opts.n-1)){ onProg((i+1)/opts.n, out); await new Promise(r=>setTimeout(r,0)); }
+  }
+  return {version:h.version, ms:performance.now()-t0, runs:out};
+}
+// for the headless runner
+window.runTest=o=>runBatch(Object.assign({char:"mix",asc:"mix"},o));
+window.realMetrics=async function(pred){ const h=await harness("index.html"); const d=await (await fetch("runs_all.json")).json();
+  return S.metrics(d.runs.filter(r=>!r.dev && new RegExp(pred).test(r.version)), h.commonRank); };
+window.__ready=true;
+
+$("realFile").addEventListener("change", async e=>{
+  const f=e.target.files[0]; if(!f) return;
+  try{ const d=JSON.parse(await f.text()); realRuns=(d.runs||d); $("progTxt").textContent=realRuns.length+" of your runs loaded"; if(lastRuns.length) render(lastRuns); }
+  catch(err){ $("progTxt").textContent="Could not read that file"; }
+});
+$("stopBtn").addEventListener("click",()=>{ stop=true; });
+$("dlBtn").addEventListener("click",()=>{
+  const blob=new Blob([JSON.stringify({game:"letterati",simulated:true,version:lastRuns[0]&&lastRuns[0].version,runs:lastRuns},null,1)],{type:"application/json"});
+  const a=document.createElement("a"); a.href=URL.createObjectURL(blob); a.download="letterati_sim_runs.json"; a.click(); setTimeout(()=>URL.revokeObjectURL(a.href),2000);
+});
+$("goBtn").addEventListener("click", async ()=>{
+  stop=false; $("goBtn").disabled=true; $("stopBtn").disabled=false; $("dlBtn").disabled=true;
+  $("progTxt").textContent="Loading the game…"; $("progBar").style.width="0";
+  try{
+    const res=await runBatch({game:$("gameFile").value.trim()||"index.html", n:+$("nRuns").value||100, profile:$("profile").value,
+      char:$("charSel").value, asc:$("ascSel").value, seed:+$("rseed").value||1},
+      (k,runs)=>{ $("progBar").style.width=(k*100).toFixed(0)+"%"; $("progTxt").textContent=runs.length+" runs"; if(runs.length%10===0) render(runs); });
+    lastRuns=res.runs; render(lastRuns);
+    $("progTxt").textContent=lastRuns.length+" runs of v"+res.version+" in "+(res.ms/1000).toFixed(0)+" s";
+  }catch(err){ $("progTxt").innerHTML='<span class="warn">'+String(err.message||err)+'</span>'; }
+  $("goBtn").disabled=false; $("stopBtn").disabled=true; $("dlBtn").disabled=!lastRuns.length;
+});
+
+function pct(x){ return (100*x).toFixed(1)+"%"; }
+function ci(p,n){ if(!n) return ""; const z=1.96, d=1+z*z/n, c=(p+z*z/(2*n))/d, h=z*Math.sqrt(p*(1-p)/n+z*z/(4*n*n))/d; return pct(Math.max(0,c-h))+" to "+pct(Math.min(1,c+h)); }
+function render(runs){
+  const m=S.metrics(runs, H&&H.commonRank);
+  const real = realRuns ? S.metrics(realRuns.filter(r=>!r.dev && new RegExp($("realFilter").value||".").test(r.version||"")), H&&H.commonRank) : null;
+  const ended={}; runs.forEach(r=>{ const k=r._sim&&r._sim.ended||r.result; ended[k]=(ended[k]||0)+1; });
+  const stuck=runs.filter(r=>r._sim&&r._sim.ended==="stuck");
+  const stuckRules={}; stuck.forEach(r=>{ const t=r._sim.tally||{}; const k=(t.stuckRule||"no rule")+(t.stuckHadWord?" (a word existed)":" (no legal word)"); stuckRules[k]=(stuckRules[k]||0)+1; });
+  const fails=[1,2,3,4,5,6].map(k=>m.failAt[k]||0), fmax=Math.max(1,...fails);
+  const rows=[
+    ["Win rate", pct(m.winRate), real&&pct(real.winRate)],
+    ["Words per round", m.wordsPerRound.toFixed(2), real&&real.wordsPerRound.toFixed(2)],
+    ["Average word length", m.wordLen.toFixed(2), real&&real.wordLen.toFixed(2)],
+    ["Words from the common list", m.commonShare!=null?pct(m.commonShare):"", real&&real.commonShare!=null?pct(real.commonShare):""],
+    ["Discards per round", m.discardsPerRound.toFixed(2), real&&real.discardsPerRound.toFixed(2)],
+    ["Buys per shop", m.buysPerShop.toFixed(2), real&&real.buysPerShop.toFixed(2)],
+    ["Rerolls per shop", m.rerollsPerShop.toFixed(2), real&&real.rerollsPerShop.toFixed(2)],
+    ["Coins into the shop (median)", m.coinsIntoShop, real&&real.coinsIntoShop],
+    ["Coins left after the shop (median)", m.coinsLeftAfterShop, real&&real.coinsLeftAfterShop],
+    ["Gilds as a share of buys", pct(m.gildShareOfBuys), real&&pct(real.gildShareOfBuys)],
+    ["Fusions bought per run", m.fusionBuysPerRun.toFixed(2), real&&real.fusionBuysPerRun.toFixed(2)],
+    ["Mystery words solved", pct(m.mysterySolveRate), real&&pct(real.mysterySolveRate)],
+    ["Challenges taken", pct(m.challengeTakeRate), real&&pct(real.challengeTakeRate)]
+  ];
+  const per=[1,2,3,4,5,6].map(k=>`<tr><td>Round ${k}</td><td class="n">${m.scoreRatioByRound[k-1]}</td><td class="n">${real?real.scoreRatioByRound[k-1]:""}</td><td class="n">${m.discardsByRound[k-1]}</td><td class="n">${real?real.discardsByRound[k-1]:""}</td><td class="n">${m.failAt[k]||0}</td></tr>`).join("");
+  $("out").innerHTML=`
+  <div class="card"><div class="big">
+    <div><b>${pct(m.winRate)}</b><span>win rate, ${m.finished} runs<br>95% range ${ci(m.winRate,m.finished)}</span></div>
+    <div><b>${(m.wordsPerRound).toFixed(1)}</b><span>words per round</span></div>
+    <div><b>${(m.wordLen).toFixed(1)}</b><span>letters per word</span></div>
+    <div><b>${stuck.length}</b><span>runs stuck with no word to play</span></div>
+  </div>
+  <h2 style="margin-top:16px">Where runs were lost</h2>
+  <div class="bars">${fails.map((v,i)=>`<div style="height:${(v/fmax*100).toFixed(0)}%"><em>${v||""}</em><span>R${i+1}</span></div>`).join("")}</div>
+  <p class="note" style="margin-top:26px">Ended: ${Object.entries(ended).map(([k,v])=>k+" "+v).join(" · ")}</p>
+  ${stuck.length?`<p class="note"><span class="warn">Stuck</span> means the hand had no legal word left for the player, and no discards. By rule: ${Object.entries(stuckRules).map(([k,v])=>k+" ×"+v).join(", ")}.</p>`:""}
+  </div>
+  <div class="card scroll"><h2>Sim against your play${real?"":" (load your run file above to fill the second column)"}</h2>
+  <table><tr><th></th><th>Sim</th><th>You</th></tr>${rows.map(r=>`<tr><td>${r[0]}</td><td class="n">${r[1]}</td><td class="n">${r[2]==null?"":r[2]}</td></tr>`).join("")}</table>
+  <p class="note">Your numbers come from whichever versions you pick above, so a different build will not match exactly. The behaviour rows (words, discards, shopping) are the ones to line up.</p></div>
+  <div class="card scroll"><h2>Round by round</h2>
+  <table><tr><th></th><th>Score ÷ target, sim</th><th>You</th><th>Discards, sim</th><th>You</th><th>Runs lost here</th></tr>${per}</table></div>
+  <div class="card scroll"><h2>What the sim bought most</h2>
+  <table><tr><th>Item type</th><th>Per run, sim</th>${real?"<th>You</th>":""}</tr>${m.topBuys.slice(0,18).map(([k,v])=>`<tr><td>${k}</td><td class="n">${v}</td>${real?`<td class="n">${(real.topBuys.find(x=>x[0]===k)||[0,0])[1]}</td>`:""}</tr>`).join("")}</table></div>`;
+}
+})();
+</script>
+</main></body></html>

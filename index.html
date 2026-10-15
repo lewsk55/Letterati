@@ -1765,7 +1765,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "0.5g";
+const VERSION = "0.5h";
 const WIN_LEVEL = 6;    // v0.5a: clear this round to WIN (rank "Letterati"); afterwards, optional endless mode. Was 10.
 /* v0.5a: the run is six rounds, not ten, so a daily fits in one sitting.
    eqLevel() maps a live round onto the old ten-round curve, so targets, shop
@@ -5003,6 +5003,77 @@ function handHasValidWord(letters, minL){
   }
   return false;
 }
+/* v0.5h: general dead-hand check. The older rescue only knew Long Form and House
+   Style, so No Reprints (no repeated word lengths) and the no-repeated-letters final
+   proof could leave a hand with no legal word and no discards: a soft lock found by
+   the simulator. This works on letter multisets, which is all those rules look at
+   (length, banned letters, the house letter, repeated letters), checked against the
+   anagram index. Odd tiles are counted strictly (see below), which can only ever
+   hand out a discard a little early, never strand the player. */
+const DEAD_HAND_RESCUES = 4;
+function legalLengthsLeft(maxLen){
+  const out=[]; const minL=Math.max(2, challengeMinLen()||2);
+  const reprints = challengeActive() && G.challenge.type==="reprints";
+  const used = reprints ? (G.roundLengths||[]) : [];
+  for(let L=minL; L<=Math.min(12,maxLen); L++) if(!used.includes(L)) out.push(L);
+  return out;
+}
+// v0.5h: the anagram index of the common-word list. A hand whose only legal words are
+// things like NEJDI or UVITO is dead for any real player, so the rescue uses this.
+let _ANA_COMMON=null;
+function anaSetCommon(){
+  if(_ANA_COMMON) return _ANA_COMMON;
+  if(!COMMON.size) return anaSet();
+  _ANA_COMMON=new Set();
+  for(const w of COMMON){ if(w.length<2||w.length>12||!WORDS.has(w)||!/^[a-z]+$/.test(w)) continue; _ANA_COMMON.add(w.split("").sort().join("")); }
+  return _ANA_COMMON;
+}
+function multisetIsLegal(sortedLetters, commonOnly){
+  const n=sortedLetters.length; if(n<2) return false;
+  const minL=challengeMinLen(); if(minL && n<minL) return false;
+  if(challengeActive() && G.challenge.type==="reprints" && (G.roundLengths||[]).includes(n)) return false;
+  const ban=bannedLetterSet(); const up=sortedLetters.toUpperCase();
+  if(ban && [...up].some(ch=>ban.has(ch))) return false;
+  if(challengeActive() && G.challenge.type==="house" && G.challenge.houseLetter && !up.includes(G.challenge.houseLetter)) return false;
+  if(bossActive() && G.boss.type==="perfect"){ for(let i=1;i<n;i++) if(sortedLetters[i]===sortedLetters[i-1]) return false; }
+  return (commonOnly ? anaSetCommon() : anaSet()).has(sortedLetters);
+}
+function handHasLegalPlay(commonOnly){
+  const ALPHA="ABCDEFGHIJKLMNOPQRSTUVWXYZ".split("");
+  const plain=G.hand.filter(c=>c.kind==="letter").map(c=>c.letter);
+  // each tile becomes a list of letter-strings it can contribute (empty string = left out)
+  const opts=[];
+  for(const c of G.hand){
+    let o=null;
+    // Counted strictly, in the player's favour: a fused pair or trio counts as any ONE
+    // of its letters (its multi-letter forms need the letters side by side, which a
+    // letter count cannot promise), and Copy cat is left out (it needs a matching
+    // neighbour). So when this says "dead", no legal word can exist.
+    if(c.kind==="letter") o=[c.letter];
+    else if(c.kind==="fused" && c.sides) o=[c.sides[0].letter, c.sides[1].letter];
+    else if(c.kind==="trio") o=(c.letters||[]).slice();
+    else if(c.kind==="combo") o=[comboSeq(c).join("")];
+    else if(c.kind==="wildvowel") o=["A","E","I","O","U"];
+    else if(c.kind==="wildcons") o=ALPHA.filter(x=>!VOWELS.has(x));
+    else if(c.kind==="clone") o=[...new Set(plain)];
+    if(o && o.length) opts.push([...new Set(o)]);
+  }
+  if(!opts.length) return false;
+  if(opts.length>12) return true;                 // huge hands: a word is all but certain
+  let budget=60000;
+  const pick=[];
+  function rec(i){
+    if(--budget<0) return true;                   // too many combinations to check: assume playable
+    if(i===opts.length){
+      const s=pick.join(""); if(s.length<2) return false;
+      return multisetIsLegal(s.toLowerCase().split("").sort().join(""), commonOnly);
+    }
+    if(rec(i+1)) return true;                     // leave this tile out
+    for(const o of opts[i]){ pick.push(o); const ok=rec(i+1); pick.pop(); if(ok) return true; }
+    return false;
+  }
+  return rec(0);
+}
 function bossCriticRotate(){
   if(!(bossActive() && G.boss.type==="critic")) return;
   const B=G.boss;
@@ -5057,6 +5128,32 @@ function dealUpToHand(animate){
           && !G.hand.some(c=>(c.kind==="letter"&&c.letter===G.challenge.houseLetter)
                            ||(c.kind==="fused"&&(c.sides||[]).some(sd=>sd.letter===G.challenge.houseLetter))
                            ||(c.kind==="trio"&&(c.letters||[]).includes(G.challenge.houseLetter))));
+    // v0.5h: No Reprints with every reachable length already used can never be met,
+    // so the rule stands down for the rest of the round instead of stalling it.
+    if(G.handsLeft>0 && challengeActive() && G.challenge.type==="reprints"){
+      const tiles=G.hand.reduce((n,c)=>n+(c.kind==="fused"?2:c.kind==="trio"?3:c.kind==="combo"?comboSeq(c).length:1),0);
+      if(!legalLengthsLeft(tiles).length){ G.roundLengths=[]; toast("Every word length is used up. No Reprints resets for this round."); }
+    }
+    // v0.5h: out of discards with no legal word anywhere in the hand (any rule, any
+    // reason): one discard on the house so the round can always continue.
+    // Judged against the common-word list, so a hand left with only obscure words
+    // (the kind nobody finds) counts as dead too.
+    // Capped at DEAD_HAND_RESCUES a round. Past that the deck itself cannot meet the
+    // rules, so the dead hand costs a word instead and the round moves on toward
+    // overtime rather than looping forever.
+    if(!stillDead && G.handsLeft>0 && G.discardsLeft<=0 && !handHasLegalPlay(true)){
+      if((G._deadRescues||0) < DEAD_HAND_RESCUES){
+        G._deadRescues=(G._deadRescues||0)+1;
+        G.discardsLeft++;
+        toast("No legal word in this hand. Have a discard on the house.");
+      } else {
+        G.handsLeft--;
+        if(!G.played) G.played=[];
+        G.played.push(...G.hand); G.hand=[];
+        if(G.handsLeft<=0){ toast("Still no legal word. That word is spent."); setTimeout(()=>{ if(G.score<G.target) levelFailed(); }, 600); }
+        else { const r3=drawIntoHand(); didReshuffle=didReshuffle||r3.didReshuffle; toast("Still no legal word. That word is spent and the hand is redealt."); }
+      }
+    }
     if(stillDead && G.handsLeft>0){
       if(G.discardsLeft<=0){
         G.discardsLeft++;
@@ -5365,7 +5462,7 @@ function startLevel(){
   { const ds=$("defStrip"); if(ds){ ds.classList.add("hidden"); ds.innerHTML=""; } }  // clear last word's definition
   G.reshuffleCount=0;
   G.pileReshuffles=0;
-  G._rescues=0;
+  G._rescues=0; G._deadRescues=0;   // v0.5h: house discards handed out this round
   G.lastWordLetters=null; G.pulpPending=0;
   G.justStacks=0; G.lastWordLen=null; G.lastWordFirst=null; G.lastWordLast=null; G.wetProofPending=false; G.inkPtsPending=0;
   rollFoulLetter();   // A4 Foul Case, before the hand is dealt so the banner is right
@@ -5489,7 +5586,11 @@ function submitWord(){
         renderHand();
       }
     }
-    if(B.type==="deadline" && G.score<G.target){
+    // v0.5h: while Deadline Extension makes overtime free, The Deadline stops raising
+    // the target. Free words plus a target that grows 10% a word never ended: the
+    // simulator found a run stuck in round 6 for 870 words.
+    const extFree = G.overtime && G.perks.deadlineExt && G.deadlineExtRound===G.level;
+    if(B.type==="deadline" && G.score<G.target && !extFree){
       G.target=Math.round(G.target*1.10);
       toast(BT.taunt+" Target "+G.target+".");
     }
