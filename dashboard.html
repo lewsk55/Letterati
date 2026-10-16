@@ -1,0 +1,731 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0, viewport-fit=cover" />
+<meta name="robots" content="noindex, nofollow, noarchive, nosnippet, noimageindex" />
+<title>Letterati Balance Analytics</title>
+<link rel="preconnect" href="https://fonts.googleapis.com" />
+<link rel="preconnect" href="https://fonts.gstatic.com" crossorigin />
+<link href="https://fonts.googleapis.com/css2?family=Fraunces:opsz,wght@9..144,500;9..144,600&display=swap" rel="stylesheet" />
+<style>
+  /* ============================================================
+     Letterati Balance Analytics: PBS Games
+     Reads the PGames Supabase project live (game_id = letterati).
+     Same system as the Verbatim dashboard: PBS Aug 2025 tokens,
+     Fraunces for display, validated four-hue series palette.
+     ============================================================ */
+  :root{
+    --pbs-blue:#2638C4;
+    --bg:#FBF8F1; --card:#FFFFFF; --edge:#E6E1D3;
+    --ink:#0A145A; --ink-soft:#5A6080; --ink-faint:#9AA0B8;
+    --accent:#2638C4; --accent-ink:#FFFFFF; --pulse:#12A999;
+    --s1:#3056CD; --s2:#12A999; --s3:#AD8604; --s4:#B94834;
+    --feed-bg:#F3EFE4; --lever:#F6F1E2;
+    --ui:Arial,"Helvetica Neue",Helvetica,sans-serif;
+    --serif:"Fraunces",Georgia,"Times New Roman",serif;
+  }
+  @media (prefers-color-scheme: dark){
+    :root:not([data-theme="light"]){
+      --bg:#0D1330; --card:#151C42; --edge:#28305C;
+      --ink:#EAEDF9; --ink-soft:#A9B0CE; --ink-faint:#6B7398;
+      --accent:#8B9BF2; --accent-ink:#0D1330; --pulse:#3FC2BA;
+      --feed-bg:#101736; --lever:#1B2350;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"]{
+    --bg:#0D1330; --card:#151C42; --edge:#28305C;
+    --ink:#EAEDF9; --ink-soft:#A9B0CE; --ink-faint:#6B7398;
+    --accent:#8B9BF2; --accent-ink:#0D1330; --pulse:#3FC2BA;
+    --feed-bg:#101736; --lever:#1B2350;
+    color-scheme: dark;
+  }
+  *{box-sizing:border-box}
+  html,body{margin:0;padding:0}
+  body{ font-family:var(--ui); background:var(--bg); color:var(--ink); -webkit-font-smoothing:antialiased; min-height:100vh; padding:0 clamp(16px,3vw,36px) 48px; }
+  header.top{ display:flex; align-items:baseline; gap:14px; flex-wrap:wrap; padding:26px 0 8px; border-bottom:3px solid var(--pbs-blue); margin-bottom:16px; }
+  h1{ font-family:var(--serif); font-weight:600; font-size:clamp(26px,4vw,34px); margin:0; letter-spacing:.2px; }
+  .kicker{ font-size:11px; letter-spacing:.14em; text-transform:uppercase; color:var(--ink-soft); }
+  .live{ display:flex; align-items:center; gap:7px; margin-left:auto; font-size:12px; color:var(--ink-soft); white-space:nowrap; }
+  .dot{ width:9px; height:9px; border-radius:50%; background:var(--ink-faint); }
+  .dot.on{ background:var(--pulse); animation:pulse 2.2s ease-in-out infinite; }
+  @keyframes pulse{ 0%,100%{opacity:1} 50%{opacity:.35} }
+  @media (prefers-reduced-motion: reduce){ .dot.on{ animation:none } }
+
+  .filters{ display:flex; gap:10px 18px; align-items:center; flex-wrap:wrap; margin-bottom:14px; font-size:12px; color:var(--ink-soft); }
+  .fgroup{ display:flex; align-items:center; gap:7px; }
+  .fgroup > span:first-child{ font-size:10.5px; letter-spacing:.1em; text-transform:uppercase; }
+  .seg{ display:inline-flex; border:1px solid var(--edge); border-radius:999px; overflow:hidden; }
+  .seg button{ border:0; background:transparent; color:var(--ink-soft); font:inherit; font-size:12px; padding:5px 11px; cursor:pointer; }
+  .seg button.on{ background:var(--accent); color:var(--accent-ink); }
+  .seg button:focus-visible, select:focus-visible{ outline:2px solid var(--accent); outline-offset:-2px; }
+  select{ font:inherit; font-size:12px; padding:4px 8px; border:1px solid var(--edge); border-radius:999px; background:var(--card); color:var(--ink); }
+  #meta{ font-size:12px; color:var(--ink-soft); margin:-4px 0 14px; min-height:16px; }
+
+  .tiles{ display:grid; grid-template-columns:repeat(auto-fit,minmax(150px,1fr)); gap:12px; margin-bottom:20px; }
+  .tile{ background:var(--card); border:1px solid var(--edge); border-radius:10px; padding:14px 16px 12px; }
+  .tile .v{ font-family:var(--serif); font-size:30px; font-weight:600; font-variant-numeric:tabular-nums; line-height:1.1; }
+  .tile .l{ font-size:11px; letter-spacing:.1em; text-transform:uppercase; color:var(--ink-soft); margin-top:4px; }
+  .tile .s{ font-size:11px; color:var(--ink-faint); margin-top:2px; font-variant-numeric:tabular-nums; }
+
+  h3.group{ font-family:var(--serif); font-weight:600; font-size:20px; margin:26px 0 10px; }
+  h3.group:first-child{ margin-top:0; }
+  .grid{ display:grid; grid-template-columns:minmax(0,1.7fr) minmax(0,1fr); gap:16px; align-items:start; }
+  @media (max-width:980px){ .grid{ grid-template-columns:minmax(0,1fr); } }
+  .col{ display:flex; flex-direction:column; gap:16px; min-width:0; }
+  .pair{ display:grid; grid-template-columns:repeat(auto-fit,minmax(280px,1fr)); gap:16px; }
+
+  section.panel{ background:var(--card); border:1px solid var(--edge); border-radius:10px; padding:16px 18px 14px; min-width:0; }
+  section.panel h2{ font-family:var(--serif); font-size:17px; font-weight:600; margin:0 0 2px; }
+  .sub{ font-size:11.5px; color:var(--ink-soft); margin:0 0 12px; line-height:1.45; }
+  .note{ font-size:11px; color:var(--ink-faint); margin-top:8px; line-height:1.5; }
+  .empty{ font-size:13px; color:var(--ink-soft); padding:14px 0 8px; }
+  .lever{ margin-top:12px; background:var(--lever); border-radius:7px; padding:8px 10px; font-size:11.5px; color:var(--ink-soft); line-height:1.5; }
+  .lever b{ color:var(--ink); font-weight:bold; }
+  .badge{ display:inline-block; font-family:var(--ui); font-size:10px; letter-spacing:.06em; text-transform:uppercase; background:var(--feed-bg); border:1px solid var(--edge); color:var(--ink-soft); border-radius:999px; padding:2px 8px; vertical-align:2px; margin-left:6px; font-weight:normal; }
+  .badge.dir{ border-color:var(--s3); color:var(--ink); }
+
+  .hrow{ display:grid; grid-template-columns:92px minmax(0,1fr) 104px; gap:10px; align-items:center; font-size:12.5px; margin:7px 0; }
+  .hrow .hl{ color:var(--ink-soft); text-align:right; overflow:hidden; text-overflow:ellipsis; white-space:nowrap; }
+  .hrow .track{ background:var(--feed-bg); border-radius:4px; height:16px; position:relative; overflow:hidden; }
+  .hrow .fill{ position:absolute; inset:0 auto 0 0; border-radius:4px; min-width:2px; }
+  .hrow .hv{ font-variant-numeric:tabular-nums; color:var(--ink); white-space:nowrap; }
+  .hrow.thin .hv{ color:var(--ink-faint); }
+
+  .chart{ width:100%; }
+  .chart text{ font-family:var(--ui); fill:var(--ink-soft); font-size:10.5px; }
+  .chart .val{ fill:var(--ink); font-weight:bold; font-variant-numeric:tabular-nums; font-size:10px; }
+  .chart line.grid{ stroke:var(--edge); stroke-width:1; }
+  .legend{ display:flex; gap:14px; flex-wrap:wrap; font-size:11.5px; color:var(--ink-soft); margin:2px 0 8px; }
+  .legend .sw{ display:inline-block; width:10px; height:10px; border-radius:3px; margin-right:5px; vertical-align:-1px; }
+
+  table{ border-collapse:collapse; width:100%; font-size:12.5px; }
+  th{ text-align:left; font-size:10.5px; letter-spacing:.08em; text-transform:uppercase; color:var(--ink-soft); font-weight:normal; padding:4px 10px 6px 0; border-bottom:1px solid var(--edge); white-space:nowrap; vertical-align:bottom; }
+  th small{ display:block; text-transform:none; letter-spacing:0; font-size:10px; color:var(--ink-faint); }
+  td{ padding:6px 10px 6px 0; border-bottom:1px solid var(--edge); font-variant-numeric:tabular-nums; white-space:nowrap; }
+  tr:last-child td{ border-bottom:0; }
+  td.hot{ font-weight:bold; }
+  tr.quiet td{ color:var(--ink-faint); }
+  .tablewrap{ overflow-x:auto; }
+  .num{ text-align:right; }
+  th.num{ text-align:right; }
+  .pill{ display:inline-block; font-size:10.5px; padding:1px 7px; border-radius:999px; border:1px solid var(--edge); color:var(--ink-soft); }
+  .pill.win{ border-color:var(--s2); color:var(--ink); }
+  .pill.lose{ border-color:var(--s4); color:var(--ink); }
+
+  #feed{ display:flex; flex-direction:column; gap:6px; max-height:520px; overflow-y:auto; }
+  .ev{ display:flex; gap:8px; align-items:baseline; background:var(--feed-bg); border-radius:7px; padding:7px 10px; font-size:12.5px; }
+  .ev .nm{ font-weight:bold; white-space:nowrap; }
+  .ev .dt{ color:var(--ink-soft); overflow:hidden; text-overflow:ellipsis; white-space:nowrap; flex:1; min-width:0; }
+  .ev .tm{ color:var(--ink-faint); font-size:11px; white-space:nowrap; font-variant-numeric:tabular-nums; }
+  .ev.fresh{ outline:1px solid var(--accent); }
+
+  #tip{ white-space:pre-line; position:fixed; pointer-events:none; background:var(--ink); color:var(--bg); font-size:11.5px; line-height:1.5; padding:6px 10px; border-radius:6px; z-index:50; font-variant-numeric:tabular-nums; max-width:340px; }
+  #tip[hidden]{ display:none; }
+  footer{ margin-top:26px; font-size:11px; color:var(--ink-faint); line-height:1.6; }
+
+  #gate{ position:fixed; inset:0; background:var(--bg); display:flex; align-items:center; justify-content:center; z-index:100; padding:16px; }
+  #gate.hidden{ display:none; }
+  .gate-card{ background:var(--card); border:1px solid var(--edge); border-radius:12px; padding:28px; max-width:360px; width:100%; }
+  .gate-card h1{ font-size:24px; margin-bottom:4px; }
+  .gate-card p{ font-size:13px; color:var(--ink-soft); margin:4px 0 14px; }
+  .gate-card input{ width:100%; font:inherit; font-size:15px; padding:9px 11px; border:1px solid var(--edge); border-radius:8px; background:var(--bg); color:var(--ink); }
+  .gate-card button{ margin-top:10px; width:100%; font:inherit; font-size:14px; font-weight:bold; padding:10px; border:0; border-radius:8px; background:var(--pbs-blue); color:#fff; cursor:pointer; }
+  .gate-card .err{ color:#B94834; font-size:12px; min-height:16px; margin-top:8px; }
+</style>
+</head>
+<body>
+
+<div id="gate">
+  <div class="gate-card">
+    <div class="kicker">PBS Games</div>
+    <h1 style="font-family:var(--serif)">Letterati Analytics</h1>
+    <p>Playtest dashboard. Enter the playtest password.</p>
+    <input id="gatePw" type="password" autocomplete="off" aria-label="Password" />
+    <button id="gateBtn" type="button">Open dashboard</button>
+    <div class="err" id="gateErr"></div>
+  </div>
+</div>
+
+<header class="top">
+  <div>
+    <div class="kicker">PBS Games playtest analytics · balance</div>
+    <h1>Letterati</h1>
+  </div>
+  <div class="live"><span class="dot" id="liveDot"></span><span id="liveTxt">connecting</span></div>
+</header>
+
+<div class="filters" role="group" aria-label="Filters">
+  <div class="fgroup"><span>Builds</span>
+    <select id="fEra" aria-label="Builds">
+      <option value="six">Six-round (0.5a and later)</option>
+      <option value="legacy">Ten-round (before 0.5)</option>
+      <option value="all">All builds</option>
+    </select>
+  </div>
+  <div class="fgroup"><span>Players</span>
+    <span class="seg" id="fWho"><button data-v="all" class="on">All</button><button data-v="me">Me</button><button data-v="others">Others</button></span>
+  </div>
+  <div class="fgroup"><span>Mode</span>
+    <span class="seg" id="fMode"><button data-v="all" class="on">All</button><button data-v="daily">Daily</button><button data-v="free">Free play</button></span>
+  </div>
+  <div class="fgroup"><span>Data</span>
+    <span class="seg" id="fEnv"><button data-v="playtest" class="on">Playtest</button><button data-v="dev">Dev/test</button></span>
+  </div>
+</div>
+<div id="meta"></div>
+
+<div class="tiles" id="tiles"></div>
+
+<div class="grid">
+  <div class="col">
+    <h3 class="group">Win rate and where runs fail</h3>
+    <div class="pair">
+      <section class="panel">
+        <h2>Win rate by ascension<span class="badge" id="bAsc"></span></h2>
+        <p class="sub">Finished runs only (won, lost, or ended). Wins over finished runs.</p>
+        <div id="byAsc"></div>
+        <div class="lever"><b>Lever:</b> the target multiplier and rule each rung adds (runTargetMult, the A-rung rules).</div>
+      </section>
+      <section class="panel">
+        <h2>Win rate by character<span class="badge" id="bChar"></span></h2>
+        <p class="sub">Same runs, split by who was at the press.</p>
+        <div id="byChar"></div>
+        <div class="lever"><b>Lever:</b> character perks and the Editor's discard cut.</div>
+      </section>
+    </div>
+
+    <section class="panel">
+      <h2>Where lost runs end<span class="badge" id="bDie"></span></h2>
+      <p class="sub">Round in which each lost run ran out of hearts. Ended (quit) runs are counted below, not here.</p>
+      <div id="dieChart"></div>
+      <p class="note" id="dieNote"></p>
+      <div class="lever"><b>Lever:</b> the target curve for the round where losses pile up (targetFor, GOAL_SCALE), and that round's words and discards.</div>
+    </section>
+
+    <section class="panel">
+      <h2>Round by round<span class="badge" id="bRounds"></span></h2>
+      <p class="sub">Every round played in the filtered runs. A clean clear reaches the target without an overtime word. An overtime word costs a heart unless Deadline Extension or Midnight Press covers it.</p>
+      <div class="tablewrap"><table id="rounds"></table></div>
+      <p class="note">Score / target is the median for cleared rounds. Discards count the ones actually spent (fixed in 0.51a; older builds could undercount). House discards are the free ones given for a dead hand.</p>
+      <div class="lever"><b>Lever:</b> a low clean-clear rate or a high overtime rate points at that round's target. A wide score / target means the round is easy.</div>
+    </section>
+
+    <h3 class="group">Bosses and challenges</h3>
+    <section class="panel">
+      <h2>Bosses<span class="badge" id="bBoss"></span></h2>
+      <p class="sub">Final-proof bosses faced in the filtered runs. Words to clear is the median for beaten bosses.</p>
+      <div class="tablewrap"><table id="bosses"></table></div>
+      <div class="lever"><b>Lever:</b> The Deadline raises the target 10% after every word that falls short. The Ghost's quota comes from the predictor's own run on the seed.</div>
+    </section>
+    <section class="panel">
+      <h2>Challenges<span class="badge" id="bChal"></span></h2>
+      <p class="sub">Optional and required challenge forks. Cleared is a share of challenges taken.</p>
+      <div class="tablewrap"><table id="chals"></table></div>
+      <p class="note" id="chalNote"></p>
+      <div class="lever"><b>Lever:</b> a clear rate near 100% means a challenge is a free reward. Harder rules or smaller rewards add risk.</div>
+    </section>
+
+    <h3 class="group">Economy and shop</h3>
+    <section class="panel">
+      <h2>Coins in and out by round<span class="badge" id="bEcon"></span></h2>
+      <p class="sub">Average coins paid at each round's clear, and average coins spent in the shop that follows it.</p>
+      <div class="legend"><span><span class="sw" style="background:var(--s1)"></span>Earned at clear</span><span><span class="sw" style="background:var(--s3)"></span>Spent in next shop</span></div>
+      <div id="econ" class="chart"></div>
+      <p class="note" id="econNote"></p>
+      <div class="lever"><b>Lever:</b> the purse (RUN_PAY_SCALE, word cash, side jobs) against shop prices. Spend tracking well under income means coins pile up unused.</div>
+    </section>
+    <div class="pair">
+      <section class="panel">
+        <h2>Where the coins go<span class="badge" id="bSpend"></span></h2>
+        <p class="sub">Coins spent per finished run, by kind of purchase.</p>
+        <div id="spend"></div>
+        <p class="note" id="spendNote"></p>
+        <div class="lever"><b>Lever:</b> gild prices (gildCostFor) and fusion cost (fusionCost, 5 to 20).</div>
+      </section>
+      <section class="panel">
+        <h2>Opening perk draft<span class="badge" id="bDraft"></span></h2>
+        <p class="sub">Free pick of 1 from 3 before each run. Pick rate is picks over times offered.</p>
+        <div class="tablewrap"><table id="draft"></table></div>
+        <div class="lever"><b>Lever:</b> the draft pool. A perk nobody picks is dead weight in it.</div>
+      </section>
+    </div>
+    <section class="panel">
+      <h2>Shop items<span class="badge" id="bShop"></span></h2>
+      <p class="sub">Every shelf appearance, rerolled shelves included (0.51a and later; older builds logged the opening shelf only). Undone purchases are excluded. Items grouped by family; at least 3 appearances.</p>
+      <div class="tablewrap"><table id="shop"></table></div>
+      <div class="lever"><b>Lever:</b> price and shelf weight. A buy rate near zero at a fair price means the item doesn't earn its slot.</div>
+    </section>
+  </div>
+
+  <div class="col">
+    <h3 class="group">Live</h3>
+    <section class="panel">
+      <h2>Live events</h2>
+      <p class="sub" id="feedSub">Raw stream from the game, newest first</p>
+      <div id="feed"></div>
+    </section>
+    <section class="panel">
+      <h2>Recent runs</h2>
+      <p class="sub">Latest runs in the current filter</p>
+      <div class="tablewrap"><table id="recent"></table></div>
+    </section>
+  </div>
+</div>
+
+<footer>
+  Anonymous gameplay telemetry only: random player IDs, no accounts, no PII, by design.
+  Event spec: PBS Games Analytics Approach v1, log_version 1 (Tier A shared events, Tier B letterati:*).
+  Store: Supabase project PGames (Postgres; the raw <code>events</code> table is the system of record; v_letterati_* views carry the same logic for BI).
+  "Me" is any browser opened once with <code>?owner=1</code>; the 93 runs exported in September are backfilled as yours.
+  <span id="fetchMeta"></span>
+</footer>
+
+<div id="tip" hidden></div>
+
+<script>
+"use strict";
+/* ---------------- config ---------------- */
+const SB  = "https://jpasgxttyiaorhksybez.supabase.co";
+const KEY = "sb_publishable_XEBCZFTnhakXn5G14MO9cg_tiwLrTpB";  // publishable; RLS allows insert+read only
+const GAME = "letterati";
+const PASSWORD = "fredrogers";
+const SERIES = { s1:"#3056CD", s2:"#12A999", s3:"#AD8604", s4:"#B94834" };
+const DIRECTIONAL_N = 20;   // panels with fewer runs than this get a "directional" badge
+
+/* ---------------- state ---------------- */
+const F = { era:"six", who:"all", mode:"all", env:"playtest" };
+try{ const s=JSON.parse(localStorage.getItem("ltdash_filters")||"null"); if(s) Object.assign(F, s); }catch(e){}
+let rows = [], lastId = 0, lastEventAt = null, dirty = true;
+
+const $ = id => document.getElementById(id);
+const esc = s => String(s==null?"":s).replace(/&/g,"&amp;").replace(/</g,"&lt;").replace(/>/g,"&gt;").replace(/"/g,"&quot;");
+const pct = (a,b) => b ? Math.round(100*a/b) + "%" : "–";
+const fmtTime = ms => { if(ms==null||isNaN(ms)) return "–"; const s=Math.round(ms/1000); const m=Math.floor(s/60); return m>=60 ? Math.floor(m/60)+"h "+(m%60)+"m" : m+":"+String(s%60).padStart(2,"0"); };
+const median = a => { const b=a.filter(x=>x!=null&&!isNaN(x)).sort((x,y)=>x-y); if(!b.length) return null; const m=Math.floor(b.length/2); return b.length%2 ? b[m] : (b[m-1]+b[m])/2; };
+const mean = a => { const b=a.filter(x=>x!=null&&!isNaN(x)); return b.length ? b.reduce((s,x)=>s+x,0)/b.length : null; };
+const f1 = v => v==null ? "–" : (Math.round(v*10)/10).toString();
+const ago = ts => { const s=Math.max(0,Math.round((Date.now()-new Date(ts))/1000));
+  if(s<60) return s+"s ago"; if(s<3600) return Math.floor(s/60)+"m ago"; if(s<86400) return Math.floor(s/3600)+"h ago"; return Math.floor(s/86400)+"d ago"; };
+const eraOf = v => /^0\./.test(String(v||"")) ? "six" : "legacy";
+const winLevelOf = era => era === "six" ? 6 : 10;
+// rerolled shelves are logged from 0.51a on; older builds only logged the opening shelf
+const fullShelves = v => { const m = /^0\.(\d+)/.exec(String(v||"")); return !!m && parseFloat("0."+m[1]) >= 0.51; };
+
+/* ---------------- data ---------------- */
+async function sbFetch(path){
+  const r = await fetch(SB + "/rest/v1/" + path, { headers:{ apikey:KEY, Authorization:"Bearer "+KEY } });
+  if(!r.ok) throw new Error("supabase " + r.status);
+  return r.json();
+}
+const COLS = "id,event_name,event_ts,tz_offset,session_id,player_id,game_version,device_type,run_id,payload";
+async function loadAll(){
+  rows = []; lastId = 0;
+  for(let page=0; page<200; page++){
+    const batch = await sbFetch(`events?env=eq.${F.env}&game_id=eq.${GAME}&select=${COLS}&order=id.asc&id=gt.${lastId}&limit=1000`);
+    rows = rows.concat(batch);
+    if(batch.length) lastId = batch[batch.length-1].id;
+    if(batch.length < 1000) break;
+  }
+  if(rows.length) lastEventAt = rows[rows.length-1].event_ts;
+  dirty = true;
+}
+async function poll(){
+  try{
+    const batch = await sbFetch(`events?env=eq.${F.env}&game_id=eq.${GAME}&select=${COLS}&order=id.asc&id=gt.${lastId}&limit=1000`);
+    if(batch.length){
+      rows = rows.concat(batch); lastId = batch[batch.length-1].id; lastEventAt = batch[batch.length-1].event_ts;
+      dirty = true; renderFeed(batch.map(b=>b.id)); renderAll();
+    }
+    setLive(true);
+  }catch(e){ setLive(false); }
+}
+function setLive(ok){
+  $("liveDot").className = "dot" + (ok ? " on" : "");
+  $("liveTxt").textContent = !ok ? "connection lost, retrying" : lastEventAt ? ("live · last event " + ago(lastEventAt)) : "live · waiting for first event";
+}
+
+/* ---------------- model: runs, then everything keyed to them ---------------- */
+function evName(e){ return e.event_name === "game_event" ? ((e.payload && e.payload.event_id) || "game_event") : e.event_name; }
+function build(){
+  const owners = new Set();
+  const runs = new Map();
+  for(const e of rows){
+    const p = e.payload || {};
+    if(e.event_name === "session_start" && p.is_owner === true) owners.add(e.player_id);
+    if(e.event_name === "game_start" && e.run_id && !runs.has(e.run_id)){
+      runs.set(e.run_id, { id:e.run_id, player:e.player_id, ver:e.game_version, era:eraOf(e.game_version), ts:e.event_ts,
+        mode:p.mode||"free", daily:p.daily_id||null, character:p.character||null, asc:(p.ascension==null?null:+p.ascension),
+        backfill:!!p.backfill, term:null, ev:[] });
+    }
+  }
+  for(const e of rows){
+    if(!e.run_id) continue;
+    const r = runs.get(e.run_id); if(!r) continue;
+    r.ev.push(e);
+    if(e.event_name === "game_complete" || e.event_name === "game_over" || e.event_name === "game_quit") r.term = e;
+  }
+  const keep = r => (F.era === "all" || r.era === F.era)
+    && (F.who === "all" || (F.who === "me" ? owners.has(r.player) : !owners.has(r.player)))
+    && (F.mode === "all" || r.mode === F.mode);
+  const sel = [...runs.values()].filter(keep);
+  return { owners, runs:sel, all:runs };
+}
+function outcomeOf(r){
+  if(!r.term) return "open";
+  if(r.term.event_name === "game_complete") return "won";
+  if(r.term.event_name === "game_over") return "lost";
+  return (r.term.payload && r.term.payload.quit_type === "inferred") ? "abandoned" : "ended";
+}
+
+/* ---------------- tooltip ---------------- */
+const tip = $("tip");
+function tipOn(el, text){
+  el.addEventListener("mouseenter", () => { tip.textContent = text; tip.hidden = false; });
+  el.addEventListener("mousemove", e => { tip.style.left = Math.min(innerWidth-250, e.clientX+12)+"px"; tip.style.top = (e.clientY+14)+"px"; });
+  el.addEventListener("mouseleave", () => { tip.hidden = true; });
+}
+function badge(id, n, unit){
+  const el = $(id); if(!el) return;
+  el.textContent = n + " " + unit + (n < DIRECTIONAL_N ? " · directional" : "");
+  el.className = "badge" + (n < DIRECTIONAL_N ? " dir" : "");
+}
+function hbar(label, value, maxV, color, valueText, tipText){
+  const w = maxV ? Math.max(1, Math.round(100 * value / maxV)) : 0;
+  return `<div class="hrow"${tipText?` data-tip="${esc(tipText)}"`:""}><div class="hl">${esc(label)}</div><div class="track"><div class="fill" style="width:${w}%;background:${color}"></div></div><div class="hv">${esc(valueText)}</div></div>`;
+}
+function wireTips(root){ root.querySelectorAll("[data-tip]").forEach(n => tipOn(n, n.dataset.tip)); }
+const EMPTY_HINT = () => F.era === "six" && F.env === "playtest"
+  ? "No six-round runs here yet. Play 0.51a, or switch Builds to Ten-round to see the backfilled history."
+  : "No runs match these filters yet.";
+
+/* ---------------- renderers ---------------- */
+function renderTiles(M){
+  const fin = M.runs.filter(r => ["won","lost","ended"].includes(outcomeOf(r)));
+  const won = fin.filter(r => outcomeOf(r) === "won").length;
+  const open = M.runs.filter(r => outcomeOf(r) === "open").length;
+  const dur = fin.filter(r => !(r.term.payload||{}).quick_exit).map(r => (r.term.payload||{}).duration_ms);
+  const words = fin.map(r => r.ev.filter(e => evName(e) === "letterati:word").length);
+  const pays = []; M.runs.forEach(r => r.ev.forEach(e => { if(e.event_name === "level_complete" && e.payload.payout != null) pays.push(+e.payload.payout); }));
+  const daily = M.runs.filter(r => r.mode === "daily").length;
+  $("tiles").innerHTML = [
+    { v:fin.length, l:"Finished runs", s:open+" open or parked · "+M.runs.length+" started" },
+    { v:pct(won, fin.length), l:"Win rate", s:won+" of "+fin.length+" finished" },
+    { v:fmtTime(median(dur)), l:"Median run", s:"run clock, quick exits left out" },
+    { v:f1(median(words)), l:"Words per run", s:"median, finished runs" },
+    { v:f1(mean(pays)), l:"Coins per clear", s:"mean purse at a round clear" },
+    { v:daily, l:"Daily runs", s:(M.runs.length-daily)+" free play" }
+  ].map(t=>`<div class="tile"><div class="v">${esc(t.v)}</div><div class="l">${esc(t.l)}</div><div class="s">${esc(t.s)}</div></div>`).join("");
+}
+
+function winRateBars(M, keyFn, labelFn, elId, badgeId, order){
+  const fin = M.runs.filter(r => ["won","lost","ended"].includes(outcomeOf(r)));
+  badge(badgeId, fin.length, "runs");
+  const g = new Map();
+  fin.forEach(r => { const k = keyFn(r); const o = g.get(k) || {n:0,w:0}; o.n++; if(outcomeOf(r)==="won") o.w++; g.set(k,o); });
+  const el = $(elId);
+  if(!fin.length){ el.innerHTML = `<div class="empty">${esc(EMPTY_HINT())}</div>`; return; }
+  const keys = [...g.keys()].sort(order);
+  el.innerHTML = keys.map(k => { const o=g.get(k);
+    return hbar(labelFn(k), o.w, o.n, SERIES.s2, `${pct(o.w,o.n)} · ${o.w}/${o.n}`, `${labelFn(k)}: ${o.w} won of ${o.n} finished`); }).join("");
+  wireTips(el);
+}
+function renderWinRates(M){
+  winRateBars(M, r => r.asc==null ? -1 : r.asc, k => k<0 ? "no rung" : "A"+k, "byAsc", "bAsc", (a,b)=>a-b);
+  const CH = { writer:"Writer", detective:"Detective", editor:"Editor" };
+  winRateBars(M, r => r.character || "none", k => k==="none" ? "before characters" : (CH[k]||k), "byChar", "bChar", (a,b)=>String(a).localeCompare(String(b)));
+}
+
+function renderDie(M){
+  const lost = M.runs.filter(r => outcomeOf(r) === "lost");
+  const ended = M.runs.filter(r => outcomeOf(r) === "ended");
+  badge("bDie", lost.length, "lost runs");
+  const el = $("dieChart");
+  if(!lost.length){ el.innerHTML = `<div class="empty">${M.runs.length ? "No lost runs in this filter." : esc(EMPTY_HINT())}</div>`; $("dieNote").textContent = ""; return; }
+  const W = F.era === "legacy" ? 10 : (F.era === "six" ? 6 : 10);
+  const counts = {}; lost.forEach(r => { const fr = +((r.term.payload||{}).final_round) || 0; const k = fr > W ? (W+1) : fr; counts[k] = (counts[k]||0)+1; });
+  const max = Math.max(...Object.values(counts));
+  let html = "";
+  for(let k=1; k<=W+1; k++){ const v = counts[k]||0; if(k===W+1 && !v) continue;
+    html += hbar(k===W+1 ? "endless" : "Round "+k, v, max, SERIES.s4, `${v} · ${pct(v, lost.length)}`, `${v} of ${lost.length} lost runs ended in ${k===W+1?"endless":"round "+k}`); }
+  el.innerHTML = html; wireTips(el);
+  const er = {}; ended.forEach(r => { const fr = +((r.term.payload||{}).final_round)||0; er[fr]=(er[fr]||0)+1; });
+  $("dieNote").textContent = ended.length ? `Also ${ended.length} run${ended.length>1?"s":""} ended by choice: ` + Object.keys(er).sort((a,b)=>a-b).map(k=>`round ${k} ×${er[k]}`).join(", ") + "." : "";
+}
+
+function renderRounds(M){
+  const by = {};
+  let roundsN = 0;
+  M.runs.forEach(r => {
+    const W = winLevelOf(r.era);
+    const seen = new Set();
+    r.ev.forEach(e => {
+      const p = e.payload || {}; const R = +p.round; if(!R) return;
+      const key = R > W ? "E" : R;
+      const o = by[key] = by[key] || { played:0, clean:0, cleared:0, ot:0, hearts:0, ratio:[], disc:[], house:0, ms:[] };
+      if(e.event_name === "level_start" && !seen.has(R)){ seen.add(R); o.played++; roundsN++; }
+      if(e.event_name === "level_fail"){ o.ot++; if(!p.heart_free) o.hearts++; }
+      if(e.event_name === "level_complete"){
+        o.cleared++; if(!(+p.overtime_words)) o.clean++;
+        if(p.target) o.ratio.push(p.score / p.target);
+        if(p.discards_spent != null) o.disc.push(+p.discards_spent);
+        o.house += (+p.house_discards||0);
+        if(p.round_ms) o.ms.push(+p.round_ms);
+      }
+    });
+  });
+  badge("bRounds", roundsN, "rounds");
+  const el = $("rounds");
+  if(!roundsN){ el.innerHTML = `<tr><td class="empty">${esc(EMPTY_HINT())}</td></tr>`; return; }
+  const keys = Object.keys(by).filter(k=>k!=="E").map(Number).sort((a,b)=>a-b).concat(by.E ? ["E"] : []);
+  const cleanRates = keys.map(k => by[k].played ? by[k].clean/by[k].played : 1);
+  const worst = Math.min(...cleanRates);
+  el.innerHTML = `<tr><th>Round</th><th class="num">Played</th><th class="num">Clean clear<small>no overtime</small></th><th class="num">Overtime words<small>per round played</small></th><th class="num">Hearts lost</th><th class="num">Score / target<small>median, cleared</small></th><th class="num">Discards<small>mean spent</small></th><th class="num">House<small>discards</small></th><th class="num">Time<small>median</small></th></tr>` +
+    keys.map((k,i) => { const o = by[k];
+      return `<tr${o.played<3?' class="quiet"':""}><td>${k==="E"?"Endless":k}</td><td class="num">${o.played}</td><td class="num${cleanRates[i]===worst&&o.played>=3?" hot":""}">${pct(o.clean,o.played)}</td><td class="num">${o.played?f1(o.ot/o.played):"–"}</td><td class="num">${o.hearts}</td><td class="num">${o.ratio.length?("×"+(Math.round(median(o.ratio)*100)/100).toFixed(2)):"–"}</td><td class="num">${f1(mean(o.disc))}</td><td class="num">${o.house}</td><td class="num">${fmtTime(median(o.ms))}</td></tr>`; }).join("");
+}
+
+function phaseRows(M, id){ const out=[]; M.runs.forEach(r => r.ev.forEach(e => { if(evName(e) === id) out.push(e.payload||{}); })); return out; }
+
+function renderBosses(M){
+  const ev = phaseRows(M, "letterati:boss");
+  const by = {};
+  ev.forEach(p => { const o = by[p.type] = by[p.type] || { faced:0, beat:0, failed:0, words:[], hearts:0 };
+    if(p.phase === "start") o.faced++;
+    if(p.phase === "cleared"){ o.beat++; if(p.words!=null) o.words.push(+p.words); }
+    if(p.phase === "failed") o.failed++;
+    if((p.phase === "cleared" || p.phase === "failed") && p.hearts_before!=null && p.hearts_after!=null) o.hearts += Math.max(0, p.hearts_before - p.hearts_after); });
+  const n = Object.values(by).reduce((s,o)=>s+Math.max(o.faced, o.beat+o.failed),0);
+  badge("bBoss", n, "fights");
+  const el = $("bosses");
+  if(!n){ el.innerHTML = `<tr><td class="empty">No boss fights in this filter yet.</td></tr>`; return; }
+  const NAMES = { deadline:"The Deadline", ghost:"The Ghost", editor:"The Editor", critic:"The Critic" };
+  el.innerHTML = `<tr><th>Boss</th><th class="num">Faced</th><th class="num">Beaten</th><th class="num">Beat rate<small>of decided fights</small></th><th class="num">Words to clear<small>median</small></th><th class="num">Hearts lost</th></tr>` +
+    Object.keys(by).sort((a,b)=>Math.max(by[b].faced,by[b].beat+by[b].failed)-Math.max(by[a].faced,by[a].beat+by[a].failed)).map(k => { const o = by[k]; const dec = o.beat + o.failed;
+      return `<tr><td>${esc(NAMES[k]||k)}</td><td class="num">${Math.max(o.faced, dec)}</td><td class="num">${o.beat}</td><td class="num">${pct(o.beat, dec)}</td><td class="num">${f1(median(o.words))}</td><td class="num">${o.hearts}</td></tr>`; }).join("");
+}
+
+function renderChallenges(M){
+  const ev = phaseRows(M, "letterati:challenge");
+  const by = {}; let off=0, tk=0, cl=0;
+  ev.forEach(p => { const o = by[p.type] = by[p.type] || { offered:0, taken:0, skipped:0, cleared:0, failed:0, rewards:{}, req:0 };
+    if(p.phase === "offered"){ o.offered++; off++; if(p.required) o.req++; }
+    if(p.phase === "taken"){ o.taken++; tk++; if(p.reward) o.rewards[p.reward]=(o.rewards[p.reward]||0)+1; }
+    if(p.phase === "skipped") o.skipped++;
+    if(p.phase === "cleared"){ o.cleared++; cl++; }
+    if(p.phase === "failed") o.failed++; });
+  badge("bChal", off, "offers");
+  const el = $("chals");
+  if(!off){ el.innerHTML = `<tr><td class="empty">No challenges offered in this filter yet.</td></tr>`; $("chalNote").textContent=""; return; }
+  el.innerHTML = `<tr><th>Challenge</th><th class="num">Offered</th><th class="num">Taken</th><th class="num">Cleared<small>of taken</small></th><th>Rewards picked</th></tr>` +
+    Object.keys(by).sort((a,b)=>by[b].offered-by[a].offered).map(k => { const o = by[k];
+      const rw = Object.entries(o.rewards).sort((a,b)=>b[1]-a[1]).map(([r,c])=>`${r} ${c}`).join(" · ");
+      return `<tr><td>${esc(k)}${o.req?` <span class="pill">required ×${o.req}</span>`:""}</td><td class="num">${o.offered}</td><td class="num">${pct(o.taken,o.offered)}</td><td class="num${o.taken>=3&&o.cleared/o.taken>=0.9?" hot":""}">${pct(o.cleared,o.taken)} · ${o.cleared}/${o.taken}</td><td>${esc(rw||"–")}</td></tr>`; }).join("");
+  $("chalNote").textContent = `Overall: ${tk} of ${off} offers taken (${pct(tk,off)}), ${cl} of ${tk} cleared (${pct(cl,tk)}).`;
+}
+
+function renderEcon(M){
+  const earn = {}, spend = {}; let runsN = 0;
+  M.runs.forEach(r => { let any=false;
+    r.ev.forEach(e => { const p = e.payload||{};
+      if(e.event_name === "level_complete" && p.payout != null){ (earn[p.round] = earn[p.round] || []).push(+p.payout); any=true; }
+      if(evName(e) === "letterati:shop_close" && p.coins_in != null && p.coins_out != null){ const R = (+p.round) - 1; (spend[R] = spend[R] || []).push(Math.max(0, p.coins_in - p.coins_out)); }
+    }); if(any) runsN++; });
+  badge("bEcon", runsN, "runs");
+  const el = $("econ");
+  const W = F.era === "six" ? 6 : 10;
+  const rounds = [...Array(W)].map((_,i)=>i+1).filter(R => (earn[R]||[]).length);
+  if(!rounds.length){ el.innerHTML = `<div class="empty">${esc(EMPTY_HINT())}</div>`; $("econNote").textContent=""; return; }
+  const E = rounds.map(R => mean(earn[R]||[])), S = rounds.map(R => (spend[R]||[]).length ? mean(spend[R]) : null);
+  const max = Math.max(5, ...E, ...S.filter(v=>v!=null));
+  const Wd = 640, H = 200, padL = 30, padB = 22, padT = 16;
+  const iw = (Wd - padL - 8) / rounds.length, bw = Math.min(26, iw*0.3);
+  const y = v => padT + (H - padT - padB) * (1 - v / max);
+  let svg = `<svg class="chart" viewBox="0 0 ${Wd} ${H}" role="img" aria-label="Average coins earned at each clear and spent in the next shop, by round">`;
+  [0,.5,1].forEach(fr => { const v = Math.round(max*fr); svg += `<line class="grid" x1="${padL}" x2="${Wd-4}" y1="${y(v)}" y2="${y(v)}"/><text x="${padL-5}" y="${y(v)+3.5}" text-anchor="end">${v}</text>`; });
+  rounds.forEach((R,i) => {
+    const cx = padL + i*iw + iw/2;
+    const draw = (v, x, col, lab, n) => { if(v==null) return;
+      const h = Math.max(2, (H-padT-padB) * v / max);
+      svg += `<path class="pt" data-tip="${esc(lab)}" d="M${x},${H-padB} V${H-padB-h+4} q0,-4 4,-4 h${bw-8} q4,0 4,4 V${H-padB} Z" fill="${col}"/>`;
+      svg += `<text class="val" x="${x+bw/2}" y="${H-padB-h-4}" text-anchor="middle">${Math.round(v)}</text>`; };
+    draw(E[i], cx - bw - 1, SERIES.s1, `Round ${R}: ${f1(E[i])} coins earned at the clear (mean of ${(earn[R]||[]).length})`);
+    draw(S[i], cx + 1, SERIES.s3, `After round ${R}: ${f1(S[i])} coins spent in the shop (mean of ${(spend[R]||[]).length})`);
+    svg += `<text x="${cx}" y="${H-6}" text-anchor="middle">R${R}</text>`;
+  });
+  svg += "</svg>";
+  el.innerHTML = svg; wireTips(el);
+  const te = E.reduce((s,v)=>s+v,0), ts = S.reduce((s,v)=>s+(v||0),0);
+  $("econNote").textContent = `Across a full run that is about ${Math.round(te)} coins earned at clears and ${Math.round(ts)} spent in shops (means, so runs that ended early weigh less in later rounds). Word cash and side jobs are part of the purse figure.`;
+}
+
+/* shop item families: per-letter offers fold together so the table shows the decision, not the alphabet */
+function family(name, type){
+  const n = String(name||"");
+  if(type === "freeGild" || /^Your pick of gild/.test(n)) return null;            // free challenge reward, not a purchase
+  if(/^Gild [A-Z]/.test(n) || type === "gildLetter") return "Gild a letter";
+  if(/^Add -/.test(n)) return "Add a suffix tile";
+  if(/^Add [A-Z]$/.test(n) || type === "letter") return "Add a letter";
+  if(/^Gilded [A-Z]/.test(n)) return "Gilded letter";
+  if(/^Golden [A-Z]/.test(n)) return "Golden letter";
+  if(/^Foiled [A-Z]/.test(n)) return "Foiled letter";
+  if(/^Fused [A-Z]/.test(n) || type === "fusedPair") return "Fused pair, ready-made";
+  if(/^Fuse [A-Z]/.test(n) || type === "fuse" || n === "Letter fusion") return "Letter fusion";
+  if(/^Triple fuse/.test(n) || type === "trioUpgrade") return "Triple fusion";
+  if(/^First-up/.test(n) || type === "firstUp") return "First-up letter";
+  if(/^Finale/.test(n) || type === "lastUp") return "Finale letter";
+  return n;
+}
+function spendKind(type, name){
+  const f = family(name, type);
+  if(f === null) return null;
+  if(f === "Gild a letter" || f === "Gilded letter" || f === "Golden letter") return "Gilds";
+  if(f === "Letter fusion" || f === "Triple fusion" || f === "Fused pair, ready-made") return "Fusions";
+  if(f === "Add a letter" || f === "Add a suffix tile" || f === "Foiled letter") return "Letters";
+  return "Perks and items";
+}
+function renderShop(M){
+  const items = {}; let shelves = 0, oldRuns = 0; const freeG = { n:0 };
+  const slot = k => items[k] = items[k] || { seen:0, bought:0, prices:[], fseen:0, fbought:0 };
+  M.runs.forEach(r => { const full = fullShelves(r.ver); if(!full) oldRuns++;
+    r.ev.forEach(e => { const id = evName(e), p = e.payload||{};
+    if(id === "letterati:shop_open" || id === "letterati:shop_shelf"){ shelves++;
+      (p.offered||[]).forEach(o => { const k = family(o.name, o.type); if(!k) return; const it = slot(k); it.seen++; if(full) it.fseen++; }); }
+    if(id === "letterati:shop_close"){ (p.bought||[]).forEach(b => { const k = family(b.name, b.type); if(!k){ freeG.n++; return; } const it = slot(k); it.bought++; if(full) it.fbought++; if(b.price!=null) it.prices.push(+b.price); }); }
+  }); });
+  badge("bShop", shelves, "shelves");
+  const el = $("shop");
+  const keys = Object.keys(items).filter(k => items[k].seen >= 3).sort((a,b)=>items[b].seen-items[a].seen).slice(0,24);
+  if(!keys.length){ el.innerHTML = `<tr><td class="empty">${esc(EMPTY_HINT())}</td></tr>`; return; }
+  el.innerHTML = `<tr><th>Item</th><th class="num">Appearances</th><th class="num">Bought</th><th class="num">Buy rate<small>0.51a and later</small></th><th class="num">Mean price<small>paid</small></th></tr>` +
+    keys.map(k => { const it = items[k]; const ok = it.fseen >= 3; const rate = ok ? it.fbought/it.fseen : null;
+      return `<tr><td>${esc(k)}</td><td class="num">${it.seen}</td><td class="num">${it.bought}</td><td class="num${rate!=null&&rate<0.05&&it.fseen>=8?" hot":""}">${ok ? pct(it.fbought, it.fseen) : "–"}</td><td class="num">${f1(mean(it.prices))}</td></tr>`; }).join("") +
+    (oldRuns ? `<tr class="quiet"><td colspan="5">${oldRuns} run${oldRuns>1?"s":""} here predate 0.51a: they count toward appearances and buys, not buy rate (rerolled shelves weren't logged, so their rates would overstate).</td></tr>` : "") +
+    (freeG.n ? `<tr class="quiet"><td colspan="5">Plus ${freeG.n} free gild${freeG.n>1?"s":""} redeemed from challenge rewards (not counted above).</td></tr>` : "");
+}
+
+function renderSpend(M){
+  const fin = M.runs.filter(r => r.term);
+  const tot = { "Gilds":0, "Fusions":0, "Letters":0, "Perks and items":0 }; let rerollN = 0;
+  fin.forEach(r => r.ev.forEach(e => { const p = e.payload||{};
+    if(evName(e) === "letterati:shop_close") (p.bought||[]).forEach(b => { const k = spendKind(b.type, b.name); if(k) tot[k] += (+b.price||0); });
+    if(evName(e) === "letterati:shop_close") rerollN += (+p.rerolls||0); }));
+  badge("bSpend", fin.length, "runs");
+  const el = $("spend");
+  if(!fin.length){ el.innerHTML = `<div class="empty">${esc(EMPTY_HINT())}</div>`; $("spendNote").textContent=""; return; }
+  const per = Object.entries(tot).map(([k,v]) => [k, v/fin.length]);
+  const max = Math.max(1, ...per.map(x=>x[1]));
+  el.innerHTML = per.map(([k,v]) => hbar(k, v, max, SERIES.s3, f1(v)+" per run", `${k}: ${Math.round(tot[k])} coins over ${fin.length} runs`)).join("");
+  wireTips(el);
+  $("spendNote").textContent = `Rerolls: ${f1(rerollN/fin.length)} per run (their cost isn't itemized here).`;
+}
+
+function renderDraft(M){
+  const by = {}; let n = 0;
+  phaseRows(M, "letterati:draft").forEach(p => { n++;
+    (p.offered||[]).forEach(x => { (by[x] = by[x] || {o:0,p:0}).o++; });
+    if(p.picked) (by[p.picked] = by[p.picked] || {o:0,p:0}).p++; });
+  badge("bDraft", n, "drafts");
+  const el = $("draft");
+  if(!n){ el.innerHTML = `<tr><td class="empty">${esc(M.runs.length ? "No perk drafts in these runs (the draft arrived in 0.5a)." : EMPTY_HINT())}</td></tr>`; return; }
+  el.innerHTML = `<tr><th>Perk</th><th class="num">Offered</th><th class="num">Picked</th><th class="num">Pick rate</th></tr>` +
+    Object.keys(by).sort((a,b)=>(by[b].p/by[b].o)-(by[a].p/by[a].o) || by[b].o-by[a].o).slice(0,16).map(k => { const o = by[k];
+      return `<tr${o.o<3?' class="quiet"':""}><td>${esc(k)}</td><td class="num">${o.o}</td><td class="num">${o.p}</td><td class="num">${pct(o.p,o.o)}</td></tr>`; }).join("");
+}
+
+function renderRecent(M){
+  const el = $("recent");
+  const list = M.runs.slice().sort((a,b)=>b.ts.localeCompare(a.ts)).slice(0,14);
+  if(!list.length){ el.innerHTML = `<tr><td class="empty">${esc(EMPTY_HINT())}</td></tr>`; return; }
+  const CH = { writer:"Writer", detective:"Detective", editor:"Editor" };
+  el.innerHTML = `<tr><th>Started</th><th>Run</th><th>Result</th><th class="num">Round</th><th class="num">Score</th></tr>` +
+    list.map(r => { const o = outcomeOf(r), p = (r.term&&r.term.payload)||{};
+      const cls = o==="won"?"win":(o==="lost"?"lose":"");
+      return `<tr><td>${esc(new Date(r.ts).toLocaleDateString(undefined,{month:"short",day:"numeric"}))}</td><td title="v${esc(r.ver)}">${esc((CH[r.character]||"–")+(r.asc!=null?" A"+r.asc:"")+(r.mode==="daily"?" · daily":""))}${M.owners.has(r.player)?' <span class="pill">me</span>':""}</td><td><span class="pill ${cls}">${o}</span></td><td class="num">${p.final_round||"–"}</td><td class="num">${p.run_score!=null?(+p.run_score).toLocaleString():"–"}</td></tr>`; }).join("");
+}
+
+const FRIENDLY = {
+  session_start:"Session start", session_end:"Session end", heartbeat:"Heartbeat", game_start:"Run started",
+  level_start:"Round started", level_complete:"Round cleared", level_fail:"Overtime word", game_complete:"Run won",
+  game_over:"Run lost", game_quit:"Run ended", error:"Error",
+  "letterati:word":"Word", "letterati:draft":"Perk draft", "letterati:shop_open":"Shop opened", "letterati:shop_shelf":"Shop rerolled",
+  "letterati:shop_buy":"Bought", "letterati:shop_reroll":"Reroll", "letterati:shop_undo":"Undo in shop", "letterati:shop_close":"Left shop",
+  "letterati:challenge":"Challenge", "letterati:boss":"Boss", "letterati:discard":"Discard", "letterati:house_discard":"House discard",
+  "letterati:mystery":"Mystery clue", "letterati:side_job":"Side job paid", "letterati:gild":"Free gild", "letterati:heart":"Heart",
+  "letterati:park":"Quit to title", "letterati:resume":"Resumed run", "letterati:endless":"Went endless", "letterati:seed_rating":"Seed rated"
+};
+function evDetail(e){
+  const p = e.payload || {}, n = evName(e);
+  if(n === "game_start") return `${p.mode||""} · ${p.character||""} A${p.ascension==null?"–":p.ascension} · ${p.seed||""}`;
+  if(n === "level_start") return `round ${p.round} · target ${p.target||"–"}${p.boss?" · "+p.boss.type:""}${p.challenge?" · "+p.challenge.type:""}`;
+  if(n === "level_complete") return `round ${p.round} · ${p.score}/${p.target} · +${p.payout||0} coins`;
+  if(n === "level_fail") return `round ${p.round} · ${p.score}/${p.target}${p.heart_free?" · free":" · heart lost"}`;
+  if(n === "game_complete" || n === "game_over" || n === "game_quit") return `round ${p.final_round||"–"} · ${(+p.run_score||0).toLocaleString()} pts · ${fmtTime(p.duration_ms)}`;
+  if(n === "letterati:word") return `${p.word||""} · ${p.score} pts${p.mystery_hit?" · mystery":""}`;
+  if(n === "letterati:shop_buy") return `${p.name} · ${p.price} coins`;
+  if(n === "letterati:challenge") return `${p.type} · ${p.phase}${p.reward?" · "+p.reward:""}`;
+  if(n === "letterati:boss") return `${p.type} · ${p.phase}`;
+  if(n === "letterati:draft") return `picked ${p.picked}`;
+  if(n === "letterati:seed_rating") return `${p.vote}${p.note?" · note":""}`;
+  if(n === "letterati:mystery") return `round ${p.round} · ${p.tier||""}`;
+  if(n === "session_start") return (p.entry_source||"") + (p.is_owner ? " · owner" : "") + (p.backfill ? " · backfill" : "");
+  return p.round ? "round "+p.round : "";
+}
+function renderFeed(freshIds){
+  const feed = $("feed");
+  const recent = rows.filter(e => e.event_name !== "heartbeat").slice(-30).reverse();
+  $("feedSub").textContent = rows.length ? `Raw stream, newest first · ${rows.length.toLocaleString()} events loaded (all filters off here)` : "Raw stream from the game, newest first";
+  feed.innerHTML = !recent.length ? '<div class="empty">Waiting for the first event. Play a round and it shows up here within a few seconds.</div>' :
+    recent.map(e => `<div class="ev${freshIds && freshIds.includes(e.id) ? " fresh" : ""}"><span class="nm">${esc(FRIENDLY[evName(e)] || evName(e))}</span><span class="dt">${esc(evDetail(e))}</span><span class="tm">${esc((e.payload||{}).backfill ? "backfill" : ago(e.event_ts))}</span></div>`).join("");
+}
+
+function renderAll(){
+  if(!dirty) return; dirty = false;
+  const M = build();
+  renderTiles(M); renderWinRates(M); renderDie(M); renderRounds(M); renderBosses(M); renderChallenges(M);
+  renderEcon(M); renderSpend(M); renderDraft(M); renderShop(M); renderRecent(M);
+  const bits = [];
+  if(F.env === "dev") bits.push("Showing dev/test rows (simulator and test runs, never in playtest reporting).");
+  if(F.who === "me" && !M.owners.size) bits.push("No owner browser yet: open the game once with ?owner=1 to tag yours.");
+  bits.push(`${M.runs.length} runs match these filters.`);
+  $("meta").textContent = bits.join(" ");
+  $("fetchMeta").textContent = ` ${rows.length.toLocaleString()} events loaded · updated ${new Date().toLocaleTimeString()}.`;
+}
+
+/* ---------------- filters ---------------- */
+function saveF(){ try{ localStorage.setItem("ltdash_filters", JSON.stringify(F)); }catch(e){} }
+function syncControls(){
+  $("fEra").value = F.era;
+  [["fWho","who"],["fMode","mode"],["fEnv","env"]].forEach(([id,k]) => $(id).querySelectorAll("button").forEach(b => b.classList.toggle("on", b.dataset.v === F[k])));
+}
+$("fEra").addEventListener("change", e => { F.era = e.target.value; saveF(); dirty = true; renderAll(); });
+[["fWho","who"],["fMode","mode"]].forEach(([id,k]) => $(id).addEventListener("click", e => { const b = e.target.closest("button"); if(!b) return; F[k] = b.dataset.v; saveF(); syncControls(); dirty = true; renderAll(); }));
+$("fEnv").addEventListener("click", e => { const b = e.target.closest("button"); if(!b || b.dataset.v === F.env) return; F.env = b.dataset.v; saveF(); syncControls();
+  $("liveTxt").textContent = "loading"; loadAll().then(()=>{ renderFeed(); renderAll(); setLive(true); }).catch(()=>setLive(false)); });
+
+/* ---------------- gate + boot ---------------- */
+function boot(){
+  $("gate").classList.add("hidden");
+  syncControls();
+  loadAll().then(()=>{ renderFeed(); renderAll(); setLive(true); }).catch(()=>setLive(false));
+  setInterval(poll, 5000);
+  setInterval(()=>{ if(lastEventAt) setLive(true); }, 10000);
+}
+(function initGate(){
+  let ok = false;
+  try{ ok = localStorage.getItem("ltdash_unlocked") === "1" || localStorage.getItem("vbdash_unlocked") === "1"; }catch(e){}
+  if(ok){ boot(); return; }
+  const tryPw = ()=>{
+    if(($("gatePw").value||"").trim().toLowerCase() === PASSWORD){
+      try{ localStorage.setItem("ltdash_unlocked","1"); }catch(e){}
+      boot();
+    } else { $("gateErr").textContent = "That's not the password."; $("gatePw").select(); }
+  };
+  $("gateBtn").addEventListener("click", tryPw);
+  $("gatePw").addEventListener("keydown", e=>{ if(e.key==="Enter") tryPw(); });
+  setTimeout(()=>{ try{ $("gatePw").focus(); }catch(e){} }, 60);
+})();
+</script>
+</body>
+</html>
