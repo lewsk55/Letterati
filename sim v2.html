@@ -477,6 +477,8 @@ function makeAgent(H, profile, rng){
     if(t==="trioUpgrade"){ if(!G.deck.some(c=>c.kind==="fused")) return 0; }
     const STAMP={foil:"foil",watermark:"watermark",encore:"encore",growthMind:"growth",boldfaceStamp:"boldface",dropcapStamp:"dropcap",serifStamp:"serif",dittoStamp:"ditto",inkwellStamp:"inkwell"};
     if(STAMP[t] && !G.deck.some(c=>F.stampTargetOk(c,STAMP[t]))) return 0;
+    if(t==="freeGolden" && !G.deck.some(c=>c.kind==="letter")) return 0;
+    if(o.reward) return 1;   // 0.51d: challenge rewards are free, always claim them
     return w;
   }
   async function shop(){
@@ -527,6 +529,7 @@ function makeAgent(H, profile, rng){
       if(mode==="remove") return c.kind==="letter";
       if(mode==="gemini"||mode==="goldStandard"||mode==="department") return c.kind==="letter";
       if(mode==="freegild") return F.stampTargetOk(c,"freegild");
+      if(mode==="freegolden") return c.kind==="letter" && !(c.mult>1);
       return F.stampTargetOk(c,mode);
     });
     if(!pool.length) return null;
@@ -537,7 +540,7 @@ function makeAgent(H, profile, rng){
     return pool.sort((a,b)=>chaseScore(b)-chaseScore(a))[0];
   }
   const ACT={ remove:"doRemove", growth:null, encore:null, foil:null, watermark:null, boldface:null, dropcap:null, serif:null, ditto:null, inkwell:null,
-    freegild:"doFreeGild", department:"doDepartmentPick", gemini:"doGemini", goldStandard:"doGoldStandard" };
+    freegild:"doFreeGild", freegolden:"doFreeGolden", department:"doDepartmentPick", gemini:"doGemini", goldStandard:"doGoldStandard" };
   async function resolvePickers(){
     for(let guard=0; guard<6; guard++){
       if(H.vis("fuseConfirm")){ if(!H.click("fuseYes")) H.click("fuseNo"); await H.flush(); tally.fusions++; continue; }

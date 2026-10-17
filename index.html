@@ -640,7 +640,23 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 /* Lucky 7 action card */
 .tile.lucky7{background:linear-gradient(180deg,#F1F8EE,#DCEFD6);border-color:#AFD3A2}
 .tile.lucky7 .glyph{font-size:1.25em}
-.tile.fused,.tile.trio{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.tile.fused,.tile.trio,.tile.combo{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+.combo-label .cm-off{font-size:1em;opacity:.35;vertical-align:baseline;margin-left:0}
+#canvas .combo-label .cm-off{font-size:.5em;opacity:.55;margin-left:1px}
+/* v0.51d: on the canvas a turned-off letter shrinks to a subscript, so the letters
+   that spell the word take about 80% of the tile. The bank keeps the dimmed look. */
+#canvas .tile.domino .dom-cell.dim{flex:0 0 13px;justify-content:flex-end;padding-bottom:6px;opacity:.45}
+#canvas .tile.domino.on1.off1{width:calc(var(--tw,40px)*1.08 + 15px)}
+#canvas .tile.domino.on1.off2{width:calc(var(--tw,40px)*1.08 + 30px)}
+#canvas .tile.domino.on2.off1{width:calc(var(--tw,40px)*1.9 + 17px)}
+.tile.domino .dom-div{display:none}
+.tile.trio .clone-mark{position:absolute;right:3px;top:2px;font-size:.5em;color:#3C7E6E;z-index:3}
+#canvas .tile.domino .dom-cell.dim .dom-letter{font-size:calc(var(--tfs,1.5rem)*.42)}
+#canvas .tile.domino .dom-cell.dim .dom-val{display:none}
+#canvas .tile.domino .dom-cell:not(.dim){flex:1 1 0}
+@keyframes fePop{0%{transform:scale(1.22,.8)}45%{transform:scale(.92,1.1)}75%{transform:scale(1.04,.97)}100%{transform:scale(1,1)}}
+.fe-chip.pop{animation:fePop .38s cubic-bezier(.3,1.6,.5,1)}
+@media (prefers-reduced-motion: reduce){ .fe-chip.pop{animation:none} }
 .tile.fe-holding{transform:scale(1.08);transition:transform .35s ease}
 .fe-row{display:flex;justify-content:center;gap:10px;margin:14px 0 6px;touch-action:none;min-height:78px}
 .fe-chip{position:relative;width:58px;height:70px;border-radius:10px;border:1px solid var(--tile-edge);background:linear-gradient(180deg,#FCF8EE,var(--tile));
@@ -1593,7 +1609,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 <script src="letterati-dictionary.js"></script>
 <script src="letterati-verbs.js"></script>
 <script src="letterati-common.js"></script>
-<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51c",inferQuitOnPagehide:false};</script>
+<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51d",inferQuitOnPagehide:false};</script>
 <script>
 /* ============================================================
    pbs-telemetry.js: PBS Games shared telemetry module (v1.1)
@@ -2054,7 +2070,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "0.51c";
+const VERSION = "0.51d";
 /* v0.51a analytics: PGames event stream (PBS Games Analytics Approach v1).
    Each call is one push onto the telemetry queue inside try/catch. The network
    runs on the module's own timer, so nothing here can slow scoring or throw into
@@ -2110,25 +2126,26 @@ function challengeLevelActive(lvl){
   return CHALLENGE_LEVELS.has(lvl) || (ascHas(1) && lvl===ASC_CHALLENGE_LEVEL);
 }
 function challengeMandatory(lvl){ return ascHas(1) && lvl===ASC_MANDATORY_LEVEL; }
+const CH_LIVE = { extra:1.1, steep:2.0, ban:4, margins:2, minLen:6, smudge:2 };   // v0.51d live challenge rules (sim-tuned toward ~65% cleared)
 const CHALLENGE_TARGET_MULT = 1.75;  // "steep target" challenge: +75% over the round's base goal
 const CHALLENGE_BAN_COUNT  = 3;      // "letters locked": one vowel + two most-used consonants
 const CHALLENGE_MIN_LEN    = 5;      // "long form": no words under 5 letters
 const MARGINS_TILES        = 1;      // "small margins": tiles taken off the hand (v491b: was 2)
 const CHALLENGE_TYPES = {
-  steep:  { name:"Steep Target", badge:"+75% target", diff:2,
-            desc:"Clear a target that is 75 percent higher this round." },
-  locked: { name:"Letters Locked", badge:"3 letters out", diff:2,
-            desc:"Your three most-used letters are off the board this round." },
-  longform:{ name:"Long Form", badge:"5+ letters only", diff:2,   /* v0.5a: 7/7 cleared, was 3 */
-            desc:"Only words of five letters or more will count this round." },
-  smudged:{ name:"Smudged Ink", badge:"1 tile smudged", diff:2,
-            desc:"One tile in every hand is smudged and scores zero." },
+  steep:  { name:"Steep Target", badge:"+100% target", diff:2,
+            desc:"Clear a target that is 100 percent higher this round." },
+  locked: { name:"Letters Locked", badge:"4 letters out", diff:2,
+            desc:"Your four most-used letters are off the board this round." },
+  longform:{ name:"Long Form", badge:"6+ letters only", diff:2,
+            desc:"Only words of six letters or more will count this round." },
+  smudged:{ name:"Smudged Ink", badge:"2 tiles smudged", diff:2,
+            desc:"Two tiles in every hand are smudged and score zero." },
   rush:   { name:"Rush Order", badge:"1 fewer word", diff:1,
             desc:"You get one fewer word this round." },
   house:  { name:"House Style", badge:"required letter", diff:2,
             desc:"Every word must contain the commissioned letter." },
   margins:{ name:"Small Margins", badge:"smaller hand", diff:1,
-            desc:"Your hand holds one fewer tile this round." },
+            desc:"Your hand holds two fewer tiles this round." },
   union:  { name:"Union Rules", badge:"no discards", diff:2,
             desc:"No discards this round." },
   heavy:  { name:"Heavy Stock", badge:"vowels worth 0", diff:2,   /* v0.5a: 8/8 cleared, was 3 */
@@ -2226,6 +2243,27 @@ function challengeCashFor(level,key){
   return Math.round((6+6*(+level||1))*mult);
 }
 // the free gilded letter the "upgrade" reward grants, seeded per level
+/* v0.51d: the "upgrade" reward rolls a variant per round (its own seed key, so
+   nothing else moves): a free gild, a golden multiplier on a letter you pick
+   (×1.25 / ×1.5 / ×1.75 / ×2 at 55 / 30 / 12 / 3 percent), a stamp you place,
+   or a free fusion. */
+const UPGRADE_VARIANTS=[["gild",35],["golden",30],["stamp",20],["fuse",15]];
+const GOLDEN_TIERS=[[1.25,55,"common"],[1.5,30,"rare"],[1.75,12,"epic"],[2,3,"legendary"]];
+const STAMP_NAMES={foil:"Foil Stamp",boldface:"Bold Face",dropcap:"Drop Cap",serif:"Serif Stamp",ditto:"Ditto Mark",inkwell:"Ink Well",encore:"Encore",watermark:"Watermark"};
+function rollUpgradeVariant(level){
+  const rng=makeRng("chupv:"+level);
+  const pick=list=>{ let t=0; list.forEach(x=>t+=x[1]); let r=rng()*t; for(const x of list){ r-=x[1]; if(r<=0) return x; } return list[0]; };
+  const v=pick(UPGRADE_VARIANTS)[0];
+  if(v==="golden"){ const t=pick(GOLDEN_TIERS); return {kind:"golden", mult:t[0], tier:t[2]}; }
+  if(v==="stamp"){ const ks=Object.keys(STAMP_NAMES); return {kind:"stamp", stamp:ks[Math.floor(rng()*ks.length)]}; }
+  return {kind:v};
+}
+function upgradeRewardText(u){
+  if(!u || u.kind==="gild") return {badge:"FREE GILD", name:"Your pick of gild", desc:"Gild any tile you own, free, at the next shop."};
+  if(u.kind==="golden") return {badge:"GOLDEN ×"+u.mult, name:"Golden ×"+u.mult+" letter", desc:"Make any letter you own golden: every word with it scores ×"+u.mult+". "+u.tier[0].toUpperCase()+u.tier.slice(1)+" roll."};
+  if(u.kind==="stamp") return {badge:"FREE STAMP", name:"Free "+STAMP_NAMES[u.stamp], desc:"Place a "+STAMP_NAMES[u.stamp]+" on any tile you own, free, at the next shop."};
+  return {badge:"FREE FUSION", name:"Free letter fusion", desc:"Fuse any two letters you own into one tile, free, at the next shop."};
+}
 function challengeUpgradeLetterFor(level){
   const rng=makeRng("chupg:"+level);
   return weightedLetter(rng,{E:3,A:2,S:3,R:3,T:3,N:2,L:2,D:2,M:2,H:2,P:2,C:2,B:1,W:1,Y:1});
@@ -2280,7 +2318,6 @@ const CHALLENGE_EPIC_POOL = [
   {name:"The Compositor",   art:"🧩", desc:"Once per round, sets the highest scoring word your letter tiles can make.", d:{type:"compositor"}},
   {name:"Fused Focus",      art:"🔗", desc:"Letters played from fused pairs and trios score ×1.25.", d:{type:"fusedFocus"}},
   {name:"India Ink",        art:"🖋️", desc:"Ink Well pays triple. Every $1 earned adds +1 to your next word.", d:{type:"indiaInk"}},
-  {name:"Second Edition",   art:"📚", desc:"Once per round, right after a word scores, reset the press: those tiles return to your hand and your next word scores half.", d:{type:"secondEdition"}},
   {name:"Deadline Extension",art:"🕰️", desc:"The first round you fail this run costs no hearts: overtime words are free that round.", d:{type:"deadlineExt"}},
   {name:"Galley Proof",     art:"🔭", desc:"See the next three tiles of your draw pile at all times.", d:{type:"galleyProof"}},
   {name:"The Midnight Press",art:"🌙", desc:"Overtime words score double, and the first overtime word each round costs no heart.", d:{type:"midnightPress"}},
@@ -2289,7 +2326,11 @@ const CHALLENGE_EPIC_POOL = [
   {name:"On the Beat",   art:"👮", char:"detective", desc:"Solve mystery words back to back and the bonus climbs: ×2, ×2.25, ×2.5, ×2.75. Miss and it resets.", d:{type:"onTheBeat"}},
   {name:"Dragnet",       art:"🕸️", char:"detective", desc:"Any word containing every letter of the mystery word scores the mystery bonus. CRATE solves CART.", d:{type:"dragnet"}},
   {name:"Smoking Gun",   art:"🔫", char:"detective", desc:"Mystery words score triple, but you get one clue per round instead of one per hand.", d:{type:"smokingGun"}},
-  {name:"Case Closed",   art:"🗃️", char:"detective", desc:"Solving a mystery word gives you a discard back.", d:{type:"caseClosed"}},
+  {name:"Case Closed",   art:"🗃️", desc:"Solving a mystery word gives you a discard back.", d:{type:"caseClosed"}},
+  {name:"Second Wind",   art:"🌬️", desc:"Your first mystery word each round doesn't use up a word.", d:{type:"secondWind"}},
+  {name:"Gold Leaf",     art:"🍂", desc:"Solving a mystery word gilds the highest-value letter you used in it.", d:{type:"goldLeaf"}},
+  {name:"Reward Poster", art:"📜", desc:"Every mystery word pays $3, plus $1 for each letter past 4.", d:{type:"rewardPoster"}},
+  {name:"Paper Trail",   art:"🧾", desc:"After you solve a mystery word, your next word this round scores ×1.5.", d:{type:"paperTrail"}},
   {name:"The Blotter",   art:"📒", char:"detective", desc:"Every third mystery word you solve this run pays $5.", d:{type:"blotter"}},
   {name:"Rap Sheet",     art:"📋", char:"detective", desc:"Every mystery word you solve this run adds 0.05 to your Press, permanently.", d:{type:"rapSheet"}},
   {name:"Fingerprint",   art:"🖍️", char:"detective", desc:"The clue also shows how long the mystery word is and what it starts with.", d:{type:"fingerprint"}},
@@ -2368,7 +2409,7 @@ const CHARACTERS = {
     blurb:"Every hand carries a clue. The rarer the answer, the harder it pays.",
     boon:"Unlimited mystery words, a fresh clue every hand",
     bane:"Lives or dies on the clues. Ordinary words pay ordinary money.",
-    targetMult:1, hearts:3, unlimitedMystery:true
+    targetMult:1.10, hearts:3, unlimitedMystery:true
   },
   editor: {
     id:"editor", name:"The Editor", art:"\u2702\uFE0F", tag:"Standing type",
@@ -2853,7 +2894,7 @@ function rollFoulLetter(){
   G.foulLetter=pool[Math.floor(rng()*pool.length)];
 }
 function challengeMinLen(){
-  let m=(challengeActive() && G.challenge.type==="longform") ? CHALLENGE_MIN_LEN : 0;
+  let m=(challengeActive() && G.challenge.type==="longform") ? CH_LIVE.minLen : 0;
   if(bossActive()){
     if(G.boss.type==="perfect") m=Math.max(m, wordCap()<99 ? 3 : 5);
   }
@@ -2983,8 +3024,19 @@ function makeComboCard(key){ const d=COMBO_DEFS[key]; return {id:++cardSeq, kind
 function makeLucky7Card(){ return {id:++cardSeq, kind:"lucky7", letter:null, charges:3}; }
 function makeDealerCard(){ return {id:++cardSeq, kind:"dealer", letter:null}; }
 function makeTriptychCard(){ return {id:++cardSeq, kind:"triptych", letter:null, charges:3}; }
-function comboSeq(c){ return COMBO_DEFS[c.combo].seq; }
-function comboLabel(c){ return COMBO_DEFS[c.combo].label; }
+/* v0.51d: combo tiles take the same editor as fused tiles: letters can be turned
+   off and reordered. c.order / c.active work as on trios; untouched tiles read as before. */
+function comboBase(c){ return COMBO_DEFS[c.combo].seq; }
+function comboOrder(c){ const n=comboBase(c).length; return Array.isArray(c.order)&&c.order.length===n ? c.order : comboBase(c).map((_,i)=>i); }
+function comboActive(c){ const n=comboBase(c).length; return Array.isArray(c.active)&&c.active.length===n ? c.active : comboBase(c).map(()=>true); }
+function comboEdited(c){ const o=comboOrder(c), a=comboActive(c); return o.some((x,i)=>x!==i) || a.some(x=>x===false); }
+function comboSeq(c){ const b=comboBase(c), a=comboActive(c); return comboOrder(c).filter(i=>a[i]!==false).map(i=>b[i]); }
+function comboLabel(c){ return comboEdited(c) ? comboSeq(c).join("") : COMBO_DEFS[c.combo].label; }
+function comboLabelHtml(c){
+  if(!comboEdited(c)) return COMBO_DEFS[c.combo].label;
+  const b=comboBase(c), a=comboActive(c), o=comboOrder(c);
+  return o.filter(i=>a[i]!==false).map(i=>b[i]).join("") + o.filter(i=>a[i]===false).map(i=>'<sub class="cm-off">'+b[i]+'</sub>').join("");
+}
 function comboEntries(c){ const u=c.upLevel||0; return comboSeq(c).map(L=>({letter:L, value:1*Math.pow(2,u)})); }
 function comboValue(c){ return comboEntries(c).reduce((s,e)=>s+e.value,0); }
 // One formula for what a gild costs, shared by the shop offer, the pre-gilded
@@ -4006,6 +4058,7 @@ function buildTile(c,where){
   }
   if(c.kind==="trio"){
     t.classList.add("trio","domino");
+    { const fm=document.createElement("span"); fm.className="clone-mark"; fm.textContent="⛓"; t.appendChild(fm); }
     if((c.mult||1)!==1) t.classList.add("goldside");
     { const ord=Array.isArray(c.order)?c.order:[0,1,2], act=trioActive(c);
       ord.forEach((idx,i)=>{
@@ -4016,7 +4069,7 @@ function buildTile(c,where){
         const v=document.createElement("span"); v.className="dom-val"; v.textContent=trioSideValue(c,L); cd.appendChild(v);
         t.appendChild(cd);
       }); }
-    if(where==="canvas"){ tileBadges(t,c); attachTileHandlers(t,c,"canvas"); return t; }   // v0.51c: hold to edit the letters
+    if(where==="canvas"){ domFit(t); tileBadges(t,c); attachTileHandlers(t,c,"canvas"); return t; }   // v0.51c: hold to edit the letters
     tileBadges(t,c); attachTileHandlers(t,c,where); return t;
   }
   if(c.kind==="fused"){
@@ -4031,7 +4084,7 @@ function buildTile(c,where){
       t.appendChild(cd);
     });
     const fm=document.createElement("span"); fm.className="clone-mark"; fm.textContent="⛓"; t.appendChild(fm);
-    if(where==="canvas"){ attachFusedCanvasHandlers(t,c); return t; }
+    if(where==="canvas"){ domFit(t); attachFusedCanvasHandlers(t,c); return t; }
     attachTileHandlers(t,c,where); return t;
   }
   if(c.kind==="space"){   // v0.51c Space Bar: plays like a tile, joins two words
@@ -4066,7 +4119,7 @@ function buildTile(c,where){
     t.classList.add("combo");
     const banLock=bannedLetterSet();
     if(banLock && comboSeq(c).some(L=>banLock.has(L))) t.classList.add("locked-letter");
-    const g=document.createElement("span"); g.className="combo-label"; g.textContent=comboLabel(c); t.appendChild(g);
+    const g=document.createElement("span"); g.className="combo-label"; g.innerHTML=comboLabelHtml(c); t.appendChild(g);
     const v=document.createElement("span"); v.className="val"; v.textContent=comboValue(c); t.appendChild(v);
     const cm=document.createElement("span"); cm.className="clone-mark"; cm.textContent="✚"; t.appendChild(cm);
     tileBadges(t,c);
@@ -4265,6 +4318,8 @@ function feFromCard(c){
     if(m===3) return {letters:L, order:[1,0], active:[true,true]};
     return {letters:L, order:[0,1], active:[true,true]};
   }
+  if(c.kind==="combo"){ const u=c.upLevel||0;
+    return {letters:comboBase(c).map(x=>({L:x, v:Math.pow(2,u)})), order:comboOrder(c).slice(), active:comboActive(c).map(a=>a!==false)}; }
   const ord=Array.isArray(c.order)?c.order.slice():[0,1,2];
   return {letters:c.letters.map(x=>({L:x, v:trioSideValue(c,x)})), order:ord, active:trioActive(c).map(a=>a!==false)};
 }
@@ -4274,8 +4329,10 @@ function feApply(){
   else { c.order=[...on, ...FE.order.filter(i=>!FE.active[i])]; c.active=FE.active.slice(); delete c.flipped; }
   renderHand(); renderCanvas(); save();
 }
-function feRender(){
-  const row=$("fuseChips"); row.innerHTML="";
+function feRender(popIdx){
+  const row=$("fuseChips");
+  const before=new Map(); [...row.children].forEach(n=>before.set(n.dataset.idx, n.getBoundingClientRect().left));
+  row.innerHTML="";
   FE.order.forEach((idx,pos)=>{
     const x=FE.letters[idx], b=document.createElement("div");
     b.className="fe-chip"+(FE.active[idx]?"":" off"); b.dataset.idx=idx;
@@ -4283,6 +4340,13 @@ function feRender(){
     b.addEventListener("pointerdown",e=>feDown(e,b,idx));
     row.appendChild(b);
   });
+  if(!reduceMotion()) [...row.children].forEach(n=>{   // others slide to their new seats, then settle
+    const was=before.get(n.dataset.idx); if(was==null) return;
+    const dx=was-n.getBoundingClientRect().left; if(Math.abs(dx)<1) return;
+    n.style.transition="none"; n.style.transform="translateX("+dx+"px)";
+    requestAnimationFrame(()=>{ n.style.transition="transform .32s cubic-bezier(.3,1.5,.5,1)"; n.style.transform=""; });
+  });
+  if(popIdx!=null && !reduceMotion()){ const n=[...row.children].find(x=>x.dataset.idx==popIdx); if(n){ void n.offsetWidth; n.classList.add("pop"); } }
   const word=FE.order.filter(i=>FE.active[i]).map(i=>FE.letters[i].L).join("");
   const pts=FE.order.filter(i=>FE.active[i]).reduce((sm,i)=>sm+FE.letters[i].v,0);
   $("fuseRead").textContent="Plays as "+word+" · "+pts+" pts";
@@ -4294,7 +4358,7 @@ function feDown(e,chip,idx){
   const move=ev=>{
     const dx=ev.clientX-x0;
     if(!moved && Math.abs(dx)>6){ moved=true; chip.classList.add("dragging"); }
-    if(moved) chip.style.transform="translateX("+dx+"px) scale(1.06)";
+    if(moved){ const st=Math.min(0.12, Math.abs(dx)/600); chip.style.transform="translateX("+dx+"px) rotate("+(dx>0?3:-3)+"deg) scale("+(1.06+st)+","+(1-st)+")"; }
   };
   const up=ev=>{
     chip.removeEventListener("pointermove",move); chip.removeEventListener("pointerup",up); chip.removeEventListener("pointercancel",up);
@@ -4307,12 +4371,13 @@ function feDown(e,chip,idx){
       let to=0; others.forEach(n=>{ const r=n.getBoundingClientRect(); if(ev.clientX>r.left+r.width/2) to++; });
       const from=FE.order.indexOf(idx); FE.order.splice(from,1); FE.order.splice(to,0,idx); haptic(10);
     }
-    feApply(); feRender();
+    feApply(); feRender(idx);
+    try{ if(!reduceMotion() && FE && FE.card) Spring.pop(String(FE.card.id),(Math.random()*2-1)*6); }catch(_){}   // the tile itself squashes too
   };
   chip.addEventListener("pointermove",move); chip.addEventListener("pointerup",up); chip.addEventListener("pointercancel",up);
 }
 function openFuseEditor(c){
-  if(!c || (c.kind!=="fused" && c.kind!=="trio")) return;
+  if(!c || (c.kind!=="fused" && c.kind!=="trio" && c.kind!=="combo")) return;
   FE=Object.assign({card:c}, feFromCard(c));
   feRender();
   $("fuseEdit").classList.remove("hidden");
@@ -4538,6 +4603,7 @@ function scoreOf(res){
   // Short King (character): built-in tiers for 2 to 4 letters
   { const T=charDef().shortTiers; if(T && T[effLen]) total*=T[effLen]; }
   if(G.perks.rapidFire && effLen<=4 && (G._rfStreak||0)>0) total*=1+0.15*G._rfStreak;            // v0.51b Rapid Fire
+  if(G.perks.paperTrail && G._ptNext) total*=1.5;                                                // v0.51d Paper Trail
   if(G.perks.runOn && effLen>=6 && (G._roStreak||0)>0) total*=1+0.25*G._roStreak;               // v0.51c Run-On Sentence
   if(G.perks.epigraph && effLen>=6 && G.levelStats && (G.levelStats.words||0)===0) total*=2;    // v0.51c Epigraph
   if(G.perks.oneTwo && effLen===3 && G.lastWordLen===2) total*=2;                                 // v0.51b One-Two Punch
@@ -4869,7 +4935,7 @@ function onTileDown(e,el,card,where){
   if(e.pointerType==="mouse"&&e.button!==0) return;
   haptic(8);
   drag={el,card,where,startX:e.clientX,startY:e.clientY,moved:false,clone:null,hover:null};
-  if(card && (card.kind==="fused" || card.kind==="trio")){   // v0.51c: hold to open the fuse editor
+  if(card && (card.kind==="fused" || card.kind==="trio" || card.kind==="combo")){   // v0.51c: hold to open the fuse editor (v0.51d: combos too)
     el.classList.add("fe-holding");
     drag.hold=setTimeout(()=>{
       if(!drag || drag.card!==card || drag.moved) return;
@@ -5101,6 +5167,10 @@ function placeFromHand(id,idx){
   haptic(12); save();
   if((c.kind==="fused"||c.kind==="trio") && !_feHintShown()){   // v0.51c: teach the hold once
     toast("Press and hold a fused tile to turn letters off or move them"); _feHintMark(); }
+}
+function domFit(t){   // v0.51d: tag a canvas domino with how many letters are on and off
+  const off=t.querySelectorAll(".dom-cell.dim").length, on=t.querySelectorAll(".dom-cell").length-off;
+  if(off){ t.classList.add("on"+on,"off"+off); }
 }
 function _feHintShown(){ try{ return localStorage.getItem("letterati_fe_hint")==="1"; }catch(e){ return true; } }
 function _feHintMark(){ try{ localStorage.setItem("letterati_fe_hint","1"); }catch(e){} }
@@ -5669,7 +5739,7 @@ function dealUpToHand(animate){
   if(challengeActive() && G.challenge.type==="smudged" && G.hand.length){
     G.hand.forEach(c=>{ delete c._smudged; });
     const rngS=makeRng("smudge:"+G.level+":"+G.handsLeft+":"+G.seed);
-    G.hand[Math.floor(rngS()*G.hand.length)]._smudged=true;
+    const idx=[...G.hand.keys()]; for(let k=0;k<Math.min(CH_LIVE.smudge,G.hand.length);k++){ const j=Math.floor(rngS()*idx.length); G.hand[idx.splice(j,1)[0]]._smudged=true; }
   }
   if(didReshuffle) playReshuffleAnim();
   renderHand(); renderHud();
@@ -5909,7 +5979,8 @@ function startLevel(){
   // v496a: character and ascension scaling live HERE, not inside targetFor(), so
   // predictSeed / predShop / predScore keep validating at the A0 Writer baseline.
   G.target=Math.round(targetFor(G.level)*runTargetMult());
-  if(challengeActive() && G.challenge.type==="steep"){ G.target=Math.round(G.target*CHALLENGE_TARGET_MULT); }
+  if(challengeActive() && G.challenge.type==="steep"){ G.target=Math.round(G.target*CH_LIVE.steep); }
+  if(challengeActive()){ G.target=Math.round(G.target*CH_LIVE.extra); }   // v0.51d: every challenge round also asks for more
   renderChallengeBanner();
   G.score=0;
   // A7 Rush Order and A3 Short Staffed cut a word and a discard; the Editor's
@@ -5924,7 +5995,7 @@ function startLevel(){
   if(challengeActive()){
     if(G.challenge.type==="union") G.discardsLeft=0;                                  // Union Rules
     if(G.challenge.type==="rush")  G.handsLeft=Math.max(1,G.handsLeft-1);             // Rush Order
-    if(G.challenge.type==="margins"){ const before=G.handSize; G.handSize=Math.max(3,G.handSize-MARGINS_TILES); G._marginsApplied=before-G.handSize; }   // Small Margins
+    if(G.challenge.type==="margins"){ const before=G.handSize; G.handSize=Math.max(3,G.handSize-CH_LIVE.margins); G._marginsApplied=before-G.handSize; }   // Small Margins
   }
   // ---- Round 10: THE FINAL PROOF ----
   if(G.level===WIN_LEVEL && !G.endless){
@@ -5967,6 +6038,7 @@ function startLevel(){
   G._discardsUsed=0; G._otCount=0;  // v0.51a: discards actually spent, and overtime words, this round
   G._rfStreak=0; G._tgN=0;          // v0.51b Rapid Fire streak and Telegram count, per round
   G._roStreak=0; G._longest=null; G._moUsed=false;   // v0.51c Run-On Sentence, Magnum Opus
+  G._ptNext=false;                                   // v0.51d Paper Trail
   G.lastWordLetters=null; G.pulpPending=0;
   G.justStacks=0; G.lastWordLen=null; G.lastWordFirst=null; G.lastWordLast=null; G.wetProofPending=false; G.inkPtsPending=0;
   rollFoulLetter();   // A4 Foul Case, before the hand is dealt so the banner is right
@@ -6066,6 +6138,7 @@ function submitWord(){
     return;
   }
   const sc=scoreOf(res);
+  G._ptNext=false;   // v0.51d Paper Trail: consumed by this word (a solve below arms it again)
   const w=w0;
   if(!G.wordPlays) G.wordPlays={}; G.wordPlays[w]=(G.wordPlays[w]||0)+1;   // v43a: Repeater history (after scoreOf read the prior count)
   if(!G.letterPlays) G.letterPlays={};
@@ -6174,6 +6247,12 @@ function submitWord(){
       toast("Rap Sheet: Press ×"+Number(G.scoreMult).toFixed(3));
     }
     if(G.perks.caseClosed){ G.discardsLeft++; toast("Case Closed: discard returned"); }
+    if(G.perks.secondWind && !G.overtime && G._swRound!==G.level){ G._swRound=G.level; G.handsLeft++; toast("Second Wind: that word was free"); }
+    if(G.perks.rewardPoster){ const pay=3+Math.max(0,res.length-4); G.coins=Math.min(999,(G.coins||0)+pay); toast("Reward Poster: $"+pay); }
+    if(G.perks.goldLeaf){ let best=null;
+      res.forEach(r=>{ const c=r.card&&(r.card._fusedParent||r.card); if(c && c.kind==="letter" && canGild(c) && (!best || cardValue(c)>cardValue(best))) best=c; });
+      if(best){ best.upLevel=(best.upLevel||0)+1; toast("Gold Leaf: "+best.letter+" gilded"); } }
+    if(G.perks.paperTrail) G._ptNext=true;
     if(G.perks.blotter && G.mysterySolves%3===0){ G.coins=Math.min(999,(G.coins||0)+5); toast("The Blotter: $5"); }   // v0.5a fix: was Math.min(COIN_CAP,...), which clamped a rich bank DOWN to 12
     G.mystery=null; G.mysteryLevel=null; haptic([14,40,14]);
   }
@@ -6521,8 +6600,10 @@ function levelCleared(){
     if(/^cash/.test(G.challenge.reward||"")){ const amt=challengeCashFor(G.level,G.challenge.reward); rw.bonus=amt; rw.total+=amt; }
     else if(G.challenge.reward==="upgrade"){
       // v0.5a: the player picks the tile. Banked here, redeemed as a free shelf item.
-      G.pendingFreeGild=(G.pendingFreeGild||0)+1;
-      rw.freeGild=true;
+      const u=G.challenge.up;
+      if(!u || u.kind==="gild") G.pendingFreeGild=(G.pendingFreeGild||0)+1;
+      else { if(!G.pendingRewards) G.pendingRewards=[]; G.pendingRewards.push(u); }
+      rw.freeGild=true; rw.freeUpgrade=upgradeRewardText(u).name;
     }
     else if(G.challenge.reward==="epic" && G.challenge.epic){
       applyOffer({d:G.challenge.epic.d});
@@ -6636,7 +6717,7 @@ function showLevelSummary(info){
 
   if(rw.marginalia) bits.push("overflow +"+rw.marginalia);
   if(rw.sideJob)    bits.push(rw.sideJob.paid ? ("side job, "+rw.sideJob.name+": +$"+rw.sideJob.paid) : ("side job, "+rw.sideJob.name+": missed"));
-  if(rw.freeGild)   bits.push("free gild waiting in the shop");
+  if(rw.freeGild)   bits.push((rw.freeUpgrade||"free gild").toLowerCase().replace(/^your pick of gild$/,"free gild")+" waiting in the shop");
   if(rw.bonus)      bits.push("challenge +$"+rw.bonus);
   if(rw.doubled)    bits.push("×1.5 challenge");
   $("sumBreakdown").textContent=bits.join("  ·  ");
@@ -7022,6 +7103,12 @@ function perkPool(rng){
   e.push({make:()=>watermarkOffer(), weight: hasEncore    ? 0.12 : 0.55});
   e.push({make:()=>vowelPowerOffer(),  weight:2.4});   // v42a: stackable, always available
   if(!G.perks.fireSale)          e.push({make:()=>fireSaleOffer(),    weight:1.4});
+  // v0.51d: mystery-word perks, open to every character
+  if(!G.perks.caseClosed)        e.push({make:()=>caseClosedOffer(),  weight:1.1});
+  if(!G.perks.secondWind)        e.push({make:()=>secondWindOffer(),  weight:1.0});
+  if(!G.perks.goldLeaf)          e.push({make:()=>goldLeafOffer(),    weight:1.0});
+  if(!G.perks.rewardPoster)      e.push({make:()=>rewardPosterOffer(),weight:1.2});
+  if(!G.perks.paperTrail)        e.push({make:()=>paperTrailOffer(),  weight:1.2});
   if(!G.perks.bigWords && wordCap()>=6)          e.push({make:()=>bigWordsOffer(),    weight:1.1});
   if(!G.perks.freeRerolls)       e.push({make:()=>freeRerollOffer(),  weight:1.1});
   if(!G.perks.interest)          e.push({make:()=>interestOffer(),    weight:1.2});
@@ -7035,7 +7122,7 @@ function perkPool(rng){
   if(!G.perks.fightingWords)     e.push({make:()=>fightingWordsOffer(), weight:1.2});
   if(!G.perks.superStore)        e.push({make:()=>superStoreOffer(),   weight:1.1});
   if(!G.perks.wordBinder)        e.push({make:()=>wordBinderOffer(),    weight:0.15});
-  if(!G.perks.secondEdition)     e.push({make:()=>secondEditionOffer(), weight:0.15});
+  // v0.51d: Second Edition retired
   if(!G.perks.gemini)            e.push({make:()=>geminiOffer(),        weight:0.15});
   if(!G.perks.goldStandard)      e.push({make:()=>goldStandardOffer(),  weight:0.15});
   e.push({make:()=>gildedAgeOffer(), weight:0.7});                                    // v4915b: epic and stackable, so always offerable but at epic frequency
@@ -7110,7 +7197,6 @@ function charOffers(){
     if(!G.perks.fingerprint)   e.push({make:()=>fingerprintOffer(),   weight:1.6, char:"detective"});
     if(!G.perks.secondOpinion) e.push({make:()=>secondOpinionOffer(), weight:1.5, char:"detective"});
     if(!G.perks.redHerring)    e.push({make:()=>redHerringOffer(),    weight:1.5, char:"detective"});
-    if(!G.perks.caseClosed)    e.push({make:()=>caseClosedOffer(),    weight:1.2, char:"detective"});
     if(!G.perks.blotter)       e.push({make:()=>blotterOffer(),       weight:1.2, char:"detective"});
     if(!G.perks.onTheBeat)     e.push({make:()=>onTheBeatOffer(),     weight:0.8, char:"detective"});
     if(!G.perks.dragnet)       e.push({make:()=>dragnetOffer(),       weight:0.8, char:"detective"});
@@ -7199,6 +7285,10 @@ function finalProofOffer(){ return {kind:"Perk",rarity:"epic",name:"Final Proof"
 function rapSheetOffer(){ return {kind:"Perk",rarity:"common",name:"Rap Sheet",
   desc:"Every mystery word you solve this run adds 0.05 to your Press, permanently.",
   price:px(5), art:"\uD83D\uDCCB", d:{type:"rapSheet"}}; }
+function secondWindOffer(){ return {kind:"Perk",rarity:"rare",name:"Second Wind",desc:"Your first mystery word each round doesn't use up a word.",price:px(9),art:"🌬️",d:{type:"secondWind"}}; }
+function goldLeafOffer(){ return {kind:"Perk",rarity:"rare",name:"Gold Leaf",desc:"Solving a mystery word gilds the highest-value letter you used in it.",price:px(9),art:"🍂",d:{type:"goldLeaf"}}; }
+function rewardPosterOffer(){ return {kind:"Perk",rarity:"common",name:"Reward Poster",desc:"Every mystery word pays $3, plus $1 for each letter past 4.",price:px(5),art:"📜",d:{type:"rewardPoster"}}; }
+function paperTrailOffer(){ return {kind:"Perk",rarity:"common",name:"Paper Trail",desc:"After you solve a mystery word, your next word this round scores ×1.5.",price:px(6),art:"🧾",d:{type:"paperTrail"}}; }
 function caseClosedOffer(){ return {kind:"Perk",rarity:"rare",name:"Case Closed",
   desc:"Solving a mystery word gives you a discard back.",
   price:px(8), art:"\uD83D\uDDC3\uFE0F", d:{type:"caseClosed"}}; }
@@ -7237,12 +7327,14 @@ function letterOffer(L){
    time it is played each round). */
 function foiledLetterOffer(rng){
   const pool={E:3,A:3,I:2,O:2,N:2,R:3,T:3,L:2,S:3,D:2,G:1};
-  const L=weightedLetter(rng,pool), v=LETTER_VALUES[L];
-  return {kind:"Letter",rarity:"uncommon",name:"Foiled "+L,
-    desc:"A new "+v+"-point "+L+" with a Foil Stamp: it scores double the first time you play it each round."+heldNote(L),
-    price:px((4+Math.ceil(v/2))*LETTER_PRICE_SCALE),
-    art:`<span class="mini-tile" style="background:linear-gradient(180deg,#EEF2F6,#D7DEE8);border-color:#9DAABB">${L}<span class="mv">${v}</span></span>`,
-    d:{type:"letter",L,foil:true}};
+  const L=weightedLetter(rng,pool), v0=LETTER_VALUES[L];
+  let g=0; while(v0*Math.pow(2,g)<4 && g<GILD_CAP) g++;   // v0.51d: foiled letters arrive gilded to 4+ points (no extra draw from the seed)
+  const v=v0*Math.pow(2,g);
+  return {kind:"Letter",rarity:(g>=2?"rare":"uncommon"),name:"Foiled "+L,
+    desc:"A new "+v+"-point "+L+(g?" (gilded)":"")+" with a Foil Stamp: it scores double the first time you play it each round."+heldNote(L),
+    price:letterAcquireCost(L,g)+2,
+    art:`<span class="mini-tile${g?" upgraded":""}" style="background:linear-gradient(180deg,#EEF2F6,#D7DEE8);border-color:#9DAABB">${L}<span class="mv">${v}</span></span>`,
+    d:{type:"letter",L,foil:true,gild:g}};
 }
 function trioFusionOffer(rng){
   const tri=TRIO_POOL[Math.floor((rng?rng():Math.random())*TRIO_POOL.length)];
@@ -7456,6 +7548,7 @@ function applyOffer(o){
       break; }
     case "eraser":       openDeck("remove"); break;   // v0.5a: no longer sold; kept so an old save's shelf still resolves
     case "freeGild":     openDeck("freegild"); break;
+    case "freeGolden":   G._goldenMult=d.mult||1.25; G._rewardIdx=d.rewardIdx; openDeck("freegolden"); break;   // v0.51d
     case "heart":        G.hearts=Math.min(heartMax(),G.hearts+1); break;
     case "wildVowel":    G.deck.push(makeWildVowelCard()); break;
     case "wildCons":     G.deck.push(makeWildConsCard()); break;
@@ -7531,6 +7624,7 @@ function applyOffer(o){
     /* Detective perks (v497a) */
     case "rapSheet":     G.perks.rapSheet=true; break;
     case "caseClosed":   G.perks.caseClosed=true; break;
+    case "secondWind": case "goldLeaf": case "rewardPoster": case "paperTrail": G.perks[d.type]=true; break;   // v0.51d
     case "blotter":      G.perks.blotter=true; break;
     case "onTheBeat":    G.perks.onTheBeat=true; break;
     case "fingerprint":  G.perks.fingerprint=true; renderMystery(); break;
@@ -7876,6 +7970,17 @@ function setShopHeader(){
    every open and reroll, so seeded picks never move. Today that is the free gild
    a player banked by taking the "Your pick of gild" challenge reward. */
 function appendShopExtras(){
+  (G.pendingRewards||[]).forEach((u,i)=>{
+    if((G.shopOffers||[]).some(o=>o.d && o.d.rewardIdx===i && !o.sold)) return;
+    const tx=upgradeRewardText(u); let o;
+    if(u.kind==="golden") o={kind:"Upgrade",rarity:u.tier,name:tx.name,desc:"Challenge reward. "+tx.desc,needsTarget:"freegolden",art:"🌟",d:{type:"freeGolden",mult:u.mult}};
+    else if(u.kind==="stamp"){ const mk={foil:foilOffer,encore:encoreOffer,watermark:watermarkOffer,boldface:boldFaceOffer,dropcap:dropCapOffer,serif:serifStampOffer,ditto:dittoMarkOffer,inkwell:inkWellOffer}[u.stamp];
+      o=mk?mk():null; if(o){ o=Object.assign({},o,{name:tx.name, desc:"Challenge reward. "+tx.desc}); } }
+    else if(u.kind==="fuse"){ o=Object.assign({},fusionOffer(),{name:tx.name, desc:"Challenge reward. "+tx.desc}); }
+    if(!o) return;
+    o.price=0; o.pinned=true; o.sold=false; o.reward=true; o.d=Object.assign({},o.d,{rewardIdx:i});
+    G.shopOffers.unshift(o);
+  });
   const n=+G.pendingFreeGild||0;
   if(n>0 && gildTargets().length){
     G.shopOffers.unshift({kind:"Upgrade",rarity:"rare",name:"Your pick of gild",
@@ -8027,9 +8132,9 @@ function enterNextLevel(){
 /* ---- Challenge fork (v3a) ---- */
 function openChallenge(lvl){
   const type=liveChallengeTypeFor(lvl);
-  const banned = type==="locked" ? deckTopLetters(CHALLENGE_BAN_COUNT) : [];
+  const banned = type==="locked" ? deckTopLetters(CH_LIVE.ban) : [];
   const houseLetter = type==="house" ? houseLetterFor(lvl) : null;
-  G.challengePending={ type, banned, houseLetter, epic:challengeEpicFor(lvl), reward:null, trio:rewardTrioFor(lvl,type) };
+  G.challengePending={ type, banned, houseLetter, epic:challengeEpicFor(lvl), reward:null, trio:rewardTrioFor(lvl,type), up:rollUpgradeVariant(lvl) };
   if(G.stats){ if(!G.stats.challenges) G.stats.challenges=[];
     G.stats.challenges.push({round:lvl, type, rewardsOffered:(G.challengePending.trio||[]).slice(), taken:false, reward:null, cleared:null, heartsBefore:G.hearts, heartsAfter:null}); }
   TL.g("challenge",{ phase:"offered", round:lvl, type:type, rewards_offered:(G.challengePending.trio||[]).slice(), required:!!challengeMandatory(lvl), epic:(G.challengePending.epic&&G.challengePending.epic.name)||null });
@@ -8048,14 +8153,15 @@ function renderChallenge(lvl){
   $("chalBadge").textContent=def.badge;
   $("chalDesc").textContent=challengeDescText(p.type, p.banned, true);
   const base=Math.round(targetFor(lvl)*runTargetMult());   // v0.5a: show the real target, character and ascension included
-  const tgt = p.type==="steep" ? Math.round(base*CHALLENGE_TARGET_MULT) : base;
-  $("chalTarget").innerHTML = p.type==="steep"
+  const tgt = Math.round((p.type==="steep" ? Math.round(base*CH_LIVE.steep) : base)*CH_LIVE.extra);
+  $("chalTarget").innerHTML = true
     ? `Target <b>${tgt}</b> <span class="chal-was">(was ${base})</span>`
     : `Target <b>${tgt}</b>`;
   const grid=$("chalRewardGrid"); grid.innerHTML="";
   (p.trio||["double","epic","cash10"]).forEach(key=>{
     let r=CHALLENGE_REWARDS[key];
     if(key==="epic" && p.epic){ r={badge:"EPIC", name:p.epic.name, desc:p.epic.desc, art:p.epic.art}; }
+    if(key==="upgrade"){ r=upgradeRewardText(p.up); }
     if(/^cash/.test(key)){ const amt=challengeCashFor(lvl,key); r={badge:"+$"+amt, name:amt+" coin bonus", desc:amt+" coins drop straight into the bank."}; }
     const b=document.createElement("button");
     b.className="chal-reward"+(key==="epic"?" is-epic":"")+(p.reward===key?" picked":"");
@@ -8070,7 +8176,7 @@ function renderChallenge(lvl){
 function selectChallengeReward(key,lvl){ G.challengePending.reward=key; haptic(8); renderChallenge(lvl); }
 function takeChallenge(){
   const p=G.challengePending; if(!p || !p.reward) return;
-  G.challenge={ type:p.type, reward:p.reward, banned:p.banned||[], houseLetter:p.houseLetter||null, epic:p.epic||null, active:true };
+  G.challenge={ type:p.type, reward:p.reward, banned:p.banned||[], houseLetter:p.houseLetter||null, epic:p.epic||null, up:p.up||null, active:true };
   { const ch=G.stats&&G.stats.challenges&&G.stats.challenges[G.stats.challenges.length-1];
     if(ch && ch.round===G.level){ ch.taken=true; ch.reward=p.reward; } }
   TL.g("challenge",{ phase:"taken", round:G.level, type:p.type, reward:p.reward, hearts:G.hearts });
@@ -8174,6 +8280,7 @@ function deckTileEl(c){
   ["boldface","dropcap","serif","ditto","inkwell"].forEach(k=>{
     if(G.selectMode===k && stampTargetOk(c,k)){ wrap.classList.add("selectable","gild"); pickOn(wrap,c,()=>doTileUpgrade(c.id,k)); }
   });
+  if(G.selectMode==="freegolden" && c.kind==="letter" && (c.mult||1)<(G._goldenMult||1.25)){ wrap.classList.add("selectable","gild"); pickOn(wrap,c,()=>doFreeGolden(c.id)); }
   if(G.selectMode==="freegild" && stampTargetOk(c,"freegild")){ wrap.classList.add("selectable","gild"); pickOn(wrap,c,()=>doFreeGild(c.id)); }
   if(G.selectMode==="department" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); pickOn(wrap,c,()=>doDepartmentPick(c.id)); }
   if(G.selectMode==="fuse" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); if(G.fusePending===c.id) wrap.classList.add("fuse-pending"); wrap.addEventListener("click",()=>tapFuse(c.id)); }
@@ -8329,6 +8436,7 @@ function buildStaticTile(c){
   }
   if(c.kind==="trio"){
     t.classList.add("trio","domino");
+    { const fm=document.createElement("span"); fm.className="clone-mark"; fm.textContent="⛓"; t.appendChild(fm); }
     if((c.mult||1)!==1) t.classList.add("goldside");
     { const ord=Array.isArray(c.order)?c.order:[0,1,2], act=trioActive(c);
       ord.forEach((idx,i)=>{
@@ -8357,7 +8465,7 @@ function buildStaticTile(c){
   }
   if(c.kind==="combo"){
     t.classList.add("combo");
-    const g=document.createElement("span"); g.className="combo-label"; g.textContent=comboLabel(c); t.appendChild(g);
+    const g=document.createElement("span"); g.className="combo-label"; g.innerHTML=comboLabelHtml(c); t.appendChild(g);
     const v=document.createElement("span"); v.className="val"; v.textContent=comboValue(c); t.appendChild(v);
     const cm=document.createElement("span"); cm.className="clone-mark"; cm.textContent="✚"; t.appendChild(cm);
     tileBadges(t,c);
@@ -8447,6 +8555,7 @@ function doTileUpgrade(id,kind){
   G.selectMode=null;
   const label={growth:"Growth Mindset",encore:"Encore",foil:"Foil Stamp",watermark:"Watermark",boldface:"Bold Face",dropcap:"Drop Cap",serif:"Serif Stamp",ditto:"Ditto Mark",inkwell:"Ink Well"}[kind];
   syncGemini(c);
+  if((G.shopOffers||[]).some(x=>x.reward && x.sold && !x._consumed && x.needsTarget===kind)) rewardConsumed();   // v0.51d free stamp
   toast(label+" applied to "+tileShortName(c));
   haptic(20);
   closeDeck(); save();
@@ -8529,7 +8638,8 @@ function confirmTrioFuse(){
   closeFuseConfirm(); closeDeck(); save();
 }
 function showFuseConfirm(a,b){
-  const cost=fusionCost(letterAcquireCost(a.letter,a.upLevel||0)+letterAcquireCost(b.letter,b.upLevel||0));   // v0.5g: 5..20
+  const freeFuse=(typeof G.fuseOfferIdx==="number" && G.shopOffers[G.fuseOfferIdx] && G.shopOffers[G.fuseOfferIdx].reward);
+  const cost=freeFuse ? 0 : fusionCost(letterAcquireCost(a.letter,a.upLevel||0)+letterAcquireCost(b.letter,b.upLevel||0));   // v0.5g: 5..20 (v0.51d: free as a challenge reward)
   fusePendingPair={aId:a.id,bId:b.id,cost};
   const av=fusedSideValue(a), bv=fusedSideValue(b);
   $("fuseMsg").innerHTML=`<b>${a.letter}</b> ${av} pts &nbsp;+&nbsp; <b>${b.letter}</b> ${bv} pts<br><span class="gild-note">one tile, play it as either</span>`;
@@ -8551,6 +8661,7 @@ function confirmFuse(){
   G.deck.push(fused);
   if(typeof G.fuseOfferIdx==="number" && G.shopOffers[G.fuseOfferIdx]) G.shopOffers[G.fuseOfferIdx].sold=true;
   statShopBuy("Fuse "+a.letter+b.letter, cost, "fuse");
+  if(typeof G.fuseOfferIdx==="number" && G.shopOffers[G.fuseOfferIdx] && G.shopOffers[G.fuseOfferIdx].reward) rewardConsumed();
   G.fuseOfferIdx=null; G.fusePending=null; fusePendingPair=null; G.selectMode=null;
   haptic(24); toast("Fused "+a.letter+" + "+b.letter);
   closeFuseConfirm(); closeDeck(); save();
@@ -8585,6 +8696,20 @@ function doRemove(id){
   G.selectMode=null;
   toast("Removed");
   closeDeck(); save();
+}
+function rewardConsumed(){   // v0.51d: a free reward offer was used; drop it from the bank
+  const o=(G.shopOffers||[]).find(x=>x.reward && x.sold && x.d && x.d.rewardIdx!=null && !x._consumed);
+  if(o){ o._consumed=true; const i=o.d.rewardIdx; if(G.pendingRewards && G.pendingRewards[i]) G.pendingRewards[i]=null; }
+  G.pendingRewards=(G.pendingRewards||[]).filter(Boolean);
+  (G.shopOffers||[]).forEach(x=>{ if(x.reward && !x._consumed && x.d) x.d.rewardIdx=null; });
+  G.shopOffers=(G.shopOffers||[]).filter(x=>!(x.reward && !x.sold));   // re-seat the rest with fresh indexes
+  appendShopExtras(); G._rewardDone=true;
+}
+function doFreeGolden(id){
+  const c=G.deck.find(x=>x.id===id); if(!c || c.kind!=="letter") return;
+  c.mult=Math.max(c.mult||1, G._goldenMult||1.25);
+  toast(c.letter+" is golden: ×"+c.mult); haptic([12,30,12]);
+  G.selectMode=null; rewardConsumed(); closeDeck(); renderShop(); save();
 }
 function doFreeGild(id){
   const c=G.deck.find(x=>x.id===id); if(!c || !canGild(c)) return;
@@ -8647,7 +8772,7 @@ function stampTargetOk(c, mode){
   if(mode==="freegild") return up && canGild(c);
   return up && !tileHas(c,mode);
 }
-const STAMP_MODES = new Set(["encore","growth","foil","watermark","boldface","dropcap","serif","ditto","inkwell","freegild"]);
+const STAMP_MODES = new Set(["encore","growth","foil","watermark","boldface","dropcap","serif","ditto","inkwell","freegild"]);   // (freegolden is checked on its own)
 function gildCostFor(c){
   const u=c.upLevel||0;
   // A fused tile gilds both sides at once (v45a); its base value is the pair's.
@@ -8989,6 +9114,7 @@ const _defInFlight={};   // v498d: de-duplicates concurrent lookups of the same 
    where relying on per-sense filtering alone is too risky. The word can still be
    played; only its definition card is hidden. Lowercase, letters only. */
 const DEF_BLOCKLIST=new Set([
+  "nooner","nooners",   // v0.51d
   "nance","nances","nancy","nancies",
   "sissy","sissies","sissified",
   "poofter","poofters","poof","poofs","poofy",
@@ -9005,6 +9131,11 @@ function escHtml(s){ return String(s).replace(/[&<>"]/g, c=>({"&":"&amp;","<":"&
    word shows "definition unavailable". This is the runtime net behind the word-list filter. */
 const EXPLICIT_TAG_RE=/\b(vulgar|offensive|derogatory|derogative|disparaging|contempt\w*|slur|obscene|coarse|profan\w*|pejorative|ethnic|racial|racist|religious|taboo|bdsm|fetish|homophob\w*|transphob\w*)\b/i;
 const EXPLICIT_DEF_RE=new RegExp(
+  // v0.51d: anything describing sexual activity hides the card (the word stays playable)
+  "sexual (?:intercourse|activity|activities|act|acts|encounter|encounters|relations|relationship|partner|partners|desire|pleasure|excitement|arousal|behaviou?r|contact|favou?rs?|conduct|attraction|appetite|union|congress|gratification|stimulation|innuendo)|"+
+  "\\bhav(?:e|ing|ed) sex\\b|\\bsex (?:act|acts|toy|toys|worker|workers|work|object|appeal|drive|life|scene|partner|tourism)\\b|"+
+  "sexually (?:explicit|active|aroused|attractive|suggestive|charged|provocative|promiscuous)|\\berotic\\w*|lovemaking|\\bmake love\\b|\\bmaking love\\b|"+
+  "one-night stand|\\blustful\\w*|\\blecher\\w*|\\bpromiscu\\w*|\\bseduc\\w*|\\bquickie\\b|\\bbooty call\\b|\\bhook-? ?up\\b(?= with| for sex)|"+
   "blow ?job|hand ?job|rim ?job|blowie|oral sex|oral stimulation|anal sex|\\banal\\b|"+
   "masturbat|ejaculat|fellati|cunniling|anilingus|\\bcoitus\\b|copulat|fornicat|sodom|"+
   "sexual intercourse|genitalia|genital\\w*|\\bpenis\\b|penile|\\bvagina\\b|vaginal|vulva|"+
@@ -9566,6 +9697,10 @@ function ownedPerksList(){
   if(G.perks.proofSheet) out.push("Proof Sheet · see your next tile");
   if(G.perks.rapSheet)     out.push("Rap Sheet · +0.05 Press per solve ("+(G.mysterySolves||0)+" so far)");
   if(G.perks.caseClosed)   out.push("Case Closed · a solve returns a discard");
+  if(G.perks.secondWind) out.push("Second Wind · Your first mystery word each round doesn't use up a word");
+  if(G.perks.goldLeaf) out.push("Gold Leaf · Solving a mystery word gilds the highest-value letter you used in it");
+  if(G.perks.rewardPoster) out.push("Reward Poster · Every mystery word pays $3, plus $1 for each letter past 4");
+  if(G.perks.paperTrail) out.push("Paper Trail · After you solve a mystery word, your next word this round scores ×1.5");
   if(G.perks.blotter)      out.push("The Blotter · $5 every third solve ("+((G.mysterySolves||0)%3)+"/3)");
   if(G.perks.onTheBeat)    out.push("On the Beat · streak +"+BEAT_BONUS[Math.max(0,Math.min(3,G.beatStreak||0))]+" to the mystery bonus");
   if(G.perks.fingerprint)  out.push("Fingerprint · clue shows length and first letter");
@@ -9672,6 +9807,10 @@ function ownedPerkCards(){
   if(P.powerTrio)  push("🎯","Power Trio","×2 when a letter appears three or more times.");
   if(P.cutAbove)   push("✂️","Cut Above","One extra cut per word, on top of the desk's own. Resets when you set a line.");
   if(P.killFee)    push("💵","Kill Fee","Every letter you cut pays $1.");
+  if(P.secondWind) push("🌬️","Second Wind","Your first mystery word each round doesn't use up a word.");
+  if(P.goldLeaf) push("🍂","Gold Leaf","Solving a mystery word gilds the highest-value letter you used in it.");
+  if(P.rewardPoster) push("📜","Reward Poster","Every mystery word pays $3, plus $1 for each letter past 4.");
+  if(P.paperTrail) push("🧾","Paper Trail","After you solve a mystery word, your next word this round scores ×1.5.");
   if(P.bookmark) push("🔖","Bookmark","One tile you leave on the canvas between words doesn't count toward your hand.");
   if(P.runOn) push("➰","Run-On Sentence","Each 6+ letter word in a row scores +25% more than the last. A shorter word resets it.");
   if(P.magnumOpus) push("🏛️","Magnum Opus","Run out of words short of the target and your longest word this round scores again. Once per round.");
@@ -9756,6 +9895,10 @@ function openOptions(){ const runs=allRuns(); const n=runs.length;
   $("optionsScreen").classList.remove("hidden"); }
 function closeOptions(){ $("optionsScreen").classList.add("hidden"); }
 function closeDeck(){
+  if(!G._rewardDone){   // v0.51d: backing out of a free reward puts it back on the shelf
+    (G.shopOffers||[]).forEach(x=>{ if(x.reward && x.sold && !x._consumed) x.sold=false; });
+  }
+  G._rewardDone=false;
   if(G.selectMode==="freegild" && !G._freeGildDone){
     const o=(G.shopOffers||[]).find(x=>x.d&&x.d.type==="freeGild"&&x.sold); if(o) o.sold=false;
   }
@@ -9842,6 +9985,7 @@ function save(){
       discardsUsed:G._discardsUsed||0, deadRescues:G._deadRescues||0, otCount:G._otCount||0,
       rfStreak:G._rfStreak||0, tgN:G._tgN||0, qsRound:(G._qsRound==null?null:G._qsRound),
       roStreak:G._roStreak||0, longest:(G._longest||null), moUsed:!!G._moUsed,
+      swRound:(G._swRound==null?null:G._swRound), ptNext:!!G._ptNext, pendingRewards:(G.pendingRewards||[]),
       drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), roundLengths:(G.roundLengths||[]), standingDone:!!G.standingDone, _marginsApplied:(+G._marginsApplied||0), overtime:!!G.overtime, deadlineExtRound:(G.deadlineExtRound==null?null:G.deadlineExtRound), midnightRound:(G.midnightRound==null?null:G.midnightRound), secondEdRound:(G.secondEdRound==null?null:G.secondEdRound), secondEdHalf:!!G.secondEdHalf, boss:(G.boss||null), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0, justStacks:G.justStacks||0, lastWordLen:(G.lastWordLen==null?null:G.lastWordLen), lastWordFirst:(G.lastWordFirst||null), lastWordLast:(G.lastWordLast||null), wetProofPending:!!G.wetProofPending, inkPtsPending:G.inkPtsPending||0, compositorRound:(G.compositorRound==null?null:G.compositorRound), foulLetter:(G.foulLetter||null), formeWord:(G.formeWord||null), formeIds:(G.formeIds||[]).map(String), discardBin:ids(G.discardBin||[]), editsLeft:(G.editsLeft==null?null:G.editsLeft), mystery:(G.mystery||null), mysterySolvedLevel:(G.mysterySolvedLevel==null?null:G.mysterySolvedLevel), mysterySolves:G.mysterySolves||0, beatStreak:G.beatStreak||0, mysteryLevel:(G.mysteryLevel==null?null:G.mysteryLevel), mysterySkip:(G.mysterySkip||[]), secondOpinionRound:(G.secondOpinionRound==null?null:G.secondOpinionRound),
       rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed, letterPlays:G.letterPlays||{}, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
     };
@@ -9876,6 +10020,7 @@ function continueRun(){
      name and starts the new one at zero. */
   if(typeof G.perks.gildedAge==="string" && G.perks.gildedAge){ G.perks.goldStandard=G.perks.gildedAge; G.perks.gildedAge=0; }
   if(typeof G.perks.gildedAge!=="number") G.perks.gildedAge=0;
+  G.perks.secondEdition=false;   // v0.51d: retired; a saved run simply loses it
   G.perks.goldStandard=G.perks.goldStandard||false;
   G.perks.goldenTicket=!!G.perks.goldenTicket;
   if(G.perks.vowelPower===true) G.perks.vowelPower=1;   // v42a: legacy boolean -> 1 stack
@@ -9906,6 +10051,7 @@ function continueRun(){
   G._discardsUsed=+d.discardsUsed||0; G._deadRescues=+d.deadRescues||0; G._otCount=+d.otCount||0;
   G._rfStreak=+d.rfStreak||0; G._tgN=+d.tgN||0; G._qsRound=(d.qsRound==null?null:d.qsRound);
   G._roStreak=+d.roStreak||0; G._longest=d.longest||null; G._moUsed=!!d.moUsed;
+  G._swRound=(d.swRound==null?null:d.swRound); G._ptNext=!!d.ptNext; G.pendingRewards=Array.isArray(d.pendingRewards)?d.pendingRewards:[];
   TL.run(G.stats.runId); TL.g("resume",{ phase:d.phase||null, round:G.level, saved_version:G.stats.version||null });
   G.deck=(d.deck||[]).map(c=>Object.assign({},c));
   // v493a: defensive repair. A save with colliding card ids aliases two cards to
@@ -10068,7 +10214,7 @@ function newRun(seed, charId, asc, mode){
   G.challenge=null; G.challengePending=null; G._rescues=0;   // never carry a challenge into a fresh run
   G.foulLetter=null; G.formeWord=null; G.formeIds=[]; G.editsLeft=null; G.discardBin=[]; G.discardArmed=false;
   G.mystery=null; G.mysterySolvedLevel=null; G.mysterySolves=0; G.beatStreak=0; G.mysteryLevel=null; G.mysterySkip=[]; G.secondOpinionRound=null; G._mysteryLoading=false; G._noMysteryMsg=false; G._noMysteryKey=null;
-  G.letterPlays={}; G._dealerCardId=null; G._qsRound=null; G._rfStreak=0; G._tgN=0;
+  G.letterPlays={}; G._dealerCardId=null; G._qsRound=null; G._rfStreak=0; G._tgN=0; G._swRound=null; G._ptNext=false; G.pendingRewards=[];
   G.shopSeen=[];
   G.boss=null; document.body.classList.remove("boss-round");
   G.lucky7Stash=[];
