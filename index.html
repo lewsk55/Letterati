@@ -1001,6 +1001,11 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 .win-hero-v{font-family:var(--serif);font-weight:700;font-size:3.1rem;line-height:1;color:var(--oxblood);font-variant-numeric:tabular-nums}
 .win-stats{opacity:0;background:rgba(251,246,234,.55);border:1px solid var(--tile-edge);border-radius:12px;padding:10px 14px;max-width:360px;margin:0 auto;width:100%}
 :root[data-theme="dark"] .win-stats{background:rgba(43,40,54,.7)}
+.opt-reset{margin-top:14px;padding-top:12px;border-top:1px solid var(--tile-edge,#d8cdb6)}
+.opt-reset .menu-btn{margin-top:8px}
+.opt-danger{color:var(--oxblood,#9E3B2E)}
+.opt-danger.arm{background:var(--oxblood,#9E3B2E);color:#fff;border-color:var(--oxblood,#9E3B2E)}
+.opt-note{color:var(--ink-soft);font-size:.75rem;margin:4px 0 2px;text-align:center}
 .win-unlock{display:inline-block;margin:10px auto 0;padding:5px 12px;border-radius:999px;background:var(--moss);color:var(--paper);
   font-family:var(--ui);font-weight:800;font-size:.72rem;letter-spacing:.06em}
 .win-overlay .win-show{animation:winFade .5s ease forwards}
@@ -1602,6 +1607,12 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
     </div>
     <div style="color:var(--ink-soft);font-size:.85rem;margin:6px 0 4px">Run data is saved on this device and can be exported as JSON. Finished runs are also sent anonymously, with no personal details, to help balance the game.</div>
     <button class="menu-btn" id="optExportBtn" style="margin-top:18px">Export last run's stats</button>
+    <div class="opt-reset">
+      <button class="menu-btn alt opt-danger" id="optResetProgBtn">Reset progress</button>
+      <div class="opt-note">Locks every character back to A0. Your saved run and today's press are kept.</div>
+      <button class="menu-btn alt opt-danger" id="optResetRunsBtn">Reset run data</button>
+      <div class="opt-note">Clears the run history stored on this device. Progress is kept.</div>
+    </div>
     <button class="menu-btn alt" id="optBackBtn">Back</button>
   </div>
 </div>
@@ -1609,7 +1620,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 <script src="letterati-dictionary.js"></script>
 <script src="letterati-verbs.js"></script>
 <script src="letterati-common.js"></script>
-<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51d",inferQuitOnPagehide:false};</script>
+<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51e",inferQuitOnPagehide:false};</script>
 <script>
 /* ============================================================
    pbs-telemetry.js: PBS Games shared telemetry module (v1.1)
@@ -2070,7 +2081,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "0.51d";
+const VERSION = "0.51e";
 /* v0.51a analytics: PGames event stream (PBS Games Analytics Approach v1).
    Each call is one push onto the telemetry queue inside try/catch. The network
    runs on the module's own timer, so nothing here can slow scoring or throw into
@@ -2784,8 +2795,8 @@ function lenMult(n){ return n<=3?1 : n===4?1.5 : (n-3); }   // 5→2,6→3,7→4
 // is a deliberate floor-raise that helps weaker seeds. Set to 1 to disable.
 const TARGET_SCALE = 1.04;
 const GOAL_SCALE = 1.656*1.10*0.80;   // v0.5g: -20% across the board  // v3d +15%, v41a +20%, v48g +20% more (1.15*1.20*1.20) point goal across every level; v0.5e +10% more (v0.5d tried +25%, too steep)
-const ENDLESS_WALL_BASE = 1.5;   // v492d: post-win escalation starts here...
-const ENDLESS_WALL_STEP = 0.25;  // ...and each endless round multiplies by 0.25 more than the last
+const ENDLESS_WALL_BASE = 1.25;   // v0.51e: was 1.5   // v492d: post-win escalation starts here...
+const ENDLESS_WALL_STEP = 0.15;   // v0.51e: was 0.25  // ...and each endless round multiplies by 0.25 more than the last
 /* v0.5a tuning knob. Five shops build a smaller engine than nine: on its own the
    compressed curve halved the headless sim's skilled-bot win rate against v4915b
    (18% to 9%, 400 runs each, generalist bot, challenges off). The free opening
@@ -3724,10 +3735,20 @@ function coinBurst(fromX,fromY,n){
 let audioCtx=null;
 function audio(){
   try{
-    if(!audioCtx){ const AC=window.AudioContext||window.webkitAudioContext; if(AC) audioCtx=new AC(); }
-    if(audioCtx && audioCtx.state==="suspended") audioCtx.resume();
+    if(!audioCtx || audioCtx.state==="closed"){ const AC=window.AudioContext||window.webkitAudioContext; if(AC) audioCtx=new AC(); }
+    if(audioCtx && audioCtx.state!=="running"){ const p=audioCtx.resume(); if(p&&p.catch) p.catch(()=>{}); }
   }catch(e){}
   return audioCtx;
+}
+// v0.51e: called from a tap. If the context is still stuck after a resume, build a fresh one.
+function audioWake(){
+  try{
+    if(!audioCtx){ audio(); return; }
+    if(audioCtx.state==="running") return;
+    const ctx=audioCtx, p=ctx.resume();
+    const check=()=>{ if(ctx===audioCtx && ctx.state!=="running"){ try{ ctx.close(); }catch(e){} audioCtx=null; audio(); } };
+    if(p&&p.then) p.then(()=>setTimeout(check,60),()=>check()); else setTimeout(check,60);
+  }catch(e){ audioCtx=null; }
 }
 let SFX_MUTED = true;   // v42a: all SFX off; only the coin count-up on level summaries plays (via _tone)
 function _tone(freq,dur,vol,type){
@@ -7106,7 +7127,7 @@ function perkPool(rng){
   // v0.51d: mystery-word perks, open to every character
   if(!G.perks.caseClosed)        e.push({make:()=>caseClosedOffer(),  weight:1.1});
   if(!G.perks.secondWind)        e.push({make:()=>secondWindOffer(),  weight:1.0});
-  if(!G.perks.goldLeaf)          e.push({make:()=>goldLeafOffer(),    weight:1.0});
+  if(!G.perks.goldLeaf)          e.push({make:()=>goldLeafOffer(),    weight:0.75});   // v0.51e: epic
   if(!G.perks.rewardPoster)      e.push({make:()=>rewardPosterOffer(),weight:1.2});
   if(!G.perks.paperTrail)        e.push({make:()=>paperTrailOffer(),  weight:1.2});
   if(!G.perks.bigWords && wordCap()>=6)          e.push({make:()=>bigWordsOffer(),    weight:1.1});
@@ -7286,7 +7307,7 @@ function rapSheetOffer(){ return {kind:"Perk",rarity:"common",name:"Rap Sheet",
   desc:"Every mystery word you solve this run adds 0.05 to your Press, permanently.",
   price:px(5), art:"\uD83D\uDCCB", d:{type:"rapSheet"}}; }
 function secondWindOffer(){ return {kind:"Perk",rarity:"rare",name:"Second Wind",desc:"Your first mystery word each round doesn't use up a word.",price:px(9),art:"🌬️",d:{type:"secondWind"}}; }
-function goldLeafOffer(){ return {kind:"Perk",rarity:"rare",name:"Gold Leaf",desc:"Solving a mystery word gilds the highest-value letter you used in it.",price:px(9),art:"🍂",d:{type:"goldLeaf"}}; }
+function goldLeafOffer(){ return {kind:"Perk",rarity:"epic",name:"Gold Leaf",desc:"Solving a mystery word gilds the highest-value letter you used in it.",price:px(13),art:"🍂",d:{type:"goldLeaf"}}; }
 function rewardPosterOffer(){ return {kind:"Perk",rarity:"common",name:"Reward Poster",desc:"Every mystery word pays $3, plus $1 for each letter past 4.",price:px(5),art:"📜",d:{type:"rewardPoster"}}; }
 function paperTrailOffer(){ return {kind:"Perk",rarity:"common",name:"Paper Trail",desc:"After you solve a mystery word, your next word this round scores ×1.5.",price:px(6),art:"🧾",d:{type:"paperTrail"}}; }
 function caseClosedOffer(){ return {kind:"Perk",rarity:"rare",name:"Case Closed",
@@ -9893,7 +9914,25 @@ function openOptions(){ const runs=allRuns(); const n=runs.length;
   $("optExportBtn").disabled=!n;
   $("optExportBtn").textContent = n ? ("Export all run data ("+n+(n===1?" run)":" runs)")) : "No runs recorded yet";
   $("optionsScreen").classList.remove("hidden"); }
-function closeOptions(){ $("optionsScreen").classList.add("hidden"); }
+function closeOptions(){ $("optionsScreen").classList.add("hidden"); optDisarm(); }
+/* v0.51e: resets. First tap arms the button, a second tap within 4s does it. */
+const OPT_RESET_LABEL={optResetProgBtn:"Reset progress", optResetRunsBtn:"Reset run data"};
+let _optArm=null, _optArmT=null;
+function optDisarm(){ if(_optArm){ const b=$(_optArm); if(b){ b.classList.remove("arm"); b.textContent=OPT_RESET_LABEL[_optArm]; } } _optArm=null; clearTimeout(_optArmT); }
+function optResetTap(id, doIt){
+  if(_optArm!==id){ optDisarm(); _optArm=id; const b=$(id); b.classList.add("arm"); b.textContent="Tap again to confirm"; haptic(10);
+    _optArmT=setTimeout(optDisarm,4000); return; }
+  optDisarm(); doIt();
+}
+function resetProgress(){
+  saveProgress({});   // v2 key stays present, so the old v1 migration never re-runs
+  try{ localStorage.setItem(ASC_LADDER_KEY,"2"); }catch(e){}
+  _selAsc=0; toast("Progress reset. Every character is back to A0."); haptic([10,30,10]);
+}
+function resetRunData(){
+  try{ localStorage.removeItem("letterati_runs"); localStorage.removeItem("letterati_laststats"); }catch(e){}
+  toast("Run history cleared from this device."); haptic([10,30,10]); openOptions();
+}
 function closeDeck(){
   if(!G._rewardDone){   // v0.51d: backing out of a free reward puts it back on the shelf
     (G.shopOffers||[]).forEach(x=>{ if(x.reward && x.sold && !x._consumed) x.sold=false; });
@@ -10311,6 +10350,8 @@ $("fuseYes").addEventListener("click",()=>{ if(trioFusePendingPair) confirmTrioF
 $("fuseNo").addEventListener("click",()=>{ fusePendingPair=null; trioFusePendingPair=null; closeFuseConfirm(); });
 $("fusedPickCancel").addEventListener("click",closeFusedSelector);
 $("fuseDone").addEventListener("click",closeFuseEditor);
+$("optResetProgBtn").addEventListener("click",()=>optResetTap("optResetProgBtn",resetProgress));
+$("optResetRunsBtn").addEventListener("click",()=>optResetTap("optResetRunsBtn",resetRunData));
 $("fuseEdit").addEventListener("click",e=>{ if(e.target.id==="fuseEdit") closeFuseEditor(); });
 $("fusedRemoveBtn").addEventListener("click",()=>{ const c=fusedSelCard; closeFusedSelector(); if(c) removeFromCanvas(c.id); });
 $("seedBtn").addEventListener("click",()=>{
@@ -10351,8 +10392,14 @@ $("nextBtn").addEventListener("click",nextRound);
 $("chalTakeBtn").addEventListener("click",takeChallenge);
 $("chalSkipBtn").addEventListener("click",skipChallenge);
 $("sumNextBtn").addEventListener("click",()=>{ openShop(); closeSummary(); });
-document.addEventListener("pointerdown",()=>audio(),{passive:true});
-$("overNewBtn").addEventListener("click",()=>{ if(!freePlayUnlocked()){ goToTitle(); return; } newRun(generateValidatedSeed(), G.character, G.ascension, "free"); });
+document.addEventListener("pointerdown",()=>audioWake(),{passive:true});
+document.addEventListener("touchend",()=>audioWake(),{passive:true});   // iOS only unlocks audio on touchend/click
+document.addEventListener("visibilitychange",()=>{ if(!document.hidden && audioCtx && audioCtx.state!=="running"){ try{ const p=audioCtx.resume(); if(p&&p.catch) p.catch(()=>{}); }catch(e){} } });
+$("overNewBtn").addEventListener("click",()=>{   // v0.51e: pick the desk and the rung again, starting from the last run's
+  if(!freePlayUnlocked()){ goToTitle(); return; }
+  if(CHARACTERS[G.character]) _selChar=G.character;
+  _selAsc=+G.ascension||0;
+  goToTitle(); startFreeFlow(null); });
 $("overSeedBtn").addEventListener("click",()=>{ if(G.mode==="daily" && !devMode()) return; newRun(G.seed, G.character, G.ascension, G.mode==="daily"?"daily":"free"); });
 $("winEndlessBtn").addEventListener("click",winContinueEndless);
 $("winFinishBtn").addEventListener("click",winFinish);
