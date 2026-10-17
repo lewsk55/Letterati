@@ -1674,7 +1674,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 <script src="letterati-dictionary.js"></script>
 <script src="letterati-verbs.js"></script>
 <script src="letterati-common.js"></script>
-<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51f",inferQuitOnPagehide:false};</script>
+<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51g",inferQuitOnPagehide:false};</script>
 <script>
 /* ============================================================
    pbs-telemetry.js: PBS Games shared telemetry module (v1.1)
@@ -2135,7 +2135,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "0.51f";
+const VERSION = "0.51g";
 /* v0.51a analytics: PGames event stream (PBS Games Analytics Approach v1).
    Each call is one push onto the telemetry queue inside try/catch. The network
    runs on the module's own timer, so nothing here can slow scoring or throw into
@@ -2466,7 +2466,7 @@ const CHARACTERS = {
   writer: {
     id:"writer", name:"The Writer", art:"\u270D\uFE0F", tag:"Standard",
     blurb:"The house hand. Four words a round, one mystery word a level, no thumb on the scale.",
-    boon:"Nothing gained", bane:"Nothing lost",
+    boon:"", bane:"",   // v0.51g: no lines for the house hand
     targetMult:1, hearts:3
   },
   detective: {
@@ -2501,7 +2501,13 @@ CHARACTERS.scholar = {
   targetMult:2.0, hearts:3, handsDelta:-1, handSizeDelta:3,
   longBoost:0.4, shortFlat:5, affixes:["re","er","ed","ing"], spaceBar:true
 };
-const CHAR_ORDER = ["writer","detective","editor","shortking","scholar"];
+const CHAR_ORDER = ["writer","detective","shortking","scholar","editor"];   // v0.51g: roster order is unlock order
+/* v0.51g: desk unlocks. The Writer is always open. The Nth desk after her opens once
+   you have won a run (any ascension, A0 included) with N different desks. */
+const CHAR_UNLOCK_ORDER = ["detective","shortking","scholar","editor"];
+function clearedDeskCount(){ return CHAR_ORDER.filter(id=>bestAsc(id)>=0).length; }
+CHAR_UNLOCK_ORDER.forEach((id,k)=>{ if(CHARACTERS[id]) CHARACTERS[id].unlock=()=>clearedDeskCount()>=k+1; });
+function nextLockedDesk(){ return CHAR_UNLOCK_ORDER.find(id=>CHARACTERS[id] && !CHARACTERS[id].unlock()); }
 function charDef(){ return CHARACTERS[G.character] || CHARACTERS.writer; }
 function charHas(k){ return !!charDef()[k]; }
 /* v0.51c: the Scholar swaps one plain letter per affix tile (the most common letter
@@ -6805,7 +6811,9 @@ function closeSummary(){ $("summaryScreen").classList.add("hidden"); }
 
 /* ---------- WIN (cleared all 10 rounds) ---------- */
 function showWin(info){
+  const _openBefore = CHAR_ORDER.filter(id=>charUnlocked(id));
   const newRung = recordAscWin(G.character||"writer", ascLevel());   // unlocks the next rung for this desk
+  const _newDesks = devMode() ? [] : CHAR_ORDER.filter(id=>charUnlocked(id) && !_openBefore.includes(id));
   hideGame();
   $("shopScreen").classList.add("hidden");
   $("summaryScreen").classList.add("hidden");
@@ -6813,7 +6821,8 @@ function showWin(info){
   $("winKicker").textContent = G.mode==="daily" ? "Today's press is printed" : "Every round set and locked";
   $("winRank").innerHTML = `<small>Rank earned</small>${escHtml(rankFor(WIN_LEVEL)||"Letterati")}`;
   $("winScore").textContent = "0";
-  const unlock = (newRung && ascLevel()<MAX_ASC) ? `<div class="win-unlock">Ascension ${ascLevel()+1} unlocked for ${escHtml(charDef().name)}</div>` : "";
+  const unlock = ((newRung && ascLevel()<MAX_ASC) ? `<div class="win-unlock">Ascension ${ascLevel()+1} unlocked for ${escHtml(charDef().name)}</div>` : "")
+    + _newDesks.map(id=>`<div class="win-unlock" style="background:var(--brass-deep)">New desk unlocked: ${CHARACTERS[id].art} ${escHtml(CHARACTERS[id].name)}</div>`).join("");
   $("winStats").innerHTML=`
     <div class="stat-line">All <b>${WIN_LEVEL} rounds</b> set and locked in <b>${fmt}</b></div>
     <div class="stat-line">Words set: <b>${G.wordsPlayed||0}</b></div>
@@ -8439,8 +8448,8 @@ function renderDeckChar(){
       <span class="dc-eyebrow">Your desk</span>
       <span class="dc-name">${escHtml(c.name)}${asc}</span>
       <span class="dc-blurb">${escHtml(c.blurb)}</span>
-      <span class="dc-line"><span class="dc-plus">+</span><span>${escHtml(c.boon)}</span></span>
-      <span class="dc-line"><span class="dc-minus">−</span><span>${escHtml(c.bane)}</span></span>
+      ${c.boon?`<span class="dc-line"><span class="dc-plus">+</span><span>${escHtml(c.boon)}</span></span>`:""}
+      ${c.bane?`<span class="dc-line"><span class="dc-minus">−</span><span>${escHtml(c.bane)}</span></span>`:""}
     </span>`;
 }
 function deckSummaryHtml(){
@@ -10218,6 +10227,7 @@ function openCharSelect(seed, mode){
   { const e=$("csEyebrow"); if(e) e.textContent = _pendingMode==="daily" ? ("Today's press · who is at the desk") : "Free play · who is at the desk"; }
   if(!CHARACTERS[_selChar]) _selChar="writer";
   _selAsc = Math.min(_selAsc, unlockedAsc(_selChar));
+  if(!charUnlocked(_selChar)){ _selChar="writer"; _selAsc=0; }   // v0.51g
   _csSlot = null; _csLastShown = null;   // v0.51f
   renderCharSelect();
   $("titleScreen").classList.add("hidden");
@@ -10250,6 +10260,14 @@ function charStats(c){
     {k:"Complexity",v:["","Easy","Light","Medium","Tricky","Expert"][cx], p:cx, hot:true}
   ];
 }
+function lockedDeskHint(id){
+  if(!id) return "A new desk is on its way to the press. Check back after future updates.";
+  const c=CHARACTERS[id]; if(c.unlockHint) return c.unlockHint;
+  const k=CHAR_UNLOCK_ORDER.indexOf(id), need=(k+1)-clearedDeskCount();
+  if(id!==nextLockedDesk()) return "Locked. Keep winning with new desks to open it.";
+  return need<=1 ? "Win a run with a desk you have not won with yet to unlock this one. Any ascension counts, A0 included."
+                 : "Win runs with "+need+" desks you have not won with yet to unlock this one.";
+}
 let _csLastShown=null;
 function renderCharFeature(slot){
   const f=$("csFeature"); if(!f) return;
@@ -10262,13 +10280,13 @@ function renderCharFeature(slot){
         <span class="csf-best${best<0?" none":""}">${best<0?"Not yet cleared":("Best clear \u00B7 A"+best)}</span></div></div>
       <div class="csf-blurb">${escHtml(c.blurb)}</div>
       <div class="csf-stats">${charStats(c).map(st=>`<span class="csf-sk">${st.k}</span><span class="csf-bar">${pips(st)}</span><span class="csf-sv">${escHtml(st.v)}</span>`).join("")}</div>
-      <div class="csf-lines"><div class="csf-line"><span class="p">+</span><span>${escHtml(c.boon)}</span></div>
-        <div class="csf-line"><span class="m">\u2212</span><span>${escHtml(c.bane)}</span></div></div>`;
+      <div class="csf-lines">${c.boon?`<div class="csf-line"><span class="p">+</span><span>${escHtml(c.boon)}</span></div>`:""}
+        ${c.bane?`<div class="csf-line"><span class="m">\u2212</span><span>${escHtml(c.bane)}</span></div>`:""}</div>`;
   } else {
     const c=slot.id?CHARACTERS[slot.id]:null;
     html=`<div class="csf-top"><div class="csf-portrait unknown">?</div>
         <div class="csf-id"><div class="csf-tag">${c?"Locked":"Coming soon"}</div><div class="csf-name">???</div></div></div>
-      <div class="csf-soon">${c&&c.unlockHint ? escHtml(c.unlockHint) : "A new desk is on its way to the press. Check back after future updates."}</div>`;
+      <div class="csf-soon">${escHtml(lockedDeskHint(slot.id))}</div>`;
   }
   f.innerHTML=html;
   const key=slot.id||("empty"+slot.i);
