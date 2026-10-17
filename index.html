@@ -1674,7 +1674,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 <script src="letterati-dictionary.js"></script>
 <script src="letterati-verbs.js"></script>
 <script src="letterati-common.js"></script>
-<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51h",inferQuitOnPagehide:false};</script>
+<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51i",inferQuitOnPagehide:false};</script>
 <script>
 /* ============================================================
    pbs-telemetry.js: PBS Games shared telemetry module (v1.1)
@@ -2131,11 +2131,18 @@ const WORD_DENYLIST = [
   "shroom","shrooms"
 ];
 WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
+/* v0.51i: two-letter words come from a curated list (the standard word-game
+   two-letter list). The dictionary also carried abbreviations (qs, qy, ft, vd...),
+   which made Q and other rare letters far too easy to dump. The dropped words are
+   kept aside so the pinned seed predictor still sees the old word set. */
+const TWO_LETTER_OK = new Set("aa ab ad ae ag ah ai al am an ar as at aw ax ay ba be bi bo by da de do ed ef eh el em en er es et ew ex fa fe gi go ha he hi hm ho id if in is it jo ka ki la li lo ma me mi mm mo mu my na ne no nu od oe of oh oi ok om on op or os ow ox oy pa pe pi po qi re sh si so ta te ti to uh um un up us ut we wo xi xu ya ye yo za".split(" "));
+const TWO_LETTER_DROPPED = [];
+[...WORDS].forEach(w=>{ if(w.length===2 && !TWO_LETTER_OK.has(w)){ WORDS.delete(w); COMMON.delete(w); VERBS.delete(w); TWO_LETTER_DROPPED.push(w); } });
 
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "0.51h";
+const VERSION = "0.51i";
 /* v0.51a analytics: PGames event stream (PBS Games Analytics Approach v1).
    Each call is one push onto the telemetry queue inside try/catch. The network
    runs on the module's own timer, so nothing here can slow scoring or throw into
@@ -2487,11 +2494,11 @@ const CHARACTERS = {
 CHARACTERS.shortking = {
   id:"shortking", name:"Short King", art:"\uD83D\uDC51", tag:"Short words",
   blurb:"Small words, big numbers. Two to four letters hit hard, and he gets an extra word every round.",
-  boon:"2, 3 and 4 letter words score ×3.5, ×3 and ×2. Five words a round.",
-  bane:"No word longer than 5 letters. Targets run 30 percent higher in rounds 1 to 4, 25 percent in round 5 and 15 percent in round 6.",
+  boon:"2, 3 and 4 letter words score ×2.5, ×3 and ×2. Five words a round.",
+  bane:"No word longer than 5 letters. Higher targets. A 2-letter word played again this run scores ×0.6, then ×0.3.",
   targetMult:1.0, hearts:3, maxWordLen:5, handsDelta:1, discardsDelta:0, handSizeDelta:0,
-  targetCurve:[1.3, 1.3, 1.3, 1.3, 1.25, 1.15],
-  shortTiers:{2:3.5,3:3,4:2}
+  targetCurve:[1.15,  1.15,  1.15,  1.15,  1.1,  1.0],   // v0.51i (was 1.3 x4, 1.25, 1.15)
+  shortTiers:{2:2.5,3:3,4:2}   // v0.51i: 2-letter was x3.5
 };
 CHARACTERS.scholar = {
   id:"scholar", name:"The Scholar", art:"\uD83D\uDCDC", tag:"Long words",
@@ -3291,6 +3298,12 @@ function anaSet(){
   for(const w of WORDS){ if(w.length<2||w.length>12||!/^[a-z]+$/.test(w)) continue; _ANA.add(w.split("").sort().join("")); }
   return _ANA;
 }
+let _ANA_PRED=null;
+function anaSetPred(){   // v0.51i: the predictor's word set, frozen to the pre-0.51i dictionary
+  if(_ANA_PRED) return _ANA_PRED;
+  _ANA_PRED=new Set(anaSet()); TWO_LETTER_DROPPED.forEach(w=>_ANA_PRED.add(w.split("").sort().join("")));
+  return _ANA_PRED;
+}
 function predRoll(seed){
   const rng=mulberry32(xfnv1a(String(seed)+"::deck")); const MAX=3;
   const draw=(rng)=>{const L=[],c={};for(let i=0;i<START_DECK;i++){let x,g=0;do{x=weightedLetter(rng,BAG_WEIGHTS);g++;}while((c[x]||0)>=MAX&&g<60);c[x]=(c[x]||0)+1;L.push(x);}return{L,c};};
@@ -3341,7 +3354,7 @@ function predBest(hand,P,opts){
   const hasFused=hand.some(t=>t.fusedA);
   if(!hasFused){
     const cand = banned ? hand.filter(t=>!banned.has(t.letter)) : hand;   // locked: drop banned letters from play
-    const A=anaSet(),n=cand.length,lim=1<<n; let b=0,bt=null;
+    const A=anaSetPred(),n=cand.length,lim=1<<n; let b=0,bt=null;
     for(let mask=1;mask<lim;mask++){let c=0;for(let i=0;i<n;i++)if(mask&(1<<i))c++;if(c<2||c<minLen||c>maxLen)continue;if(usedLens&&usedLens.has(c))continue;const sub=[];for(let i=0;i<n;i++)if(mask&(1<<i))sub.push(cand[i]);const k=sub.map(x=>x.letter.toLowerCase()).sort().join("");if(!A.has(k))continue;if(uniqueOnly&&new Set(k).size!==k.length)continue;if(mustHave&&!k.includes(mustHave))continue;const sc=predScore(sub,P,zv);if(sc>b){b=sc;bt=sub;}}
     return {score:b,tiles:bt};
   }
@@ -3359,7 +3372,7 @@ function predBest(hand,P,opts){
     return out;
   };
   const cand=hand.map(t=>({t,modes:modesOf(t)})).filter(x=>x.modes.length);
-  const A=anaSet(), n=Math.min(cand.length,12), lim=1<<n; let b=0,bt=null;
+  const A=anaSetPred(), n=Math.min(cand.length,12), lim=1<<n; let b=0,bt=null;
   for(let mask=1;mask<lim;mask++){
     const idx=[]; for(let i=0;i<n;i++) if(mask&(1<<i)) idx.push(i);
     if(idx.length<2 && minLen<=2 && idx.length<2){ if(idx.length<1) continue; }
@@ -4683,6 +4696,11 @@ function scoreOf(res){
   if(pairHit) total*=1.5;
   // Short King (character): built-in tiers for 2 to 4 letters
   { const T=charDef().shortTiers; if(T && T[effLen]) total*=T[effLen]; }
+  // v0.51i: Short King's 2-letter words wear out. Same word again this run: x0.6, then x0.3.
+  let skDecay=1;
+  if(charDef().shortTiers && effLen===2 && res.every(r=>r.letter)){
+    const w2=res.map(r=>r.letter.toLowerCase()).join(""), n=(G.wordPlays&&G.wordPlays[w2])||0;
+    if(n>0){ skDecay = n===1 ? 0.6 : 0.3; total*=skDecay; } }
   if(G.perks.rapidFire && effLen<=4 && (G._rfStreak||0)>0) total*=1+0.15*G._rfStreak;            // v0.51b Rapid Fire
   if(G.perks.paperTrail && G._ptNext) total*=1.5;                                                // v0.51d Paper Trail
   if(G.perks.runOn && effLen>=6 && (G._roStreak||0)>0) total*=1+0.25*G._roStreak;               // v0.51c Run-On Sentence
@@ -4838,7 +4856,7 @@ function scoreOf(res){
   if(G.perks.indiaInk && (G.inkPtsPending||0)>0){ inkPts=G.inkPtsPending; total+=inkPts; }
   if(G.perks.appendix && effLen>=6) total+=3*((G.hand||[]).length);   // v0.51c Appendix
   if(charDef().shortFlat && effLen<charDef().shortFlat) total=sum;      // v0.51c Scholar: short words score face value
-  return {total:Math.round(total),sum:Math.round(sum*10)/10,letterVals,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,fuMult,luMult,twinHit,pairHit,shortHit,shortMult,kernHit,fiveHit,bigHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit,effLen,ligHit,crossHit,alphaHit,coloHit,fwMult,midnightHit,secondEdHit,binderAdd,movableHit,anthMult,vanityHit,liqMult,goldMult,mysteryHit,mysteryMult,dragnetHit,herringHit,pulpAdd,commissionAdd,inkBallHit,vmSurplus,ccSurplus,justMult,emQuadHit,wetHit,deptMult,eyeAdd,slugAdd,bfAdd,inkPts,colInchHit,tightMarginHit,headHit,tailHit,proofMult};
+  return {total:Math.round(total),sum:Math.round(sum*10)/10,letterVals,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,fuMult,luMult,twinHit,pairHit,shortHit,shortMult,skDecay,kernHit,fiveHit,bigHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit,effLen,ligHit,crossHit,alphaHit,coloHit,fwMult,midnightHit,secondEdHit,binderAdd,movableHit,anthMult,vanityHit,liqMult,goldMult,mysteryHit,mysteryMult,dragnetHit,herringHit,pulpAdd,commissionAdd,inkBallHit,vmSurplus,ccSurplus,justMult,emQuadHit,wetHit,deptMult,eyeAdd,slugAdd,bfAdd,inkPts,colInchHit,tightMarginHit,headHit,tailHit,proofMult};
 }
 function updateLive(){
   const res=resolvedCanvas();
@@ -4870,6 +4888,7 @@ function updateLive(){
   if(sc.twinHit) parts.push(`×2 twins`);
   if(sc.pairHit) parts.push(`×1.5 pair`);
   if(sc.shortHit) parts.push(`×${multLabel(sc.shortMult)} short`);
+  if(sc.skDecay && sc.skDecay<1) parts.push(`×${sc.skDecay} played before`);   // v0.51i
   if(sc.kernHit) parts.push(`×1.25 kerning`);
   if(sc.fiveHit) parts.push(`×1.5 five`);
   if(sc.bigHit) parts.push(`×2 big words`);
@@ -7089,6 +7108,8 @@ function buildShopPool(){
   const perkWide=()=>pickWeighted(rng,perkPool(rng));
   for(let i=0;i<perSide;i++) add(()=>pickWeighted(rng,perkPool(rng)), perkWide);
   const shelfOut=offers.slice(0,N).map(o=>({...o,sold:false}));
+  { const ti=shelfOut.findIndex(o=>o.d&&o.d.type==="trioUpgrade");   // v0.51i
+    if(ti>=0 && !shelfOut.some(o=>o.d&&o.d.type==="fuse")) shelfOut[ti]={...fusionOffer(),sold:false}; }
   /* v0.5a: the spotlight gild takes the seat the guaranteed eraser used to hold.
      The regular gild slot offers a workhorse (your most-played letters, which is
      almost always E). Telemetry had E, R, A and ER as 53% of all gilds, because
@@ -7153,9 +7174,9 @@ function perkPool(rng){
     // v492b: building your own trio is the featured path; ready-made trios stay as
     // the fallback and keep the archetype discoverable for decks with no pair yet.
     ...(G.deck.some(c=>c.kind==="fused") && G.deck.some(c=>c.kind==="letter")
-        ? [{make:()=>trioUpgradeOffer(),  weight:1.2},
-           {make:()=>trioFusionOffer(rng), weight:0.3}]
-        : [{make:()=>trioFusionOffer(rng), weight:0.6}]),
+        ? [{make:()=>trioUpgradeOffer(),  weight:0.5},    // v0.51i: was 1.2
+           {make:()=>trioFusionOffer(rng), weight:0.2}]   // v0.51i: was 0.3
+        : [{make:()=>trioFusionOffer(rng), weight:0.4}]),  // v0.51i: was 0.6
     {make:()=>triptychOffer(),     weight:1.4},
     {make:()=>copyCatOffer(),      weight:1.6},
     {make:()=>wildVowelOffer(),    weight:2},
@@ -7169,10 +7190,11 @@ function perkPool(rng){
     {make:()=>heavyPressOffer(rng), weight:1.1},
     {make:()=>growthMindOffer(),   weight:1.2},
     {make:()=>foilOffer(),         weight:1.1},
-    {make:()=>fusionOffer(),       weight:1.8},
+    {make:()=>fusionOffer(),       weight:5.0},   // v0.51i: was 1.8
     {make:()=>comboOffer("ing"),   weight:1.5},
     {make:()=>comboOffer("ate"),   weight:1.0},
     {make:()=>fusedEROffer(),      weight:1.8},
+    {make:()=>fusedQUOffer(),      weight:1.4},   // v0.51i
     {make:()=>fusedDoubleOffer("T"),weight:0.5},
     {make:()=>fusedDoubleOffer("G"),weight:0.5},
     {make:()=>fusedDoubleOffer("P"),weight:0.5},
@@ -7992,6 +8014,13 @@ function fusedDoubleOffer(L){
     price:fuseTilePrice(px(price)),
     art:`<span class="mini-tile" style="background:linear-gradient(180deg,#EAF3EF,#D8E8E0);border-color:#A9CcBD;font-size:.74rem;font-family:var(--serif)">${L}${L}<span class="mv">${v*2}</span></span>`,
     d:{type:"fusedPair", a:L, b:L}};
+}
+function fusedQUOffer(){   // v0.51i: a common Q+U tile
+  return {kind:"Tile",rarity:"common",name:"Fused Q+U",
+    desc:"One tile fusing Q and U. Play it as either letter, or as QU.",
+    price:fuseTilePrice(px(7)),
+    art:`<span class="mini-tile" style="background:linear-gradient(180deg,#EAF3EF,#D8E8E0);border-color:#A9CcBD;font-size:.74rem;font-family:var(--serif)">QU<span class="mv">11</span></span>`,
+    d:{type:"fusedPair", a:"Q", b:"U"}};
 }
 function fusedEROffer(){
   // a ready-made fused E+R tile: play it as E, R, ER or RE
