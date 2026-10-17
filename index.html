@@ -1674,7 +1674,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 <script src="letterati-dictionary.js"></script>
 <script src="letterati-verbs.js"></script>
 <script src="letterati-common.js"></script>
-<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51i",inferQuitOnPagehide:false};</script>
+<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51j",inferQuitOnPagehide:false};</script>
 <script>
 /* ============================================================
    pbs-telemetry.js: PBS Games shared telemetry module (v1.1)
@@ -2142,7 +2142,7 @@ const TWO_LETTER_DROPPED = [];
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "0.51i";
+const VERSION = "0.51j";
 /* v0.51a analytics: PGames event stream (PBS Games Analytics Approach v1).
    Each call is one push onto the telemetry queue inside try/catch. The network
    runs on the module's own timer, so nothing here can slow scoring or throw into
@@ -7108,8 +7108,10 @@ function buildShopPool(){
   const perkWide=()=>pickWeighted(rng,perkPool(rng));
   for(let i=0;i<perSide;i++) add(()=>pickWeighted(rng,perkPool(rng)), perkWide);
   const shelfOut=offers.slice(0,N).map(o=>({...o,sold:false}));
-  { const ti=shelfOut.findIndex(o=>o.d&&o.d.type==="trioUpgrade");   // v0.51i
-    if(ti>=0 && !shelfOut.some(o=>o.d&&o.d.type==="fuse")) shelfOut[ti]={...fusionOffer(),sold:false}; }
+  { const ti=shelfOut.findIndex(o=>o.d&&o.d.type==="trioUpgrade");   // v0.51j: a triple fusion brings a single fusion with it
+    if(ti>=0 && !shelfOut.some(o=>o.d&&o.d.type==="fuse")){
+      let seat=-1; for(let k=shelfOut.length-1;k>=N-perSide;k--){ if(k!==ti){ seat=k; break; } }   // the last other perk seat
+      if(seat>=0) shelfOut[seat]={...fusionOffer(),sold:false}; } }
   /* v0.5a: the spotlight gild takes the seat the guaranteed eraser used to hold.
      The regular gild slot offers a workhorse (your most-played letters, which is
      almost always E). Telemetry had E, R, A and ER as 53% of all gilds, because
@@ -7174,7 +7176,7 @@ function perkPool(rng){
     // v492b: building your own trio is the featured path; ready-made trios stay as
     // the fallback and keep the archetype discoverable for decks with no pair yet.
     ...(G.deck.some(c=>c.kind==="fused") && G.deck.some(c=>c.kind==="letter")
-        ? [{make:()=>trioUpgradeOffer(),  weight:0.5},    // v0.51i: was 1.2
+        ? [{make:()=>trioUpgradeOffer(),  weight:4.0},    // v0.51j: was 0.5 (0.51i), 1.2 before
            {make:()=>trioFusionOffer(rng), weight:0.2}]   // v0.51i: was 0.3
         : [{make:()=>trioFusionOffer(rng), weight:0.4}]),  // v0.51i: was 0.6
     {make:()=>triptychOffer(),     weight:1.4},
