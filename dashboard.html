@@ -433,7 +433,7 @@ function winRateBars(M, keyFn, labelFn, elId, badgeId, order){
 }
 function renderWinRates(M){
   winRateBars(M, r => r.asc==null ? -1 : r.asc, k => k<0 ? "no rung" : "A"+k, "byAsc", "bAsc", (a,b)=>a-b);
-  const CH = { writer:"Writer", detective:"Detective", editor:"Editor", shortking:"Short King" };
+  const CH = { writer:"Writer", detective:"Detective", editor:"Editor", shortking:"Short King", scholar:"Scholar" };
   winRateBars(M, r => r.character || "none", k => k==="none" ? "before characters" : (CH[k]||k), "byChar", "bChar", (a,b)=>String(a).localeCompare(String(b)));
 }
 
@@ -638,7 +638,7 @@ function renderRecent(M){
   const el = $("recent");
   const list = M.runs.slice().sort((a,b)=>b.ts.localeCompare(a.ts)).slice(0,14);
   if(!list.length){ el.innerHTML = `<tr><td class="empty">${esc(EMPTY_HINT())}</td></tr>`; return; }
-  const CH = { writer:"Writer", detective:"Detective", editor:"Editor", shortking:"Short King" };
+  const CH = { writer:"Writer", detective:"Detective", editor:"Editor", shortking:"Short King", scholar:"Scholar" };
   el.innerHTML = `<tr><th>Started</th><th>Run</th><th>Result</th><th class="num">Round</th><th class="num">Score</th></tr>` +
     list.map(r => { const o = outcomeOf(r), p = (r.term&&r.term.payload)||{};
       const cls = o==="won"?"win":(o==="lost"?"lose":"");

@@ -94,7 +94,7 @@ iframe{position:absolute;left:-9999px;top:0;width:390px;height:844px;border:0}
 /* ---------- Adam's revealed shop preferences ----------
    Share of times each offer type was bought when it was on the shelf,
    smoothed toward 0.15. Built from 470+ shops in versions 48 to 0.5f. */
-const BUY_RATE = {"gildLetter":0.95,"freeGild":0.95,"vowelPower":0.9,"extraDiscard":0.9,"fuller":0.9,"fireSale":0.9,
+const BUY_RATE = {"bookmark":0.6,"runOn":0.6,"magnumOpus":0.6,"unabridged":0.6,"epigraph":0.6,"appendix":0.6,"sesquipedalian":0.6,"rootWord":0.6,"quickStudy":0.6,"shortFuse":0.6,"telegram":0.6,"rapidFire":0.6,"oneTwo":0.6,"daisyChain":0.6,"twoBit":0.6,"bigType":0.6,"giltEdge":0.6,"smallPress":0.6,"pennyPress":0.6,"classifieds":0.6,"gildLetter":0.95,"freeGild":0.95,"vowelPower":0.9,"extraDiscard":0.9,"fuller":0.9,"fireSale":0.9,
  "freeRerolls":0.85,"foil":0.85,"heavyPress":0.85,"shortKing":0.85,"twoOfAKind":0.85,"twinsies":0.85,"dittoStamp":0.85,
  "fiveTimer":0.85,"verbose":0.85,"serifStamp":0.85,"lucky7":0.85,"colophon":0.85,"blindFaith":0.8,"encore":0.8,"copyCat":0.8,
  "consonantCluster":0.8,"firstUp":0.75,"lastUp":0.75,"fingerprint":0.75,"fightingWords":0.75,"verbizer":0.75,"midnightPress":0.7,
@@ -406,6 +406,16 @@ function makeAgent(H, profile, rng){
       }
     }
     let list=findWords(G.hand);
+    // Scholar's Space Bar: join two words found this turn when that scores more
+    { const spc=G.hand.find(c=>c.kind==="space");
+      if(spc && list.length>=2 && rng()<(P.spaceSee!=null?P.spaceSee:0.6)){
+        const top=list.slice(0,12); let bp=null;
+        for(let i=0;i<top.length;i++) for(let j=0;j<top.length;j++){ if(i===j) continue;
+          const A=top[i], B=top[j], ca=new Set(A.ord.map(u=>u.c)); if(B.ord.some(u=>ca.has(u.c))) continue;
+          const ord=[...A.ord,{c:spc,seq:"",cfg:null},...B.ord]; const sc=evalPlay(ord);
+          if(sc>0 && (!bp||sc>bp.score)) bp={w:A.w+" "+B.w, ord, score:sc, est:sc, isMyst:false}; }
+        if(bp){ list.push(bp); list.sort((x,y)=>y.score-x.score); tally.spacePlays=(tally.spacePlays||0)+(list[0]===bp?1:0); }
+      } }
     let best=list[0];
     // discard: dig when the best word falls short, dig harder for gilded tiles still in the pile
     let digs=0;
