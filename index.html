@@ -1674,7 +1674,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 <script src="letterati-dictionary.js"></script>
 <script src="letterati-verbs.js"></script>
 <script src="letterati-common.js"></script>
-<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51g",inferQuitOnPagehide:false};</script>
+<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51h",inferQuitOnPagehide:false};</script>
 <script>
 /* ============================================================
    pbs-telemetry.js: PBS Games shared telemetry module (v1.1)
@@ -2135,7 +2135,7 @@ WORD_DENYLIST.forEach(w=>WORDS.delete(w.toLowerCase()));
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "0.51g";
+const VERSION = "0.51h";
 /* v0.51a analytics: PGames event stream (PBS Games Analytics Approach v1).
    Each call is one push onto the telemetry queue inside try/catch. The network
    runs on the module's own timer, so nothing here can slow scoring or throw into
@@ -8311,7 +8311,7 @@ function openDeck(mode){
 /* v0.5g: single-step pick modes select first and confirm from the pick bar */
 const PICK_VERB={remove:"Remove", growth:"Growth Mindset on", encore:"Encore on", foil:"Foil Stamp on", watermark:"Watermark on",
   boldface:"Bold Face on", dropcap:"Drop Cap on", serif:"Serif on", ditto:"Ditto on", inkwell:"Inkwell on",
-  freegild:"Gild", department:"Department of Letters for", gemini:"Twin", goldStandard:"Gold Standard for"};
+  freegild:"Gild", freegolden:"Make golden:", department:"Department of Letters for", gemini:"Twin", goldStandard:"Gold Standard for"};
 function tileName(c){
   if(!c) return "";
   if(c.kind==="letter") return c.letter;
@@ -8336,6 +8336,7 @@ function renderPickBar(){
   if(!c){ G.deckPick=null; what.innerHTML="Tap a tile"; go.disabled=true; go.textContent="Choose a tile"; go.classList.remove("danger"); return; }
   let extra="";
   if(mode==="freegild"){ const v=effValue(c); extra=`<small>${v} points → ${v*2} points</small>`; }
+  else if(mode==="freegolden"){ extra=`<small>Every word with it scores ×${G._goldenMult||1.25}</small>`; }   // v0.51h
   else if(mode==="remove"){ extra=`<small>Your deck goes from ${G.deck.length} to ${G.deck.length-1} cards</small>`; }
   else { const n=upgradeCount(c); extra=`<small>${n+1} of ${MAX_TILE_UPGRADES} upgrade slots used after this</small>`; }
   what.innerHTML=`${PICK_VERB[mode]} <b>${escHtml(tileName(c))}</b>${extra}`;
