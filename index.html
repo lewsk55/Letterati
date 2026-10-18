@@ -641,6 +641,10 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 .tile.lucky7{background:linear-gradient(180deg,#F1F8EE,#DCEFD6);border-color:#AFD3A2}
 .tile.lucky7 .glyph{font-size:1.25em}
 .tile.fused,.tile.trio,.tile.combo{-webkit-touch-callout:none;-webkit-user-select:none;user-select:none}
+/* v0.51k: a game screen, not a document. Long-presses must never start a text
+   selection or the iOS callout menu (it grabbed the fuse editor's Done button). */
+body{-webkit-user-select:none;user-select:none;-webkit-touch-callout:none}
+input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:text;-webkit-touch-callout:default}
 .combo-label .cm-off{font-size:1em;opacity:.35;vertical-align:baseline;margin-left:0}
 #canvas .combo-label .cm-off{font-size:.5em;opacity:.55;margin-left:1px}
 /* v0.51d: on the canvas a turned-off letter shrinks to a subscript, so the letters
@@ -1674,7 +1678,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 <script src="letterati-dictionary.js"></script>
 <script src="letterati-verbs.js"></script>
 <script src="letterati-common.js"></script>
-<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51j",inferQuitOnPagehide:false};</script>
+<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51k",inferQuitOnPagehide:false};</script>
 <script>
 /* ============================================================
    pbs-telemetry.js: PBS Games shared telemetry module (v1.1)
@@ -2142,7 +2146,7 @@ const TWO_LETTER_DROPPED = [];
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "0.51j";
+const VERSION = "0.51k";
 /* v0.51a analytics: PGames event stream (PBS Games Analytics Approach v1).
    Each call is one push onto the telemetry queue inside try/catch. The network
    runs on the module's own timer, so nothing here can slow scoring or throw into
@@ -2928,9 +2932,10 @@ function challengeTypeFor(level){
 }
 function liveChallengeTypeFor(level){
   const t=challengeTypeFor(level);
-  if(t!=="longform" || !wordCap() || wordCap()>=99) return t;
+  const capped = wordCap() && wordCap()<99;   // Short King
+  if(!capped || (t!=="longform" && t!=="reprints")) return t;   // v0.51k: reprints out for him too
   const rng=makeRng("challenge-sk:"+level);
-  const pool=CHALLENGE_ORDER.filter(x=>x!=="longform" && !(CHALLENGE_EARLY_ONLY.has(x) && level>4));
+  const pool=CHALLENGE_ORDER.filter(x=>x!=="longform" && x!=="reprints" && !(CHALLENGE_EARLY_ONLY.has(x) && level>4));
   return pool[Math.floor(rng()*pool.length)];
 }
 // The N most-used letters in the current deck (letter cards only). Ties broken
@@ -4470,10 +4475,12 @@ function feDown(e,chip,idx){
   };
   chip.addEventListener("pointermove",move); chip.addEventListener("pointerup",up); chip.addEventListener("pointercancel",up);
 }
+function clearSelection(){ try{ const sel=window.getSelection&&window.getSelection(); if(sel&&sel.removeAllRanges) sel.removeAllRanges(); }catch(e){} }
+document.addEventListener("selectstart",e=>{ let t=e.target; if(t && t.nodeType===3) t=t.parentElement; if(!t || !t.closest || !t.closest("input,textarea,[contenteditable=true]")) e.preventDefault(); });
 function openFuseEditor(c){
   if(!c || (c.kind!=="fused" && c.kind!=="trio" && c.kind!=="combo")) return;
   FE=Object.assign({card:c}, feFromCard(c));
-  feRender();
+  feRender(); clearSelection();
   $("fuseEdit").classList.remove("hidden");
   haptic([10,30,10]);
 }
@@ -7603,7 +7610,7 @@ function spotlightGildOffer(rng, shelf){
 function gildOfferFor(t){
   const c=t.card, u=c.upLevel||0;
   const now = c.kind==="fused" ? fusedValue(c) : cardValue(c);
-  const slots = Math.min(gildCapFor(c)-u, MAX_TILE_UPGRADES-upgradeCount(c));
+  const slots = Math.min(gildCapFor(c)-u, tileUpgradeCap(c)-upgradeCount(c));
   const note = (u>0 ? " Already gilded ×"+u+"." : "")+" "+slots+" upgrade"+(slots===1?"":"s")+" left on this tile.";
   const worked = t.use>0 ? " Your "+t.label+" has set "+t.use+(t.use===1?" letter":" letters")+" this run." : "";
   return {kind:"Upgrade",rarity:"rare",name:"Gild "+t.label,
@@ -8202,7 +8209,7 @@ function buyOffer(i){
   }
   if(G.coins<o.price) return;
   if(o.needsTarget && STAMP_MODES.has(o.needsTarget) && !G.deck.some(c=>stampTargetOk(c,o.needsTarget))){
-    toast("No tile can take that. Each tile holds "+MAX_TILE_UPGRADES+" upgrades at most."); haptic(20); return;   // v0.5e: never charge for a dead stamp
+    toast("No tile can take that. Each tile holds "+MAX_TILE_UPGRADES+" upgrades at most (letters worth 5 or more hold "+HIGH_VALUE_UPGRADES+")."); haptic(20); return;   // v0.5e: never charge for a dead stamp
   }
   pushShopUndo();
   G.coins-=o.price;
@@ -8369,7 +8376,7 @@ function renderPickBar(){
   if(mode==="freegild"){ const v=effValue(c); extra=`<small>${v} points → ${v*2} points</small>`; }
   else if(mode==="freegolden"){ extra=`<small>Every word with it scores ×${G._goldenMult||1.25}</small>`; }   // v0.51h
   else if(mode==="remove"){ extra=`<small>Your deck goes from ${G.deck.length} to ${G.deck.length-1} cards</small>`; }
-  else { const n=upgradeCount(c); extra=`<small>${n+1} of ${MAX_TILE_UPGRADES} upgrade slots used after this</small>`; }
+  else { const n=upgradeCount(c); extra=`<small>${n+1} of ${tileUpgradeCap(c)} upgrade slots used after this</small>`; }
   what.innerHTML=`${PICK_VERB[mode]} <b>${escHtml(tileName(c))}</b>${extra}`;
   go.disabled=false; go.textContent= mode==="remove" ? "Remove it" : "Confirm";
 }
@@ -8383,7 +8390,7 @@ function deckTileEl(c){
   const wrap=document.createElement("div");
   wrap.className="deck-tile";
   wrap.appendChild(buildStaticTile(c));
-  if(upgradeCount(c)>=MAX_TILE_UPGRADES){ const m=document.createElement("span"); m.className="dt-max"; m.textContent="MAX"; wrap.appendChild(m); wrap.classList.add("maxed"); }   // v0.5e
+  if(upgradeCount(c)>=tileUpgradeCap(c)){ const m=document.createElement("span"); m.className="dt-max"; m.textContent="MAX"; wrap.appendChild(m); wrap.classList.add("maxed"); }   // v0.5e
   const upgradable = c.kind==="letter" || c.kind==="fused" || c.kind==="trio";   // v492e: trios take every stamp
   if(G.selectMode==="remove"){ wrap.classList.add("selectable","danger"); pickOn(wrap,c,()=>doRemove(c.id)); }
   if(G.selectMode==="growth"    && stampTargetOk(c,"growth")){ wrap.classList.add("selectable","gild"); pickOn(wrap,c,()=>doTileUpgrade(c.id,"growth")); }
@@ -8653,7 +8660,7 @@ function applyGoldStandard(card){
 }
 function doTileUpgrade(id,kind){
   const c=G.deck.find(x=>x.id===id); if(!c) return;
-  if(!hasUpgradeRoom(c)){ toast("That tile already carries "+MAX_TILE_UPGRADES+" upgrades"); return; }   // v0.5e
+  if(!hasUpgradeRoom(c)){ toast("That tile already carries "+tileUpgradeCap(c)+" upgrades"); return; }   // v0.5e
   // Encore works on ANY playable tile (letters, combos, fused, wilds...);
   // every other stamp targets letters, fused pairs and trios (v492e). On a
   // multi-letter tile the stamp applies to each letter the tile contributes.
@@ -8876,7 +8883,19 @@ function upgradeCount(c){
   if(!c) return 0;
   return (c.upLevel||0) + UPGRADE_STAMPS.filter(k=>tileHas(c,k)).length + (typeof c.growth==="number"?1:0);
 }
-function tileUpgradeCap(c){ return (c && c.kind==="combo" && G.perks && G.perks.rootWord) ? MAX_TILE_UPGRADES+1 : MAX_TILE_UPGRADES; }
+const HIGH_VALUE_UPGRADES = 2;   // v0.51k: K, J, X, Q and Z run hot too fast with three
+function tileIsHighValue(c){
+  if(!c) return false;
+  const hv=v=>(+v||0)>=GILD_HIGH_VALUE;
+  if(c.kind==="letter") return hv(c.base!=null?c.base:LETTER_VALUES[c.letter]);
+  if(c.kind==="fused" && Array.isArray(c.sides)) return c.sides.some(sd=>hv(sd.base!=null?sd.base:LETTER_VALUES[sd.letter]));
+  if(c.kind==="trio" && Array.isArray(c.letters)) return c.letters.some(L=>hv(LETTER_VALUES[L]));
+  return false;
+}
+function tileUpgradeCap(c){
+  if(c && c.kind==="combo" && G.perks && G.perks.rootWord) return MAX_TILE_UPGRADES+1;
+  return tileIsHighValue(c) ? HIGH_VALUE_UPGRADES : MAX_TILE_UPGRADES;
+}
 function hasUpgradeRoom(c){ return !!c && c.kind!=="space" && upgradeCount(c) < tileUpgradeCap(c); }
 function canGild(c){ return (c.upLevel||0) < gildCapFor(c) && hasUpgradeRoom(c); }
 // Which deck tiles a stamp-style shop item could land on (mirrors deckTileEl).
