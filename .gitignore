@@ -1,0 +1,3 @@
+tools/checks/out/
+node_modules/
+res*.json
