@@ -386,13 +386,12 @@ body.fit-play main{min-height:0}
 body.fit-play .hand{align-items:flex-start;align-content:flex-start}   /* a one-row bank sits right under the toolbar */
 /* the definition box keeps its full mystery-word height, so the mystery loading in
    (or a short definition replacing a long one) never shifts the board */
-body.fit-play .def-strip{min-height:146px;box-sizing:border-box}
-body.fit-play.cmp1 .def-strip{min-height:135px}
-body.fit-play.cmp2 .def-strip{min-height:112px}
-body.fit-play.cmp3 .def-strip{min-height:90px}
+/* v0.51p: the board is anchored to the top, so the definition box can change size
+   (a mystery word loading in, a short definition) without moving anything above it. */
+body.fit-play .play-center{justify-content:flex-start;gap:var(--pc-gap,10px);padding-top:var(--pc-pad,0px)}
 body.fit-play .canvas{min-height:var(--canvas-row-h,68px)}
 body.fit-play .canvas-foot{min-height:44px;align-items:flex-start}
-body.fit-play .hand{min-height:var(--hand-h,78px)}
+body.fit-play .hand{min-height:var(--hand-h,60px)}
 body.cmp1 main{padding-top:8px;gap:6px}
 body.cmp1 .play-center{gap:6px}
 body.cmp1 .eyebrow{display:none}
@@ -1744,7 +1743,7 @@ input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:tex
 <script src="letterati-dictionary.js"></script>
 <script src="letterati-verbs.js"></script>
 <script src="letterati-common.js"></script>
-<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51o",inferQuitOnPagehide:false};</script>
+<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51p",inferQuitOnPagehide:false};</script>
 <script>
 /* ============================================================
    pbs-telemetry.js: PBS Games shared telemetry module (v1.1)
@@ -2212,7 +2211,7 @@ const TWO_LETTER_DROPPED = [];
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "0.51o";
+const VERSION = "0.51p";
 /* v0.51a analytics: PGames event stream (PBS Games Analytics Approach v1).
    Each call is one push onto the telemetry queue inside try/catch. The network
    runs on the module's own timer, so nothing here can slow scoring or throw into
@@ -4409,11 +4408,19 @@ function fitUnits(el, arr, where, maxRows, o){
   el.classList.toggle("tworow", fit.rows>1);
   tiles.forEach((t,i)=>{ if(units[i]!==1) t.style.width=Math.ceil(units[i]*w)+"px"; else t.style.removeProperty("width"); });
 }
-const HAND_FIT={min:30,max:52,oneRowMin:34,ratio:1.24,fsDiv:29,gap:6};
-const CANVAS_FIT={min:22,max:54,oneRowMin:0,ratio:1.24,fsDiv:29,gap:7};
+const HAND_FIT={min:30,max:64,oneRowMin:34,ratio:1.24,fsDiv:29,gap:6};
+const CANVAS_FIT={min:22,max:66,oneRowMin:0,ratio:1.24,fsDiv:29,gap:7};
 function fitHand(){ fitUnits($("hand"), G.hand, "hand", 2, Object.assign({},HAND_FIT,{max:Math.min(HAND_FIT.max, _fitCap.hand)})); }
 function fitCanvas(){ fitUnits($("canvas"), G.canvas, "canvas", 1, Object.assign({},CANVAS_FIT,{max:Math.min(CANVAS_FIT.max, _fitCap.canvas)})); }
 let _fitCap={hand:52, canvas:54};
+// v0.51p: leftover height is shared out evenly between the board's sections once per round
+function spreadSlack(){
+  const app=$("app"); app.style.removeProperty("--pc-gap"); app.style.removeProperty("--pc-pad");
+  const slack=-playOverflow(); if(slack<=8) return;
+  const pc=document.querySelector(".play-center"); const n=[...pc.children].filter(x=>x.offsetParent!==null).length;
+  const base=parseFloat(getComputedStyle(pc).rowGap)||10, use=slack*0.7, per=Math.min(28, use/(n+1));
+  app.style.setProperty("--pc-gap", (base+per)+"px"); app.style.setProperty("--pc-pad", per+"px");
+}
 function renderHand(){
   const el=$("hand"); el.innerHTML="";
   G.hand.forEach(c=>{ el.appendChild(buildTile(c,"hand")); });
@@ -10677,15 +10684,26 @@ window.addEventListener("resize",()=>{ if(!$("play").classList.contains("hidden"
    overflows: spacing, then shorter definition, then smaller tiles. */
 let _fitQueued=false;
 function scheduleFitScreen(){ if(_fitQueued) return; _fitQueued=true; requestAnimationFrame(()=>{ _fitQueued=false; fitScreen(); }); }
+/* v0.51p: sum layout heights (offsetHeight), which tile springs, lifts and the screen
+   shake never change. The definition box counts at least its mystery-word height, so
+   a mystery loading in after the deal cannot force a mid-round squeeze. */
+const DEF_ASSUME=[150,150,140,118,96];
 function playOverflow(){
-  const se=document.scrollingElement||document.documentElement, app=$("app"), pc=document.querySelector(".play-center"), mn=$("play");
-  const handBottom=$("hand").getBoundingClientRect().bottom + 6;
-  return Math.max(0, app.scrollHeight - app.clientHeight, se.scrollHeight - window.innerHeight,
-    handBottom - window.innerHeight, pc ? pc.scrollHeight - pc.clientHeight : 0, mn ? mn.scrollHeight - mn.clientHeight : 0); }
+  const app=$("app"), hud=$("hud"), mn=$("play"), pc=document.querySelector(".play-center"), hw=document.querySelector(".hand-wrap");
+  if(!mn || !pc || !hw) return 0;
+  const lvl=document.body.classList.contains("cmp3")?4:document.body.classList.contains("cmp2")?3:document.body.classList.contains("cmp1")?2:0;
+  const vis=[...pc.children].filter(n=>n.id==="defStrip" || n.offsetParent!==null);
+  const pcs=getComputedStyle(pc), ms=getComputedStyle(mn);
+  const gapPc=parseFloat(pcs.rowGap)||0, gapM=parseFloat(ms.rowGap)||0;
+  const pcNeed=vis.reduce((t,n)=>t+(n.id==="defStrip" ? Math.max(n.offsetParent!==null?n.offsetHeight:0, DEF_ASSUME[lvl]) : n.offsetHeight),0) + gapPc*Math.max(0,vis.length-1);
+  const mainNeed=(parseFloat(ms.paddingTop)||0) + pcNeed + gapM + hw.offsetHeight + (parseFloat(ms.paddingBottom)||0);
+  const total=(hud && !hud.classList.contains("hidden") ? hud.offsetHeight : 0) + mainNeed;
+  return total + 4 - (app.clientHeight || window.innerHeight);
+}
 /* v0.51o: the fit only ever tightens within a round, and runs in the same frame as
    the change that caused it, so the screen never shows an in-between layout. It
    starts fresh on a new round, a new hand size or a resize. */
-const FIT_LEVELS=[{c:[],hand:52,canvas:54},{c:["cmp1"],hand:52,canvas:54},{c:["cmp1","cmp2"],hand:52,canvas:54},
+const FIT_LEVELS=[{c:[],hand:62,canvas:64},{c:[],hand:57,canvas:59},{c:[],hand:52,canvas:54},{c:["cmp1"],hand:52,canvas:54},{c:["cmp1","cmp2"],hand:52,canvas:54},
   {c:["cmp1","cmp2","cmp3"],hand:46,canvas:48},{c:["cmp1","cmp2","cmp3"],hand:42,canvas:44},
   {c:["cmp1","cmp2","cmp3"],hand:38,canvas:40},{c:["cmp1","cmp2","cmp3"],hand:34,canvas:36}];
 let _fitLevel=0, _fitKey="";
@@ -10693,16 +10711,26 @@ function applyFitLevel(i){
   const L=FIT_LEVELS[i]; ["cmp1","cmp2","cmp3"].forEach(c=>{ const on=L.c.includes(c); if(document.body.classList.contains(c)!==on) document.body.classList.toggle(c,on); });
   _fitCap={hand:L.hand, canvas:L.canvas};
   const app=$("app"); app.style.setProperty("--canvas-row-h", (Math.round(L.canvas*1.24)+4)+"px");
-  app.style.setProperty("--hand-h", (Math.round(Math.min(L.hand, 52)*1.24)*2+8)+"px");
+}
+// the bank keeps room for the rows this round's full hand needs, measured once per round
+function reserveHandRows(grow){
+  const h=$("hand"), th=parseFloat(getComputedStyle(h).getPropertyValue("--th"))||62;
+  const rows=h.classList.contains("tworow")?2:1, need=rows*th + (rows-1)*6 + 4;
+  const cur=parseFloat($("app").style.getPropertyValue("--hand-h"))||0;
+  if(!grow || need>cur) $("app").style.setProperty("--hand-h", need+"px");
 }
 function fitScreen(force){
   const playing=!$("play").classList.contains("hidden");
   if(document.body.classList.contains("fit-play")!==playing) document.body.classList.toggle("fit-play", playing);
   if(!playing){ ["cmp1","cmp2","cmp3"].forEach(c=>document.body.classList.remove(c)); return; }
   const key=(G.level||0)+":"+(G.attempt||0)+":"+(G.handSize||0)+":"+window.innerWidth+"x"+window.innerHeight;
-  if(force || key!==_fitKey){ _fitKey=key; _fitLevel = window.innerHeight<720 ? 1 : 0; }   // short screens start tight, so the round never has to tighten mid-play
+  const fresh = force || key!==_fitKey;
+  if(fresh){ _fitKey=key; _fitLevel=0; $("app").style.removeProperty("--hand-h"); }   // each round starts from the largest size
   applyFitLevel(_fitLevel); fitHand(); fitCanvas();
-  while(playOverflow()>1 && _fitLevel<FIT_LEVELS.length-1){ _fitLevel++; applyFitLevel(_fitLevel); fitHand(); fitCanvas(); }
+  if(fresh) reserveHandRows(false);
+  while(playOverflow()>0 && _fitLevel<FIT_LEVELS.length-1){ _fitLevel++; applyFitLevel(_fitLevel); fitHand(); fitCanvas(); reserveHandRows(false); }
+  if(!fresh) reserveHandRows(true);
+  if(fresh) spreadSlack();
   markClamped();
 }
 function markClamped(){
