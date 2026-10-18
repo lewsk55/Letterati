@@ -171,9 +171,9 @@
   background:linear-gradient(180deg,#5E4B1F,#4A3A15);border-color:#B3892F;
   box-shadow:0 2px 0 #8A6418,0 4px 10px rgba(216,170,78,.25);
 }
-:root[data-theme="dark"] .tile.fused,
+:root[data-theme="dark"] .tile.fused,:root[data-theme="dark"] .tile.trio,
 :root[data-theme="dark"] .clone-choice.fused-duo{
-  background:linear-gradient(180deg,#28443C,#1E352E);border-color:#4C7A6C;
+  background:linear-gradient(180deg,#3B3054,#2E2542);border-color:#6A5793;   /* v0.51l: purple, was green */
 }
 :root[data-theme="dark"] .tile.combo{background:linear-gradient(180deg,#3B3054,#2E2542);border-color:#6A5793}
 :root[data-theme="dark"] .tile.lucky7{background:linear-gradient(180deg,#2E4629,#233620);border-color:#557B4A}
@@ -592,7 +592,7 @@ main{flex:1;display:flex;flex-direction:column;padding:14px 14px 0;gap:10px;over
 .tile .up-badge.foil.spent{opacity:.35}
 .tile .up-badge.wm{color:#3E78A0}
 /* v42c Letter Fusion */
-.tile.fused,.tile.trio{background:linear-gradient(180deg,#EAF3F0,#D3E7E0);border-color:#9FC4B8}
+.tile.fused,.tile.trio{background:linear-gradient(180deg,#F3EEFB,#E4DAF4);border-color:#C3B2E0}   /* v0.51l: purple, was green */
 .tile.domino{padding:0;align-items:stretch}
 .tile.fused.domino{width:calc(var(--tw,40px)*2 + var(--tgap,7px))}
 .tile.trio.domino{width:calc(var(--tw,40px)*2.6 + var(--tgap,7px)*2)}   /* v492e: three cells need real room */
@@ -631,7 +631,7 @@ body.boss-round #hud{box-shadow:inset 0 -2px 0 var(--oxblood)}
 .tile.domino .dom-cell{position:relative}
 .tile.domino .dom-cell.locked{opacity:.55}
 .tile.domino .dom-cell.locked::after{left:8%;right:8%;top:46%}
-.tile.fused .clone-mark{position:absolute;right:3px;top:2px;font-size:.5em;color:#3C7E6E;z-index:3}
+.tile.fused .clone-mark{position:absolute;right:3px;top:2px;font-size:.5em;color:#7A5CA6;z-index:3}
 /* combo tiles (-ING / -ER) */
 .tile.combo{background:linear-gradient(180deg,#F3EEFB,#E4DAF4);border-color:#C3B2E0}
 .tile.combo .combo-label{font-family:var(--serif);font-weight:700;font-size:.92rem;letter-spacing:-.01em;color:var(--ink);line-height:1}
@@ -654,7 +654,12 @@ input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:tex
 #canvas .tile.domino.on1.off2{width:calc(var(--tw,40px)*1.08 + 30px)}
 #canvas .tile.domino.on2.off1{width:calc(var(--tw,40px)*1.9 + 17px)}
 .tile.domino .dom-div{display:none}
-.tile.trio .clone-mark{position:absolute;right:3px;top:2px;font-size:.5em;color:#3C7E6E;z-index:3}
+.tile.trio .clone-mark{position:absolute;right:3px;top:2px;font-size:.5em;color:#7A5CA6;z-index:3}
+/* v0.51l: Scholar tiles draw as split tiles too, sized like a pair or a trio */
+.tile.combo.domino.c2{width:calc(var(--tw,40px)*2 + var(--tgap,7px))}
+.tile.combo.domino.c3{width:calc(var(--tw,40px)*2.6 + var(--tgap,7px)*2)}
+.tile.combo.domino.c3 .dom-letter{font-size:.82em}
+.tile.combo.domino.c3 .dom-val{font-size:.5em}
 #canvas .tile.domino .dom-cell.dim .dom-letter{font-size:calc(var(--tfs,1.5rem)*.42)}
 #canvas .tile.domino .dom-cell.dim .dom-val{display:none}
 #canvas .tile.domino .dom-cell:not(.dim){flex:1 1 0}
@@ -679,7 +684,7 @@ input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:tex
 .tile.dealer{background:linear-gradient(180deg,#EEF3FA,#D8E4F2);border-color:#9FB9D6}
 .tile.dealer .glyph{font-size:1.25em}
 .tile.dealer .glyph-sub{position:absolute;left:0;right:0;bottom:3px;text-align:center;font-family:var(--ui);font-size:.42em;font-weight:800;letter-spacing:.06em;color:#3D6288}
-.clone-choice.fused-duo{background:linear-gradient(180deg,#EAF3F0,#D3E7E0);border-color:#9FC4B8;width:64px}
+.clone-choice.fused-duo{background:linear-gradient(180deg,#F3EEFB,#E4DAF4);border-color:#C3B2E0;width:64px}
 .clone-choice.trio-choice{width:84px;font-size:1.28rem;letter-spacing:-.01em}   /* v492e: three serif caps need the extra room */
 .clone-choice.active{outline:2px solid #3C9E84;outline-offset:1px}
 .deck-tile.fuse-pending{outline:3px solid #3C9E84;outline-offset:2px;border-radius:10px}
@@ -1678,7 +1683,7 @@ input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:tex
 <script src="letterati-dictionary.js"></script>
 <script src="letterati-verbs.js"></script>
 <script src="letterati-common.js"></script>
-<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51k",inferQuitOnPagehide:false};</script>
+<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51l",inferQuitOnPagehide:false};</script>
 <script>
 /* ============================================================
    pbs-telemetry.js: PBS Games shared telemetry module (v1.1)
@@ -2146,7 +2151,7 @@ const TWO_LETTER_DROPPED = [];
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "0.51k";
+const VERSION = "0.51l";
 /* v0.51a analytics: PGames event stream (PBS Games Analytics Approach v1).
    Each call is one push onto the telemetry queue inside try/catch. The network
    runs on the module's own timer, so nothing here can slow scoring or throw into
@@ -3119,6 +3124,17 @@ function comboLabelHtml(c){
   if(!comboEdited(c)) return COMBO_DEFS[c.combo].label;
   const b=comboBase(c), a=comboActive(c), o=comboOrder(c);
   return o.filter(i=>a[i]!==false).map(i=>b[i]).join("") + o.filter(i=>a[i]===false).map(i=>'<sub class="cm-off">'+b[i]+'</sub>').join("");
+}
+function comboDomino(t,c,banLock){   // v0.51l: one cell per letter, chain mark, like fused pairs and trios
+  const b=comboBase(c), o=comboOrder(c), a=comboActive(c), u=c.upLevel||0;
+  t.classList.add("combo","domino", b.length>=3?"c3":"c2");
+  o.forEach(i=>{
+    const cd=document.createElement("span"); cd.className="dom-cell"+(a[i]!==false?"":" dim")+(banLock&&banLock.has(b[i])?" locked":"");
+    const g=document.createElement("span"); g.className="dom-letter"; g.textContent=b[i]; cd.appendChild(g);
+    const v=document.createElement("span"); v.className="dom-val"; v.textContent=1*Math.pow(2,u); cd.appendChild(v);
+    t.appendChild(cd);
+  });
+  const fm=document.createElement("span"); fm.className="clone-mark"; fm.textContent="⛓"; t.appendChild(fm);
 }
 function comboEntries(c){ const u=c.upLevel||0; return comboSeq(c).map(L=>({letter:L, value:1*Math.pow(2,u)})); }
 function comboValue(c){ return comboEntries(c).reduce((s,e)=>s+e.value,0); }
@@ -4215,12 +4231,8 @@ function buildTile(c,where){
     return t;   // an action card: tap in the bank to use; it never enters the canvas
   }
   if(c.kind==="combo"){
-    t.classList.add("combo");
-    const banLock=bannedLetterSet();
-    if(banLock && comboSeq(c).some(L=>banLock.has(L))) t.classList.add("locked-letter");
-    const g=document.createElement("span"); g.className="combo-label"; g.innerHTML=comboLabelHtml(c); t.appendChild(g);
-    const v=document.createElement("span"); v.className="val"; v.textContent=comboValue(c); t.appendChild(v);
-    const cm=document.createElement("span"); cm.className="clone-mark"; cm.textContent="✚"; t.appendChild(cm);
+    comboDomino(t,c,bannedLetterSet());   // v0.51l
+    if(where==="canvas") domFit(t);
     tileBadges(t,c);
     attachTileHandlers(t,c,where); return t;
   }
@@ -7182,7 +7194,7 @@ function perkPool(rng){
     {make:()=>dealersChoiceOffer(), weight:1.0},
     // v492b: building your own trio is the featured path; ready-made trios stay as
     // the fallback and keep the archetype discoverable for decks with no pair yet.
-    ...(G.deck.some(c=>c.kind==="fused") && G.deck.some(c=>c.kind==="letter")
+    ...(G.deck.some(c=>trioBaseOk(c)) && G.deck.some(c=>c.kind==="letter")
         ? [{make:()=>trioUpgradeOffer(),  weight:4.0},    // v0.51j: was 0.5 (0.51i), 1.2 before
            {make:()=>trioFusionOffer(rng), weight:0.2}]   // v0.51i: was 0.3
         : [{make:()=>trioFusionOffer(rng), weight:0.4}]),  // v0.51i: was 0.6
@@ -8021,14 +8033,14 @@ function fusedDoubleOffer(L){
   return {kind:"Tile",rarity:"rare",name:"Fused "+L+"+"+L,
     desc:"One tile fusing two "+L+"s. Play it as a single "+L+", or as "+L+L+" together.",
     price:fuseTilePrice(px(price)),
-    art:`<span class="mini-tile" style="background:linear-gradient(180deg,#EAF3EF,#D8E8E0);border-color:#A9CcBD;font-size:.74rem;font-family:var(--serif)">${L}${L}<span class="mv">${v*2}</span></span>`,
+    art:`<span class="mini-tile" style="background:linear-gradient(180deg,#F3EEFB,#E4DAF4);border-color:#C3B2E0;font-size:.74rem;font-family:var(--serif)">${L}${L}<span class="mv">${v*2}</span></span>`,
     d:{type:"fusedPair", a:L, b:L}};
 }
 function fusedQUOffer(){   // v0.51i: a common Q+U tile
   return {kind:"Tile",rarity:"common",name:"Fused Q+U",
     desc:"One tile fusing Q and U. Play it as either letter, or as QU.",
     price:fuseTilePrice(px(7)),
-    art:`<span class="mini-tile" style="background:linear-gradient(180deg,#EAF3EF,#D8E8E0);border-color:#A9CcBD;font-size:.74rem;font-family:var(--serif)">QU<span class="mv">11</span></span>`,
+    art:`<span class="mini-tile" style="background:linear-gradient(180deg,#F3EEFB,#E4DAF4);border-color:#C3B2E0;font-size:.74rem;font-family:var(--serif)">QU<span class="mv">11</span></span>`,
     d:{type:"fusedPair", a:"Q", b:"U"}};
 }
 function fusedEROffer(){
@@ -8036,7 +8048,7 @@ function fusedEROffer(){
   return {kind:"Tile",rarity:"rare",name:"Fused E+R",
     desc:"One tile fusing E and R. Play it as either letter, or as the pair in either order.",
     price:fuseTilePrice(px(7)),
-    art:`<span class="mini-tile" style="background:linear-gradient(180deg,#EAF3EF,#D8E8E0);border-color:#A9CcBD;font-size:.74rem;font-family:var(--serif)">ER<span class="mv">2</span></span>`,
+    art:`<span class="mini-tile" style="background:linear-gradient(180deg,#F3EEFB,#E4DAF4);border-color:#C3B2E0;font-size:.74rem;font-family:var(--serif)">ER<span class="mv">2</span></span>`,
     d:{type:"fusedPair", a:"E", b:"R"}};
 }
 function lucky7Offer(){
@@ -8340,7 +8352,7 @@ function openDeck(mode){
   else if(mode==="dealer"){ hint.textContent="Tap a tile in your draw pile to pull it into your hand."; hint.className="select-hint gild"; }
   else if(mode==="gemini"){ hint.textContent="Tap a letter to twin. The copy shares every upgrade with the original, both ways."; hint.className="select-hint gild"; }
   else if(mode==="goldStandard"){ hint.textContent="Tap a letter. Every copy of it, present and future, arrives gilded once and golden."; hint.className="select-hint gild"; }
-  else if(mode==="triofuse"){ hint.textContent="Tap the fused pair to build on."; hint.className="select-hint gild"; }
+  else if(mode==="triofuse"){ hint.textContent="Tap a two-letter fused tile to build on."; hint.className="select-hint gild"; }
   else if(mode==="freegild"){ hint.textContent="Tap any tile to gild it, free. Its points double."; hint.className="select-hint gild"; }
   else hint.classList.add("hidden");
   if(mode){ hint.classList.remove("hidden"); }
@@ -8408,7 +8420,7 @@ function deckTileEl(c){
   if(G.selectMode==="department" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); pickOn(wrap,c,()=>doDepartmentPick(c.id)); }
   if(G.selectMode==="fuse" && c.kind==="letter"){ wrap.classList.add("selectable","gild"); if(G.fusePending===c.id) wrap.classList.add("fuse-pending"); wrap.addEventListener("click",()=>tapFuse(c.id)); }
   if(G.selectMode==="triofuse"){
-    if(G.trioPairPending==null && c.kind==="fused"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>tapTrioFuse(c.id)); }
+    if(G.trioPairPending==null && trioBaseOk(c)){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>tapTrioFuse(c.id)); }
     if(G.trioPairPending!=null){
       if(c.id===G.trioPairPending){ wrap.classList.add("fuse-pending"); wrap.addEventListener("click",()=>tapTrioFuse(c.id)); }
       else if(c.kind==="letter"){ wrap.classList.add("selectable","gild"); wrap.addEventListener("click",()=>tapTrioFuse(c.id)); }
@@ -8587,10 +8599,7 @@ function buildStaticTile(c){
     return t;
   }
   if(c.kind==="combo"){
-    t.classList.add("combo");
-    const g=document.createElement("span"); g.className="combo-label"; g.innerHTML=comboLabelHtml(c); t.appendChild(g);
-    const v=document.createElement("span"); v.className="val"; v.textContent=comboValue(c); t.appendChild(v);
-    const cm=document.createElement("span"); cm.className="clone-mark"; cm.textContent="✚"; t.appendChild(cm);
+    comboDomino(t,c,null);   // v0.51l
     tileBadges(t,c);
     return t;
   }
@@ -8702,17 +8711,23 @@ function tapFuse(id){
   showFuseConfirm(a,c);
 }
 let trioFusePendingPair=null;
+/* v0.51l: a triple fusion can build on any two-letter fused tile: a fused pair or a
+   two-letter Scholar tile (RE-, -ER, -ED). Three-letter Scholar tiles are already full. */
+function trioBaseOk(c){ return !!c && (c.kind==="fused" || (c.kind==="combo" && comboBase(c).length===2)); }
+function trioBaseLetters(c){ return c.kind==="fused" ? [c.sides[0].letter, c.sides[1].letter] : comboOrder(c).map(i=>comboBase(c)[i]); }
+function trioBaseLabel(c){ return c.kind==="fused" ? fusedLabel(c) : trioBaseLetters(c).join(""); }
+function trioBaseValue(c){ return c.kind==="fused" ? fusedValue(c) : comboBase(c).length*Math.pow(2,c.upLevel||0); }   // every letter, muted or not
 function tapTrioFuse(id){
   const c=G.deck.find(x=>x.id===id); if(!c) return;
   if(G.trioPairPending==null){
-    if(c.kind!=="fused") return;
+    if(!trioBaseOk(c)) return;
     G.trioPairPending=id;
-    $("selectHint").textContent="Now pick the letter to add to "+fusedLabel(c)+".";
+    $("selectHint").textContent="Now pick the letter to add to "+trioBaseLabel(c)+".";
     renderDeck(); return;
   }
   if(G.trioPairPending===id){   // tapped the pair again -> deselect
     G.trioPairPending=null;
-    $("selectHint").textContent="Tap the fused pair to build on.";
+    $("selectHint").textContent="Tap a two-letter fused tile to build on.";
     renderDeck(); return;
   }
   if(c.kind!=="letter") return;
@@ -8725,7 +8740,7 @@ function showTrioFuseConfirm(pair,letter){
   const cost=fusionCost(px(6)+letterAcquireCost(letter.letter, letter.upLevel||0));   // v0.5g: old fee + letter, squeezed to 5..20
   trioFusePendingPair={pairId:pair.id, letterId:letter.id, cost};
   fusePendingPair=null;
-  $("fuseMsg").innerHTML=`<b>${fusedLabel(pair)}</b> ${fusedValue(pair)} pts &nbsp;+&nbsp; <b>${letter.letter}</b> ${fusedSideValue(letter)} pts<br><span class="gild-note">one three letter slug, arranged at will · gilds carry over</span>`;
+  $("fuseMsg").innerHTML=`<b>${trioBaseLabel(pair)}</b> ${trioBaseValue(pair)} pts &nbsp;+&nbsp; <b>${letter.letter}</b> ${fusedSideValue(letter)} pts<br><span class="gild-note">one three letter slug, arranged at will · gilds carry over</span>`;
   $("fusePrice").innerHTML=`<span class="c-ico">◉</span>${cost}`;
   const yes=$("fuseYes"); yes.disabled=G.coins<cost;
   yes.textContent = G.coins<cost ? "Not enough ◉" : "Forge for ◉"+cost;
@@ -8742,7 +8757,7 @@ function confirmTrioFuse(){
   // (v492e: gilds carried on fused SIDES count too, matching the mult scan below)
   const up=Math.max(pair.upLevel||0, letter.upLevel||0, ...(pair.sides||[]).map(sd=>sd.upLevel||0));
   const mult=Math.max(pair.mult||1, letter.mult||1, ...(pair.sides||[]).map(sd=>sd.mult||1));
-  const trio=makeTrioCard([pair.sides[0].letter, pair.sides[1].letter, letter.letter], up, mult);
+  const trio=makeTrioCard([...trioBaseLetters(pair), letter.letter], up, mult);   // v0.51l: pair or two-letter Scholar tile
   // v492e: stamps carry over too, from the pair (either side or the whole tile)
   // and from the letter. Growth keeps the highest counter already earned.
   ["foil","watermark","encore","boldface","dropcap","serif","ditto","inkwell"].forEach(k=>{
