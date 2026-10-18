@@ -1743,7 +1743,7 @@ input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:tex
 <script src="letterati-dictionary.js"></script>
 <script src="letterati-verbs.js"></script>
 <script src="letterati-common.js"></script>
-<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51p",inferQuitOnPagehide:false};</script>
+<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51q",inferQuitOnPagehide:false};</script>
 <script>
 /* ============================================================
    pbs-telemetry.js: PBS Games shared telemetry module (v1.1)
@@ -2211,7 +2211,7 @@ const TWO_LETTER_DROPPED = [];
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "0.51p";
+const VERSION = "0.51q";
 /* v0.51a analytics: PGames event stream (PBS Games Analytics Approach v1).
    Each call is one push onto the telemetry queue inside try/catch. The network
    runs on the module's own timer, so nothing here can slow scoring or throw into
@@ -3952,6 +3952,13 @@ function _boom(at, dur, vol, f0, f1){
   g2.gain.setValueAtTime(vol*0.5,t); g2.gain.exponentialRampToValueAtTime(0.0001,t+0.09);
   o2.connect(g2); g2.connect(ac.destination); o2.start(t); o2.stop(t+0.11);
 }
+/* v0.51q: hit stop pickup. A quiet bell on G5 with a softer G4 under it. G is the
+   fifth of the C major chime that fires on release, so the freeze sets up the payoff
+   instead of buzzing over it. Pure sines, gentle attack, short ring. */
+function hitstopChime(){
+  _bell(783.99, 0, 0.26, 0.06);
+  _bell(392.00, 0.004, 0.22, 0.045);
+}
 function wordChime(len){
   const ac=audio(); if(!ac) return;
   const L=Math.min(Math.max(2, len|0), 12);
@@ -4027,7 +4034,7 @@ function tallyWord(tiles, sc, power, done){
     el.textContent=String(sc.total);
     el.classList.remove("pop"); el.classList.add("big");
     $("canvas").classList.add("hitstop");
-    _tone(150, 0.10, 0.085, "sawtooth");
+    hitstopChime();   // v0.51q: was a 150 Hz sawtooth buzz
     haptic(22);
   }, end+30);
   // release: the payoff fires and the letters settle on damped springs
