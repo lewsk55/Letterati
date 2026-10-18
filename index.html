@@ -1683,7 +1683,7 @@ input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:tex
 <script src="letterati-dictionary.js"></script>
 <script src="letterati-verbs.js"></script>
 <script src="letterati-common.js"></script>
-<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51l",inferQuitOnPagehide:false};</script>
+<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51m",inferQuitOnPagehide:false};</script>
 <script>
 /* ============================================================
    pbs-telemetry.js: PBS Games shared telemetry module (v1.1)
@@ -2151,7 +2151,7 @@ const TWO_LETTER_DROPPED = [];
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "0.51l";
+const VERSION = "0.51m";
 /* v0.51a analytics: PGames event stream (PBS Games Analytics Approach v1).
    Each call is one push onto the telemetry queue inside try/catch. The network
    runs on the module's own timer, so nothing here can slow scoring or throw into
@@ -7137,8 +7137,10 @@ function buildShopPool(){
      that is what the shelf kept offering. The spotlight offers a high-value
      letter you own but have barely played, so a second plan is always on the
      shelf. Appended AFTER the seeded roll, so seeded slots are untouched. */
-  { const sp=spotlightGildOffer(rng, shelfOut);
-    if(sp) shelfOut.push({...sp, sold:false}); }
+  { const sp=spotlightGildOffer(rng, shelfOut);   // v0.51m: takes a plain-letter seat, so the shelf stays at 6 (8 with Super Store)
+    if(sp){ const plain=o=>o.kind==="Letter" && o.d && o.d.type==="letter" && !o.d.foil && !(o.d.gild>0) && !((o.d.mult||1)>1);
+      let seat=-1; for(let k=0;k<N-perSide;k++){ if(plain(shelfOut[k])){ seat=k; break; } }
+      if(seat>=0) shelfOut[seat]={...sp, sold:false}; } }
   rollSales(shelfOut,rng);
   if(G.perks.classifieds) shelfOut.forEach(o=>{ if(o.kind==="Letter" && o.price>1) o.price-=1; });   // v0.51b Classifieds
   G.shopSeen=[...new Set([...(G.shopSeen||[]), ...shelfOut.map(o=>o.name)])];   // remember across rerolls
@@ -8144,7 +8146,8 @@ function shopSnapshot(){
     statBought:(G._curShop?G._curShop.bought.length:null), statRerolls:(G._curShop?G._curShop.rerolls:null),
     perks:JSON.parse(JSON.stringify(G.perks)),
     deck:G.deck.map(c=>({...c, ...(c.sides?{sides:c.sides.map(sd=>({...sd}))}:{})})),
-    offers:G.shopOffers.map(o=>({...o, d:{...o.d}}))
+    offers:G.shopOffers.map(o=>({...o, d:{...o.d}})),
+    shopSeen:(G.shopSeen||[]).slice()   // v0.51m: a reroll after an undo must roll the same shelf
   };
 }
 function pushShopUndo(){ G.shopUndo.push(shopSnapshot()); if(G.shopUndo.length>40) G.shopUndo.shift(); }
@@ -8154,6 +8157,7 @@ function shopUndo(){
   G.coins=s.coins; G.handSize=s.handSize; G.extraDiscards=s.extraDiscards; G.extraTurns=s.extraTurns;
   G.scoreMult=s.scoreMult; G.pressGrowth=s.pressGrowth||0; G.heavyPress=s.heavyPress||0; G.hearts=s.hearts; G.rerollCount=s.rerollCount; G.freeRerollUsed=s.freeRerollUsed;
   G.fuseOfferIdx=(s.fuseOfferIdx!=null?s.fuseOfferIdx:null); G.fusePending=null; G.perks=s.perks; G.deck=s.deck; G.shopOffers=s.offers;
+  if(Array.isArray(s.shopSeen)) G.shopSeen=s.shopSeen.slice();   // v0.51m
   if(s.pendingFreeGild!=null) G.pendingFreeGild=s.pendingFreeGild;   // v0.5a: undoing a free gild gives it back
   if(G._curShop && s.statBought!=null){   // v0.51a: an undone buy or reroll no longer counts in the run stats
     const gone=G._curShop.bought.splice(s.statBought);
