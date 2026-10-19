@@ -1743,7 +1743,7 @@ input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:tex
 <script src="letterati-dictionary.js"></script>
 <script src="letterati-verbs.js"></script>
 <script src="letterati-common.js"></script>
-<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51q",inferQuitOnPagehide:false};</script>
+<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51r",inferQuitOnPagehide:false};</script>
 <script>
 /* ============================================================
    pbs-telemetry.js: PBS Games shared telemetry module (v1.1)
@@ -2211,7 +2211,7 @@ const TWO_LETTER_DROPPED = [];
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "0.51q";
+const VERSION = "0.51r";
 /* v0.51a analytics: PGames event stream (PBS Games Analytics Approach v1).
    Each call is one push onto the telemetry queue inside try/catch. The network
    runs on the module's own timer, so nothing here can slow scoring or throw into
@@ -2333,10 +2333,16 @@ function bossTypeFor(seed, stage){
   const rng=makeRng("boss2:"+seed);
   return pool[Math.floor(rng()*pool.length)];
 }
+/* v0.51r: a capped-length desk (Short King) also skips Perfect Type, whose five letter
+   floor is out of reach with a five letter cap. The A5 second proof avoids whatever the
+   first proof became after the swap, not just its pre-swap roll. */
+const CAPPED_SKIP_BOSSES=new Set(["ghost","perfect"]);
 function liveBossTypeFor(seed, stage){
   const t=bossTypeFor(seed, stage);
-  if(t!=="ghost" || wordCap()>=99) return t;
-  const pool=BOSS_ORDER.filter(x=>x!=="ghost" && x!==(stage?bossTypeFor(seed,0):null));
+  if(wordCap()>=99) return t;
+  const first=stage ? liveBossTypeFor(seed,0) : null;
+  if(!CAPPED_SKIP_BOSSES.has(t) && t!==first) return t;
+  const pool=BOSS_ORDER.filter(x=>!CAPPED_SKIP_BOSSES.has(x) && x!==first);
   const rng=makeRng("boss-sk:"+seed+":"+(stage||0));
   return pool[Math.floor(rng()*pool.length)];
 }
@@ -2346,6 +2352,11 @@ function bossActive(){ return !!(G.boss && G.boss.active && G.level===WIN_LEVEL 
 function normalizeBoss(){
   if(G.boss && G.boss.type && !BOSS_TYPES[G.boss.type]){
     G.boss.type=liveBossTypeFor(G.seed); G.boss.introSeen=false;
+  }
+  // v0.51r: a Short King run saved before this build may have Perfect Type waiting.
+  // Swap it while the proof is still ahead; a proof already under way plays out.
+  if(G.boss && G.boss.type && wordCap()<99 && CAPPED_SKIP_BOSSES.has(G.boss.type) && !(G.boss.active && G.level===WIN_LEVEL)){
+    G.boss.type=liveBossTypeFor(G.seed, G.proofStage||0); G.boss.introSeen=false;
   }
 }
 const CHALLENGE_REWARDS = {
@@ -2399,11 +2410,23 @@ function rollUpgradeVariant(level){
   if(v==="stamp"){ const ks=Object.keys(STAMP_NAMES); return {kind:"stamp", stamp:ks[Math.floor(rng()*ks.length)]}; }
   return {kind:v};
 }
+/* v0.51r: what each stamp does, matching its shop card, so a challenge reward never
+   names a stamp without explaining it. */
+const STAMP_EFFECTS={
+  foil:"Its value doubles the first time you play it each round.",
+  boldface:"It counts as two letters toward word length.",
+  dropcap:"It scores triple as the first letter of a word.",
+  serif:"Its value doubles as the first or last letter of a word.",
+  ditto:"It copies the highest value of the other tiles in the word.",
+  inkwell:"You earn $1 every time you play it.",
+  encore:"After you play it, it returns to the top of your pile.",
+  watermark:"It is always in your opening hand each round."
+};
 function upgradeRewardText(u){
-  if(!u || u.kind==="gild") return {badge:"FREE GILD", name:"Your pick of gild", desc:"Gild any tile you own, free, at the next shop."};
+  if(!u || u.kind==="gild") return {badge:"FREE GILD", name:"Your pick of gild", desc:"Gild any tile you own, free, at the next shop. Gilding doubles that tile's points."};
   if(u.kind==="golden") return {badge:"GOLDEN ×"+u.mult, name:"Golden ×"+u.mult+" letter", desc:"Make any letter you own golden: every word with it scores ×"+u.mult+". "+u.tier[0].toUpperCase()+u.tier.slice(1)+" roll."};
-  if(u.kind==="stamp") return {badge:"FREE STAMP", name:"Free "+STAMP_NAMES[u.stamp], desc:"Place a "+STAMP_NAMES[u.stamp]+" on any tile you own, free, at the next shop."};
-  return {badge:"FREE FUSION", name:"Free letter fusion", desc:"Fuse any two letters you own into one tile, free, at the next shop."};
+  if(u.kind==="stamp") return {badge:"FREE STAMP", name:"Free "+STAMP_NAMES[u.stamp], desc:"Place "+(/^[AEIOU]/.test(STAMP_NAMES[u.stamp])?"an ":"a ")+STAMP_NAMES[u.stamp]+" on any tile you own, free, at the next shop. "+(STAMP_EFFECTS[u.stamp]||"")};
+  return {badge:"FREE FUSION", name:"Free letter fusion", desc:"Fuse any two letters you own into one tile, free, at the next shop. The tile plays both letters at once."};
 }
 function challengeUpgradeLetterFor(level){
   const rng=makeRng("chupg:"+level);
@@ -5720,7 +5743,8 @@ function useTriptych(card){
   save();
 }
 function useDealersChoice(card){
-  if(!G.drawPile || G.drawPile.length===0){ toast("Your draw pile is empty"); haptic(8); return; }
+  // v0.51r: the discard counts too, so only refuse when both piles are empty
+  if(!(G.drawPile||[]).length && !(G.played||[]).length){ toast("Your draw and discard piles are empty"); haptic(8); return; }
   G._dealerCardId=card.id;
   openDeck("dealer");
 }
@@ -6474,6 +6498,7 @@ function submitWord(){
   sideJobOnWord(res, sc.total, G.levelStats.words===1);   // v0.5a
   if(!sc.mysteryHit && G.perks.onTheBeat && G.mystery && G.mystery.word) G.beatStreak=0;
   if(sc.mysteryHit){
+    retireMystery(G.mystery);   // v0.51r: never offered again this run
     if(!charHas("unlimitedMystery")) G.mysterySolvedLevel=G.level;   // Detective is never locked out for the round
     toast("Mystery word! "+String(G.mystery.word).toUpperCase()+" scores ×"+sc.mysteryMult);
     if(G.stats && G.stats.mystery){ const ev=[...G.stats.mystery].reverse().find(e=>e.answer===G.mystery.word && !e.solved); if(ev){ ev.solved=true; ev.mult=sc.mysteryMult; ev.word=w.toUpperCase(); } }
@@ -7602,7 +7627,7 @@ function triptychOffer(){
 }
 function dealersChoiceOffer(){
   return {kind:"Card",rarity:"epic",name:"Dealer's Choice",
-    desc:"Tap it in your hand to pull any tile from your draw pile or discard. This card takes its place.",
+    desc:"Tap it in your hand to pull any tile from your draw pile or your discard pile. This card takes its place.",
     price:px(13), art:`<span class="mini-tile" style="background:linear-gradient(180deg,#EEF3FA,#D8E4F2);border-color:#9FB9D6">🎴</span>`,
     d:{type:"dealer"}};
 }
@@ -8239,7 +8264,7 @@ function appendShopExtras(){
   const n=+G.pendingFreeGild||0;
   if(n>0 && gildTargets().length){
     G.shopOffers.unshift({kind:"Upgrade",rarity:"rare",name:"Your pick of gild",
-      desc:"Challenge reward. Tap any tile to gild it, free."+(n>1?" You have "+n+" banked.":""),
+      desc:"Challenge reward. Tap any tile to gild it, free. Its points double."+(n>1?" You have "+n+" banked.":""),
       price:0, pinned:true, sold:false, needsTarget:"freegild", art:"✨", d:{type:"freeGild"}});
   }
 }
@@ -8472,7 +8497,7 @@ function openDeck(mode){
   else if(mode==="watermark"){ hint.textContent="Tap a tile. It is always in your opening hand each round."; hint.className="select-hint"; }
   else if(mode==="department"){ hint.textContent="Tap a letter. Its whole family joins the Department."; hint.className="select-hint"; }
   else if(mode==="fuse"){ hint.textContent="Tap two letters to fuse into one tile. Pick the first."; hint.className="select-hint gild"; }
-  else if(mode==="dealer"){ hint.textContent="Tap a tile in your draw pile to pull it into your hand."; hint.className="select-hint gild"; }
+  else if(mode==="dealer"){ hint.textContent="Tap a tile in your draw or discard pile to pull it into your hand."; hint.className="select-hint gild"; }
   else if(mode==="gemini"){ hint.textContent="Tap a letter to twin. The copy shares every upgrade with the original, both ways."; hint.className="select-hint gild"; }
   else if(mode==="goldStandard"){ hint.textContent="Tap a letter. Every copy of it, present and future, arrives gilded once and golden."; hint.className="select-hint gild"; }
   else if(mode==="triofuse"){ hint.textContent="Tap a two-letter fused tile to build on."; hint.className="select-hint gild"; }
@@ -8565,8 +8590,21 @@ function renderDeck(){
   const inPlay = !$("play").classList.contains("hidden");
   const grouped = inPlay && !G.selectMode;   // pile split only mid-round, never while picking a target
   if(G.selectMode==="dealer"){
-    list.className="deck-list";
-    [...G.drawPile, ...(G.played||[])].sort(sortFn).forEach(c=>list.appendChild(deckTileEl(c)));   // v495a: draw pile AND discard
+    // v0.51r: the two piles were mixed into one sorted grid, so discards read as draw
+    // pile tiles. They now sit in their own labeled groups.
+    list.classList.remove("deck-list");
+    [{label:"Draw pile", cards:G.drawPile.slice(), empty:"Empty."},
+     {label:"Discard", cards:(G.played||[]).slice(), empty:"Nothing in your discard yet this round."}].forEach(g=>{
+      const sec=document.createElement("div"); sec.className="deck-group";
+      const head=document.createElement("div"); head.className="dg-head";
+      head.innerHTML=`<span>${g.label}</span><span class="dg-count">${g.cards.length}</span>`;
+      sec.appendChild(head);
+      const row=document.createElement("div"); row.className="dg-row";
+      if(g.cards.length){ g.cards.sort(sortFn).forEach(c=>row.appendChild(deckTileEl(c))); }
+      else { const e=document.createElement("div"); e.className="dg-empty"; e.textContent=g.empty; row.appendChild(e); }
+      sec.appendChild(row);
+      list.appendChild(sec);
+    });
   } else if(grouped){
     list.classList.remove("deck-list");
     const inHand=[...G.hand,...G.canvas];
@@ -9744,7 +9782,7 @@ async function refreshMystery(force){
   if(G.mysterySolvedLevel===G.level && !charHas("unlimitedMystery")){ G._mysteryLoading=false; G._noMysteryMsg=false; G.mystery=null; renderMystery(); return; }
   // Smoking Gun: one clue for the whole round, so an existing clue is kept.
   if(!force && mysteryPerRound() && G.mystery && G.mysteryLevel===G.level){ renderMystery(); return; }
-  const cands=mysteryCandidates(8).filter(w=>!(G.mysterySkip||[]).includes(w));
+  const cands=mysteryCandidates(8).filter(w=>!(G.mysterySkip||[]).includes(w) && !(G.mysteryDone||[]).includes(w));   // v0.51r: solved words stay retired
   if(!cands.length){ noMysteryFallback(); return; }
   // v498d: a warm cache should never show a spinner. Decide synchronously first;
   // this is the same preference walk as below, just over what we already hold.
@@ -9763,6 +9801,18 @@ async function refreshMystery(force){
   G._mysteryLoading=false;
   if(found){ setMystery(found.w, found.d); prefetchMystery(); return; }
   noMysteryFallback();                          // nothing clean: apologise and hand back a discard
+}
+/* v0.51r: once a mystery word is solved it is out of circulation for the run. Both the
+   word and its definition text are retired, so a different word that happens to share
+   the same definition cannot bring the clue back either. */
+function mysteryDefKey(def){ return String(def||"").toLowerCase().replace(/\s+/g," ").trim(); }
+function mysteryDefRetired(def){ const k=mysteryDefKey(def); return !!k && (G.mysteryDoneDefs||[]).includes(k); }
+function retireMystery(m){
+  if(!m || !m.word) return;
+  if(!G.mysteryDone) G.mysteryDone=[];
+  if(!G.mysteryDoneDefs) G.mysteryDoneDefs=[];
+  if(!G.mysteryDone.includes(m.word)) G.mysteryDone.push(m.word);
+  const k=mysteryDefKey(m.def); if(k && !G.mysteryDoneDefs.includes(k)) G.mysteryDoneDefs.push(k);
 }
 /* Commit a clue and tag its rarity. */
 function setMystery(w, d){
@@ -9785,7 +9835,7 @@ function cachedDecision(words){
     const w=words[i];
     if(!(w in defCache)) return {pending:true};
     const d=defCache[w];
-    if(d && d.def && !defRevealsWord(d.def,w)) return {hit:{w,d}};
+    if(d && d.def && !defRevealsWord(d.def,w) && !mysteryDefRetired(d.def)) return {hit:{w,d}};
   }
   return {none:true};
 }
@@ -9808,7 +9858,7 @@ function firstCleanInOrder(words){
       if(cursor>=n){ settled=true; resolve(null); }
     };
     words.forEach((w,i)=>{
-      const settle=d=>{ state[i]=(d && d.def && !defRevealsWord(d.def,w)) ? d : null; advance(); };
+      const settle=d=>{ state[i]=(d && d.def && !defRevealsWord(d.def,w) && !mysteryDefRetired(d.def)) ? d : null; advance(); };
       try{ lookupDefinition(w).then(settle, ()=>settle(null)); }
       catch(e){ settle(null); }
     });
@@ -10277,7 +10327,7 @@ function save(){
       rfStreak:G._rfStreak||0, tgN:G._tgN||0, qsRound:(G._qsRound==null?null:G._qsRound),
       roStreak:G._roStreak||0, longest:(G._longest||null), moUsed:!!G._moUsed,
       swRound:(G._swRound==null?null:G._swRound), ptNext:!!G._ptNext, pendingRewards:(G.pendingRewards||[]),
-      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), roundLengths:(G.roundLengths||[]), standingDone:!!G.standingDone, _marginsApplied:(+G._marginsApplied||0), overtime:!!G.overtime, deadlineExtRound:(G.deadlineExtRound==null?null:G.deadlineExtRound), midnightRound:(G.midnightRound==null?null:G.midnightRound), secondEdRound:(G.secondEdRound==null?null:G.secondEdRound), secondEdHalf:!!G.secondEdHalf, boss:(G.boss||null), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0, justStacks:G.justStacks||0, lastWordLen:(G.lastWordLen==null?null:G.lastWordLen), lastWordFirst:(G.lastWordFirst||null), lastWordLast:(G.lastWordLast||null), wetProofPending:!!G.wetProofPending, inkPtsPending:G.inkPtsPending||0, compositorRound:(G.compositorRound==null?null:G.compositorRound), foulLetter:(G.foulLetter||null), formeWord:(G.formeWord||null), formeIds:(G.formeIds||[]).map(String), discardBin:ids(G.discardBin||[]), editsLeft:(G.editsLeft==null?null:G.editsLeft), mystery:(G.mystery||null), mysterySolvedLevel:(G.mysterySolvedLevel==null?null:G.mysterySolvedLevel), mysterySolves:G.mysterySolves||0, beatStreak:G.beatStreak||0, mysteryLevel:(G.mysteryLevel==null?null:G.mysteryLevel), mysterySkip:(G.mysterySkip||[]), secondOpinionRound:(G.secondOpinionRound==null?null:G.secondOpinionRound),
+      drawPile:ids(G.drawPile), hand:ids(G.hand), canvas:ids(G.canvas), played:ids(G.played||[]), pileReshuffles:G.pileReshuffles||0, lucky7Stash:(G.lucky7Stash||[]), shopSeen:(G.shopSeen||[]), roundLengths:(G.roundLengths||[]), standingDone:!!G.standingDone, _marginsApplied:(+G._marginsApplied||0), overtime:!!G.overtime, deadlineExtRound:(G.deadlineExtRound==null?null:G.deadlineExtRound), midnightRound:(G.midnightRound==null?null:G.midnightRound), secondEdRound:(G.secondEdRound==null?null:G.secondEdRound), secondEdHalf:!!G.secondEdHalf, boss:(G.boss||null), anagramSigs:G.anagramSigs||{}, anthologyCount:G.anthologyCount||0, abcSeen:G.abcSeen||{}, lastWordLetters:G.lastWordLetters||null, pulpPending:G.pulpPending||0, justStacks:G.justStacks||0, lastWordLen:(G.lastWordLen==null?null:G.lastWordLen), lastWordFirst:(G.lastWordFirst||null), lastWordLast:(G.lastWordLast||null), wetProofPending:!!G.wetProofPending, inkPtsPending:G.inkPtsPending||0, compositorRound:(G.compositorRound==null?null:G.compositorRound), foulLetter:(G.foulLetter||null), formeWord:(G.formeWord||null), formeIds:(G.formeIds||[]).map(String), discardBin:ids(G.discardBin||[]), editsLeft:(G.editsLeft==null?null:G.editsLeft), mystery:(G.mystery||null), mysterySolvedLevel:(G.mysterySolvedLevel==null?null:G.mysterySolvedLevel), mysterySolves:G.mysterySolves||0, beatStreak:G.beatStreak||0, mysteryLevel:(G.mysteryLevel==null?null:G.mysteryLevel), mysterySkip:(G.mysterySkip||[]), mysteryDone:(G.mysteryDone||[]), mysteryDoneDefs:(G.mysteryDoneDefs||[]), secondOpinionRound:(G.secondOpinionRound==null?null:G.secondOpinionRound),
       rerollCount:G.rerollCount, freeRerollUsed:G.freeRerollUsed, letterPlays:G.letterPlays||{}, offers:(G.shopOffers||[]).map(o=>({kind:o.kind,rarity:o.rarity,name:o.name,desc:o.desc,price:o.price,art:o.art,needsTarget:o.needsTarget||null,sold:!!o.sold,d:o.d}))
     };
     localStorage.setItem(SAVE_KEY,JSON.stringify(data));
@@ -10326,7 +10376,7 @@ function continueRun(){
   G.overtime=!!d.overtime; G.deadlineExtRound=(d.deadlineExtRound==null?null:d.deadlineExtRound); G.midnightRound=(d.midnightRound==null?null:d.midnightRound);
   G.secondEdRound=(d.secondEdRound==null?null:d.secondEdRound); G.secondEdHalf=!!d.secondEdHalf; G.lastPlay=null;
   G.boss=d.boss||null; normalizeBoss(); if(G.boss&&G.boss.active&&G.level===WIN_LEVEL) document.body.classList.add("boss-round");
-  G.anagramSigs=d.anagramSigs||{}; G.anthologyCount=d.anthologyCount||0; G.letterPlays=d.letterPlays||{}; G.abcSeen=d.abcSeen||{}; G.lastWordLetters=d.lastWordLetters||null; G.pulpPending=d.pulpPending||0; G.justStacks=d.justStacks||0; G.lastWordLen=(d.lastWordLen==null?null:d.lastWordLen); G.lastWordFirst=d.lastWordFirst||null; G.lastWordLast=d.lastWordLast||null; G.wetProofPending=!!d.wetProofPending; G.inkPtsPending=d.inkPtsPending||0; G.compositorRound=(d.compositorRound==null?null:d.compositorRound); G.foulLetter=d.foulLetter||null; G.formeWord=d.formeWord||null; G.formeIds=Array.isArray(d.formeIds)?d.formeIds.map(String):[]; G.editsLeft=(d.editsLeft==null?null:d.editsLeft); G.mystery=d.mystery||null; G.mysterySolvedLevel=(d.mysterySolvedLevel==null?null:d.mysterySolvedLevel); G.mysterySolves=d.mysterySolves||0; G.beatStreak=d.beatStreak||0; G.mysteryLevel=(d.mysteryLevel==null?null:d.mysteryLevel); G.mysterySkip=d.mysterySkip||[]; G.secondOpinionRound=(d.secondOpinionRound==null?null:d.secondOpinionRound); G._mysteryLoading=false;
+  G.anagramSigs=d.anagramSigs||{}; G.anthologyCount=d.anthologyCount||0; G.letterPlays=d.letterPlays||{}; G.abcSeen=d.abcSeen||{}; G.lastWordLetters=d.lastWordLetters||null; G.pulpPending=d.pulpPending||0; G.justStacks=d.justStacks||0; G.lastWordLen=(d.lastWordLen==null?null:d.lastWordLen); G.lastWordFirst=d.lastWordFirst||null; G.lastWordLast=d.lastWordLast||null; G.wetProofPending=!!d.wetProofPending; G.inkPtsPending=d.inkPtsPending||0; G.compositorRound=(d.compositorRound==null?null:d.compositorRound); G.foulLetter=d.foulLetter||null; G.formeWord=d.formeWord||null; G.formeIds=Array.isArray(d.formeIds)?d.formeIds.map(String):[]; G.editsLeft=(d.editsLeft==null?null:d.editsLeft); G.mystery=d.mystery||null; G.mysterySolvedLevel=(d.mysterySolvedLevel==null?null:d.mysterySolvedLevel); G.mysterySolves=d.mysterySolves||0; G.beatStreak=d.beatStreak||0; G.mysteryLevel=(d.mysteryLevel==null?null:d.mysteryLevel); G.mysterySkip=d.mysterySkip||[]; G.mysteryDone=d.mysteryDone||[]; G.mysteryDoneDefs=d.mysteryDoneDefs||[]; G.secondOpinionRound=(d.secondOpinionRound==null?null:d.secondOpinionRound); G._mysteryLoading=false;
   // v491h migration: Free jazz is retired; strip any lingering jazz cards from a
   // saved run so nothing unplayable sits in a pile.
   { const noJazz=a=>Array.isArray(a)?a.filter(c=>c.kind!=="jazz"):a;
@@ -10561,7 +10611,7 @@ function newRun(seed, charId, asc, mode){
   G.attempt=0; G.best=1; G.shopOffers=[]; G.runMs=0;
   G.challenge=null; G.challengePending=null; G._rescues=0;   // never carry a challenge into a fresh run
   G.foulLetter=null; G.formeWord=null; G.formeIds=[]; G.editsLeft=null; G.discardBin=[]; G.discardArmed=false;
-  G.mystery=null; G.mysterySolvedLevel=null; G.mysterySolves=0; G.beatStreak=0; G.mysteryLevel=null; G.mysterySkip=[]; G.secondOpinionRound=null; G._mysteryLoading=false; G._noMysteryMsg=false; G._noMysteryKey=null;
+  G.mystery=null; G.mysterySolvedLevel=null; G.mysterySolves=0; G.beatStreak=0; G.mysteryLevel=null; G.mysterySkip=[]; G.mysteryDone=[]; G.mysteryDoneDefs=[]; G.secondOpinionRound=null; G._mysteryLoading=false; G._noMysteryMsg=false; G._noMysteryKey=null;
   G.letterPlays={}; G._dealerCardId=null; G._qsRound=null; G._rfStreak=0; G._tgN=0; G._swRound=null; G._ptNext=false; G.pendingRewards=[];
   G.shopSeen=[];
   G.boss=null; document.body.classList.remove("boss-round");
