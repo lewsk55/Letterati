@@ -46,4 +46,4 @@ python3 tools/patches/patch_051q.py index.html letterati_v0.51q.html
 3. Keep the versioned file too (Adam's Mac folder holds every version).
 4. Update the project doc for the version.
 
-Push only when Adam asks.
+Push live automatically once a build passes the checks (Adam's standing rule since Oct 20, 2026). No need to wait for his ok.
