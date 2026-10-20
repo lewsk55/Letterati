@@ -1743,7 +1743,7 @@ input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:tex
 <script src="letterati-dictionary.js"></script>
 <script src="letterati-verbs.js"></script>
 <script src="letterati-common.js"></script>
-<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51r",inferQuitOnPagehide:false};</script>
+<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51s",inferQuitOnPagehide:false};</script>
 <script>
 /* ============================================================
    pbs-telemetry.js: PBS Games shared telemetry module (v1.1)
@@ -2211,7 +2211,7 @@ const TWO_LETTER_DROPPED = [];
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "0.51r";
+const VERSION = "0.51s";
 /* v0.51a analytics: PGames event stream (PBS Games Analytics Approach v1).
    Each call is one push onto the telemetry queue inside try/catch. The network
    runs on the module's own timer, so nothing here can slow scoring or throw into
@@ -2594,11 +2594,11 @@ CHARACTERS.shortking = {
 };
 CHARACTERS.scholar = {
   id:"scholar", name:"The Scholar", art:"\uD83D\uDCDC", tag:"Long words",
-  blurb:"Reads everything, wastes nothing. A deep hand, a few borrowed word parts, and a Space Bar that joins two words into one.",
-  boon:"10-tile hand. Words of 5 or more letters earn a steeper length bonus. Starts with RE-, -ER, -ED and -ING tiles and a Space Bar.",
+  blurb:"Reads everything, wastes nothing. A deep hand and a few borrowed word parts.",
+  boon:"10-tile hand. Words of 5 or more letters earn a steeper length bonus. Starts with RE-, -ER, -ED and -ING tiles.",
   bane:"Three words a round and higher targets. Words under 5 letters score face value, with no multipliers.",
   targetMult:2.0, hearts:3, handsDelta:-1, handSizeDelta:3,
-  longBoost:0.4, shortFlat:5, affixes:["re","er","ed","ing"], spaceBar:true
+  longBoost:0.4, shortFlat:5, affixes:["re","er","ed","ing"]   // v0.51s: the Space Bar moved to the shop
 };
 const CHAR_ORDER = ["writer","detective","shortking","scholar","editor"];   // v0.51g: roster order is unlock order
 /* v0.51g: desk unlocks. The Writer is always open. The Nth desk after her opens once
@@ -3190,7 +3190,7 @@ const COMBO_DEFS = {
   re:  { seq:["R","E"],     label:"RE-",  rarity:"rare", price:7  },  // v0.51c: Scholar starting affix (not sold)
   ed:  { seq:["E","D"],     label:"-ED",  rarity:"rare", price:7  }   // v0.51c: Scholar starting affix (not sold)
 };
-function makeSpaceCard(){ return {id:++cardSeq, kind:"space", letter:null, base:0, upLevel:0, mult:1}; }   // v0.51c Space Bar
+function makeSpaceCard(){ return {id:++cardSeq, kind:"space", letter:null, base:0, upLevel:0, mult:1, charges:3}; }   // v0.51s: 3 charges   // v0.51c Space Bar
 function makeComboCard(key){ const d=COMBO_DEFS[key]; return {id:++cardSeq, kind:"combo", combo:key, letter:null, base:d.seq.length, upLevel:0, mult:1}; }
 function makeLucky7Card(){ return {id:++cardSeq, kind:"lucky7", letter:null, charges:3}; }
 function makeDealerCard(){ return {id:++cardSeq, kind:"dealer", letter:null}; }
@@ -4295,7 +4295,7 @@ function buildTile(c,where){
   if(c.kind==="space"){   // v0.51c Space Bar: plays like a tile, joins two words
     t.classList.add("spacebar");
     const g=document.createElement("span"); g.className="glyph"; g.textContent="␣"; t.appendChild(g);
-    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="SPACE"; t.appendChild(s);
+    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="SPACE · "+(typeof c.charges==="number"?c.charges:3)+"/3"; t.appendChild(s);
     attachTileHandlers(t,c,where); return t;
   }
   if(c.kind==="lucky7"){
@@ -4427,6 +4427,13 @@ function fitUnits(el, arr, where, maxRows, o){
   const avail=el.clientWidth-(parseFloat(cs.paddingLeft)||0)-(parseFloat(cs.paddingRight)||0)-6;
   if(avail<=0) return;
   let fit=null;
+  /* v0.51s: in "big" mode the bank takes whichever row count gives the larger tiles,
+     so a full hand goes to two rows instead of shrinking. A second row has to buy at least 10% more tile size. */
+  if(o.preferBig){
+    let best=null;
+    for(let r=1;r<=maxRows;r++){ const f=packWidth(units, avail, r, o); if(f && (!best || f.w>=best.w*1.1)) best=f; }   // a second row has to buy at least 10% more size
+    fit=best;
+  }
   for(let r=1;r<=maxRows && !fit;r++){
     const f=packWidth(units, avail, r, o);
     if(f && (r===maxRows || f.w>=o.oneRowMin)) fit=f;   // stay on one row while tiles stay a comfortable size
@@ -4440,7 +4447,8 @@ function fitUnits(el, arr, where, maxRows, o){
 }
 const HAND_FIT={min:30,max:64,oneRowMin:34,ratio:1.24,fsDiv:29,gap:6};
 const CANVAS_FIT={min:22,max:66,oneRowMin:0,ratio:1.24,fsDiv:29,gap:7};
-function fitHand(){ fitUnits($("hand"), G.hand, "hand", 2, Object.assign({},HAND_FIT,{max:Math.min(HAND_FIT.max, _fitCap.hand)})); }
+let _bankBig=false;   // v0.51s: chosen once per round by fitScreen
+function fitHand(){ fitUnits($("hand"), G.hand, "hand", 2, Object.assign({},HAND_FIT,{max:Math.min(HAND_FIT.max, _fitCap.hand), preferBig:_bankBig})); }
 function fitCanvas(){ fitUnits($("canvas"), G.canvas, "canvas", 1, Object.assign({},CANVAS_FIT,{max:Math.min(CANVAS_FIT.max, _fitCap.canvas)})); }
 let _fitCap={hand:52, canvas:54};
 // v0.51p: leftover height is shared out evenly between the board's sections once per round
@@ -4827,6 +4835,7 @@ function scoreOf(res){
     let v=vals[i];
     if(r.card&&r.card.dropcap && i===0) v*=3;                        // Drop Cap: triple as the first letter
     if(r.card&&r.card.serif && (i===0||i===res.length-1)) v*=2;      // Serif Stamp: double at either end
+    if(res.spaceAt && res.spaceAt.length && i>=res.spaceAt[0]) v*=0.5;   // v0.51s: the second word scores half
     letterVals.push(v);                                              // v498a: the tally animation reads these
     sum+=v;
   });
@@ -5017,7 +5026,7 @@ function scoreOf(res){
   if(G.perks.indiaInk && (G.inkPtsPending||0)>0){ inkPts=G.inkPtsPending; total+=inkPts; }
   if(G.perks.appendix && effLen>=6) total+=3*((G.hand||[]).length);   // v0.51c Appendix
   if(charDef().shortFlat && effLen<charDef().shortFlat) total=sum;      // v0.51c Scholar: short words score face value
-  return {total:Math.round(total),sum:Math.round(sum*10)/10,letterVals,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,fuMult,luMult,twinHit,pairHit,shortHit,shortMult,skDecay,kernHit,fiveHit,bigHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit,effLen,ligHit,crossHit,alphaHit,coloHit,fwMult,midnightHit,secondEdHit,binderAdd,movableHit,anthMult,vanityHit,liqMult,goldMult,mysteryHit,mysteryMult,dragnetHit,herringHit,pulpAdd,commissionAdd,inkBallHit,vmSurplus,ccSurplus,justMult,emQuadHit,wetHit,deptMult,eyeAdd,slugAdd,bfAdd,inkPts,colInchHit,tightMarginHit,headHit,tailHit,proofMult};
+  return {total:Math.round(total),sum:Math.round(sum*10)/10,letterVals,mult:m,bingo,press:(G.scoreMult||1),firstHit:fuStacks>0,lastHit:luStacks>0,fuStacks,luStacks,fuMult,luMult,twinHit,pairHit,shortHit,shortMult,skDecay,kernHit,fiveHit,bigHit,mirrorHit,trioHit,repeatHit,repeatMult,verbHit,effLen,ligHit,crossHit,alphaHit,coloHit,fwMult,midnightHit,secondEdHit,binderAdd,movableHit,anthMult,vanityHit,liqMult,goldMult,mysteryHit,mysteryMult,dragnetHit,herringHit,pulpAdd,commissionAdd,inkBallHit,vmSurplus,ccSurplus,justMult,emQuadHit,wetHit,deptMult,eyeAdd,slugAdd,bfAdd,inkPts,colInchHit,tightMarginHit,headHit,tailHit,proofMult,spaceHit:!!(res.spaceAt&&res.spaceAt.length)};
 }
 function updateLive(){
   const res=resolvedCanvas();
@@ -5057,6 +5066,7 @@ function updateLive(){
   if(sc.trioHit) parts.push(`×2 trio`);
   if(sc.verbHit) parts.push(`×1.5 verb`);
   if(sc.repeatHit>0) parts.push(`×${(sc.repeatMult||1).toFixed(1)} replay`);
+  if(sc.spaceHit) parts.push(`second word ×0.5`);   // v0.51s
   if(sc.ligHit) parts.push(`×1.75 ligature`);
   if(sc.crossHit) parts.push(`×1.25 crossword`);
   if(sc.alphaHit) parts.push(`×4 a to z`);
@@ -6585,6 +6595,16 @@ function submitWord(){
     if(typeof c.growth==="number") c.growth++;
     if(tileHas(c,"foil")){ if(!G.foilUsed) G.foilUsed=[]; if(!G.foilUsed.includes(c.id)) G.foilUsed.push(c.id); }
   });
+  /* v0.51s: each word set with the Space Bar spends a charge. At 0 it leaves the run. */
+  G.canvas.filter(c=>c.kind==="space").forEach(c=>{
+    if(typeof c.charges!=="number") c.charges=3;   // a Scholar save from 0.51r migrates here
+    c.charges--;
+    if(c.charges<=0){
+      G.deck=G.deck.filter(x=>x.id!==c.id);
+      G.canvas=G.canvas.filter(x=>x.id!==c.id);
+      toast("Space Bar spent");
+    }
+  });
   if(standingForme()){
     /* The forme stays standing. Tiles are NOT returned to the pile, so the next
        word is built out of this one. Per-play tile state still has to advance,
@@ -7367,6 +7387,7 @@ function perkPool(rng){
     {make:()=>fusedDoubleOffer("P"),weight:0.5},
     {make:()=>fusedDoubleOffer("R"),weight:0.5},
     {make:()=>lucky7Offer(),       weight:0.15},   // v492c legendary; v492d rarer with the rest of the tier
+    ...(G.deck.some(c=>c.kind==="space") ? [] : [{make:()=>spaceBarOffer(), weight:0.15}]),   // v0.51s: one at a time
   ];
   // Encore + Watermark are strong on their own and oppressive together, so they sit at the
   // rare end of epic, cost a bit more, and each becomes very unlikely once you own the other.
@@ -7829,6 +7850,7 @@ function applyOffer(o){
     case "combo":        G.deck.push(makeComboCard(d.key)); break;
     case "fusedPair":    G.deck.push(makeFusedCard(makeLetterCard(d.a), makeLetterCard(d.b))); break;
     case "lucky7":       G.deck.push(makeLucky7Card()); break;
+    case "spaceBar":     G.deck.push(makeSpaceCard()); break;   // v0.51s
     case "vowelPower":   G.perks.vowelPower=(+G.perks.vowelPower||0)+1; break;
     case "fireSale":     G.perks.fireSale=true;
                          // discount the rest of THIS shop immediately (future shops bake it into px)
@@ -8196,6 +8218,14 @@ function fusedEROffer(){
     price:fuseTilePrice(px(7)),
     art:`<span class="mini-tile" style="background:linear-gradient(180deg,#F3EEFB,#E4DAF4);border-color:#C3B2E0;font-size:.74rem;font-family:var(--serif)">ER<span class="mv">2</span></span>`,
     d:{type:"fusedPair", a:"E", b:"R"}};
+}
+/* v0.51s: Space Bar, now a legendary shop card for every desk. */
+function spaceBarOffer(){
+  return {kind:"Card",rarity:"legendary",name:"Space Bar",
+    desc:"Play it between two words to set both as one: the length bonus counts every letter, and the second word's letters score half. 3 uses across the run.",
+    price:px(20),
+    art:`<span class="mini-tile" style="background:linear-gradient(180deg,#F3EEF9,#E2D9F2);border-color:#B9A9DB">␣</span>`,
+    d:{type:"spaceBar"}};
 }
 function lucky7Offer(){
   return {kind:"Card",rarity:"legendary",name:"Lucky 7",
@@ -8665,13 +8695,14 @@ function renderDeckChar(){
     </span>`;
 }
 function deckSummaryHtml(){
-  let pts=0, clones=0, wilds=0, wconst=0, copies=0, fused=0, trios=0, combos=0, lucky=0, dealer=0, trip=0;
+  let pts=0, clones=0, wilds=0, wconst=0, copies=0, fused=0, trios=0, combos=0, lucky=0, dealer=0, trip=0, spaces=0;
   G.deck.forEach(c=>{
     if(c.kind==="clone"){clones++;return;}
     if(c.kind==="wildvowel"){wilds++;return;}
     if(c.kind==="wildcons"){wconst++;return;}
     if(c.kind==="copycat"){copies++;return;}
     if(c.kind==="lucky7"){lucky++;return;}
+    if(c.kind==="space"){spaces++;return;}   // v0.51s
     if(c.kind==="dealer"){dealer++;return;}
     if(c.kind==="triptych"){trip++;return;}
     if(c.kind==="fused"){fused++; pts+=fusedValue(c); return;}
@@ -8685,6 +8716,7 @@ function deckSummaryHtml(){
   if(fused)  extras.push(`${fused} fused`);
   if(trios)  extras.push(`${trios} trio${trios>1?"s":""}`);
   if(lucky)  extras.push(`${lucky} Lucky 7`);
+  if(spaces) extras.push(`Space Bar`);
   if(dealer) extras.push(`${dealer} Dealer's Choice`);
   if(trip)   extras.push(`${trip} Triptych${trip>1?"s":""}`);
   if(clones) extras.push(`${clones} clone${clones>1?"s":""}`);
@@ -8779,7 +8811,7 @@ function buildStaticTile(c){
   if(c.kind==="space"){
     t.classList.add("spacebar");
     const g=document.createElement("span"); g.className="glyph"; g.textContent="␣"; t.appendChild(g);
-    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="SPACE"; t.appendChild(s);
+    const s=document.createElement("span"); s.className="glyph-sub"; s.textContent="SPACE · "+(typeof c.charges==="number"?c.charges:3)+"/3"; t.appendChild(s);
     return t;
   }
   if(c.kind==="triptych"){
@@ -10783,9 +10815,20 @@ function fitScreen(force){
   const key=(G.level||0)+":"+(G.attempt||0)+":"+(G.handSize||0)+":"+window.innerWidth+"x"+window.innerHeight;
   const fresh = force || key!==_fitKey;
   if(fresh){ _fitKey=key; _fitLevel=0; $("app").style.removeProperty("--hand-h"); }   // each round starts from the largest size
-  applyFitLevel(_fitLevel); fitHand(); fitCanvas();
-  if(fresh) reserveHandRows(false);
-  while(playOverflow()>0 && _fitLevel<FIT_LEVELS.length-1){ _fitLevel++; applyFitLevel(_fitLevel); fitHand(); fitCanvas(); reserveHandRows(false); }
+  /* v0.51s: try the round both ways (bank on the old one-row rule, and bank taking two
+     rows whenever that means bigger tiles). Keep two rows only if its tiles end up
+     at least 10% larger, so a hand that lands on the same size never squeezes the header. */
+  const settle=()=>{ applyFitLevel(_fitLevel); fitHand(); fitCanvas();
+    if(fresh) reserveHandRows(false);
+    while(playOverflow()>0 && _fitLevel<FIT_LEVELS.length-1){ _fitLevel++; applyFitLevel(_fitLevel); fitHand(); fitCanvas(); reserveHandRows(false); } };
+  const bankW=()=>parseFloat(getComputedStyle($("hand")).getPropertyValue("--tw"))||0;
+  if(fresh){
+    _bankBig=false; _fitLevel=0; $("app").style.removeProperty("--hand-h"); settle();
+    const w1=bankW(), l1=_fitLevel;
+    _bankBig=true; _fitLevel=0; $("app").style.removeProperty("--hand-h"); settle();
+    const w2=bankW();
+    if(!(w2>=w1*1.1)){ _bankBig=false; _fitLevel=l1; $("app").style.removeProperty("--hand-h"); settle(); }
+  } else settle();
   if(!fresh) reserveHandRows(true);
   if(fresh) spreadSlack();
   markClamped();
