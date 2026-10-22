@@ -1733,6 +1733,8 @@ input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:tex
     <div class="opt-reset">
       <button class="menu-btn alt opt-danger" id="optResetProgBtn">Reset progress</button>
       <div class="opt-note">Locks every character back to A0. Your saved run and today's press are kept.</div>
+      <button class="menu-btn alt opt-danger" id="optClearLbBtn">Clear leaderboard</button>
+      <div class="opt-note">Empties "Your best runs". Run history and progress are kept.</div>
       <button class="menu-btn alt opt-danger" id="optResetRunsBtn">Reset run data</button>
       <div class="opt-note">Clears the run history stored on this device. Progress is kept.</div>
     </div>
@@ -1743,7 +1745,7 @@ input,textarea,[contenteditable="true"]{-webkit-user-select:text;user-select:tex
 <script src="letterati-dictionary.js"></script>
 <script src="letterati-verbs.js"></script>
 <script src="letterati-common.js"></script>
-<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51s",inferQuitOnPagehide:false};</script>
+<script>window.PBS_TELEMETRY_CONFIG={gameId:"letterati",gameVersion:"0.51t",inferQuitOnPagehide:false};</script>
 <script>
 /* ============================================================
    pbs-telemetry.js: PBS Games shared telemetry module (v1.1)
@@ -2211,7 +2213,7 @@ const TWO_LETTER_DROPPED = [];
 /* ============================================================
    Config / tunables
    ============================================================ */
-const VERSION = "0.51s";
+const VERSION = "0.51t";
 /* v0.51a analytics: PGames event stream (PBS Games Analytics Approach v1).
    Each call is one push onto the telemetry queue inside try/catch. The network
    runs on the module's own timer, so nothing here can slow scoring or throw into
@@ -2573,31 +2575,31 @@ const CHARACTERS = {
     blurb:"Every hand carries a clue. The rarer the answer, the harder it pays.",
     boon:"Unlimited mystery words, a fresh clue every hand",
     bane:"Lives or dies on the clues. Ordinary words pay ordinary money.",
-    targetMult:1.10, hearts:3, unlimitedMystery:true
+    targetMult:1, scoreScale:1/1.10, hearts:3, unlimitedMystery:true   // v0.51t: was targetMult 1.10
   },
   editor: {
     id:"editor", name:"The Editor", art:"\u2702\uFE0F", tag:"Standing type",
     blurb:"The forme is never broken up. Your word stays set, and every line after it is a revision of the one before.",
     boon:"Letters stay on the press after you set a word. Cut up to 3 per revision.",
-    bane:"Targets are 20 percent higher and you have one fewer discard. No word may be set twice running.",
-    targetMult:1.20, hearts:3, discardsDelta:-1, standingForme:true, editsPerWord:3
+    bane:"One fewer discard. No word may be set twice running.",
+    /* v0.51t: was targetMult 1.20 */ targetMult:1, scoreScale:1/1.20, hearts:3, discardsDelta:-1, standingForme:true, editsPerWord:3
   }
 };
 CHARACTERS.shortking = {
   id:"shortking", name:"Short King", art:"\uD83D\uDC51", tag:"Short words",
   blurb:"Small words, big numbers. Two to four letters hit hard, and he gets an extra word every round.",
   boon:"2, 3 and 4 letter words score ×2.5, ×3 and ×2. Five words a round.",
-  bane:"No word longer than 5 letters. Higher targets. A 2-letter word played again this run scores ×0.6, then ×0.3.",
+  bane:"No word longer than 5 letters. A 2-letter word played again this run scores ×0.6, then ×0.3.",
   targetMult:1.0, hearts:3, maxWordLen:5, handsDelta:1, discardsDelta:0, handSizeDelta:0,
-  targetCurve:[1.15,  1.15,  1.15,  1.15,  1.1,  1.0],   // v0.51i (was 1.3 x4, 1.25, 1.15)
+  scoreCurve:[1/1.15, 1/1.15, 1/1.15, 1/1.15, 1/1.1, 1],   // v0.51t: was targetCurve 1.15 x4, 1.1, 1.0 (v0.51i)
   shortTiers:{2:2.5,3:3,4:2}   // v0.51i: 2-letter was x3.5
 };
 CHARACTERS.scholar = {
   id:"scholar", name:"The Scholar", art:"\uD83D\uDCDC", tag:"Long words",
   blurb:"Reads everything, wastes nothing. A deep hand and a few borrowed word parts.",
   boon:"10-tile hand. Words of 5 or more letters earn a steeper length bonus. Starts with RE-, -ER, -ED and -ING tiles.",
-  bane:"Three words a round and higher targets. Words under 5 letters score face value, with no multipliers.",
-  targetMult:2.0, hearts:3, handsDelta:-1, handSizeDelta:3,
+  bane:"Three words a round. Words under 5 letters score face value, with no multipliers.",
+  /* v0.51t: was targetMult 2.0 */ targetMult:1, scoreScale:0.5, hearts:3, handsDelta:-1, handSizeDelta:3,
   longBoost:0.4, shortFlat:5, affixes:["re","er","ed","ing"]   // v0.51s: the Space Bar moved to the shop
 };
 const CHAR_ORDER = ["writer","detective","shortking","scholar","editor"];   // v0.51g: roster order is unlock order
@@ -2762,6 +2764,13 @@ const ASCENSIONS = [
 function ascLevel(){ return Math.max(0, Math.min(MAX_ASC, +G.ascension||0)); }
 function ascHas(n){ return ascLevel()>=n; }
 function ascTargetMult(){ return 1 + ASC_TARGET_STEP*ascLevel(); }
+/* v0.51t: each desk's built-in scoring scale. It used to be a target premium; carrying
+   it in the letter values instead keeps every desk's scores and targets on one scale. */
+function charScoreScale(){
+  const d=charDef(); let k=(typeof d.scoreScale==="number") ? d.scoreScale : 1;
+  const c=d.scoreCurve; if(c) k*=(c[Math.min(G.level||1, c.length)-1]||1);
+  return k;
+}
 function runTargetMult(){ const c=charDef().targetCurve; const k=c ? (c[Math.min(G.level||1, c.length)-1]||1) : 1; return (charDef().targetMult||1) * k * ascTargetMult(); }
 /* v4910a: hearts are per character now, and the rungs are deltas on that base
    rather than hardcoded numbers, so a two- or four-heart desk scales correctly.
@@ -4815,7 +4824,7 @@ function scoreOf(res){
   let goldMult=1;
   const vals=res.map((r)=>{
     goldMult*= (r.mult||1);
-    let v=r.value;
+    let v=r.value*charScoreScale();   // v0.51t: the desk's scoring scale, built into letter values
     if(G.perks.giltEdge && res.length<=3){ const up=(r.card&&r.card.upLevel)||0; if(up>0) v*=Math.pow(2,up); }   // v0.51b Gilt Edge: gilds count twice
     if(G.perks.bigType && res.length<=3 && r.value>=5) v*=2;                     // v0.51b Big Type
     if(G.perks.vowelPower && VOWELS.has(r.letter)) v+=(+G.perks.vowelPower||0);   // v42a: +1 per vowel per stack
@@ -10250,7 +10259,15 @@ function openOptions(){ const runs=allRuns(); const n=runs.length;
   $("optionsScreen").classList.remove("hidden"); }
 function closeOptions(){ $("optionsScreen").classList.add("hidden"); optDisarm(); }
 /* v0.51e: resets. First tap arms the button, a second tap within 4s does it. */
-const OPT_RESET_LABEL={optResetProgBtn:"Reset progress", optResetRunsBtn:"Reset run data"};
+const OPT_RESET_LABEL={optResetProgBtn:"Reset progress", optResetRunsBtn:"Reset run data", optClearLbBtn:"Clear leaderboard"};
+/* v0.51t: clearing the board keeps the run history (for export and balance) and only
+   hides runs that started before the clear. */
+const LB_CLEAR_KEY="letterati_lb_cleared";
+function lbClearedAt(){ try{ return localStorage.getItem(LB_CLEAR_KEY)||""; }catch(e){ return ""; } }
+function clearLeaderboard(){
+  try{ localStorage.setItem(LB_CLEAR_KEY, new Date().toISOString()); }catch(e){}
+  renderLeaderboard(); toast("Leaderboard cleared"); haptic([10,30,10]);
+}
 let _optArm=null, _optArmT=null;
 function optDisarm(){ if(_optArm){ const b=$(_optArm); if(b){ b.classList.remove("arm"); b.textContent=OPT_RESET_LABEL[_optArm]; } } _optArm=null; clearTimeout(_optArmT); }
 function optResetTap(id, doIt){
@@ -10354,7 +10371,7 @@ function save(){
       infinite:G.infinite, wonRun:G.wonRun,
       perks:G.perks, scoreMult:G.scoreMult, pressGrowth:G.pressGrowth, reprintUsed:G.reprintUsed, foilUsed:G.foilUsed, challenge:G.challenge, extraDiscards:G.extraDiscards, extraTurns:G.extraTurns, runMs:G.runMs, stats:G.stats,
       wordsPlayed:G.wordsPlayed, runScore:G.runScore, runBestWord:G.runBestWord, runBestScore:G.runBestScore, wordPlays:G.wordPlays, levelStats:G.levelStats, deck:G.deck, cardSeq, best:G.best, lastReward:G.lastReward, summaryInfo:(phase==="summary"?G.pendingSummary:null),
-      attempt:G.attempt, target:G.target, score:G.score, handsLeft:G.handsLeft, discardsLeft:G.discardsLeft,
+      attempt:G.attempt, target:G.target, score:G.score, scoreScaleV:1, handsLeft:G.handsLeft, discardsLeft:G.discardsLeft,
       discardsUsed:G._discardsUsed||0, deadRescues:G._deadRescues||0, otCount:G._otCount||0,
       rfStreak:G._rfStreak||0, tgN:G._tgN||0, qsRound:(G._qsRound==null?null:G._qsRound),
       roStreak:G._roStreak||0, longest:(G._longest||null), moUsed:!!G._moUsed,
@@ -10439,6 +10456,10 @@ function continueRun(){
   const map=a=>(a||[]).map(id=>byId[id]).filter(Boolean);
   G.attempt=d.attempt||0; G.target=d.target||targetFor(G.level);
   G.score=d.score||0; G.handsLeft=d.handsLeft||0; G.discardsLeft=d.discardsLeft||0;
+  if(!d.scoreScaleV){   // v0.51t: older saves carry the old target premium
+    const k=charScoreScale();
+    if(k!==1){ G.target=Math.round(G.target*k); G.score=Math.round(G.score*k); G.runScore=Math.round((G.runScore||0)*k); }
+  }
   G.drawPile=map(d.drawPile); G.hand=map(d.hand); G.canvas=map(d.canvas); G.played=map(d.played); G.discardBin=map(d.discardBin); G.pileReshuffles=d.pileReshuffles||0;
   $("titleScreen").classList.add("hidden"); $("overScreen").classList.add("hidden");
   if(d.phase==="summary" && d.summaryInfo){
@@ -10461,7 +10482,8 @@ function continueRun(){
 function renderLeaderboard(){
   const box=$("leaderboard"); if(!box) return;
   let runs=[]; try{ runs=allRuns()||[]; }catch(e){ runs=[]; }
-  const top=runs.filter(r=>(r&&r.runScore||0)>0)
+  const cut=lbClearedAt();   // v0.51t: runs from before a clear stay off the board
+  const top=runs.filter(r=>(r&&r.runScore||0)>0 && (!cut || (r.startedAt||"")>cut))
                 .sort((a,b)=>(b.runScore||0)-(a.runScore||0))
                 .slice(0,5);
   if(!top.length){
@@ -10743,6 +10765,7 @@ $("fusedPickCancel").addEventListener("click",closeFusedSelector);
 $("fuseDone").addEventListener("click",closeFuseEditor);
 $("optResetProgBtn").addEventListener("click",()=>optResetTap("optResetProgBtn",resetProgress));
 $("optResetRunsBtn").addEventListener("click",()=>optResetTap("optResetRunsBtn",resetRunData));
+$("optClearLbBtn").addEventListener("click",()=>optResetTap("optClearLbBtn",clearLeaderboard));   // v0.51t
 $("fuseEdit").addEventListener("click",e=>{ if(e.target.id==="fuseEdit") closeFuseEditor(); });
 $("fusedRemoveBtn").addEventListener("click",()=>{ const c=fusedSelCard; closeFusedSelector(); if(c) removeFromCanvas(c.id); });
 $("seedBtn").addEventListener("click",()=>{
